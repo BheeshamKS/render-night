@@ -5,118 +5,106 @@
  * ZERO Electron imports.
  */
 import { discoverAllBlenders } from '../core/blender/discovery';
-import { readBlendHeader } from '../core/blender/header-reader';
 import { inspectBlend } from '../core/blender/inspector';
-import { expandTokens } from '../core/render/token-expander';
+import { parseCliArgs } from './args';
+import { resolveBlenderForCli } from './blender-resolver';
+import { runCliQueue } from './runner';
 
-async function main() {
-  const args = process.argv.slice(2);
-  const command = args[0] || 'help';
+import * as fs from 'node:fs';
 
-  switch (command) {
-    case 'discover': {
-      console.log('Discovering installed Blender versions...');
+const VERSION = '0.1.0-alpha.1';
+
+function printHelp(): void {
+  console.log(`Night Render CLI v${VERSION}
+A fast local render queue for Blender.
+
+Usage:
+  night-render --queue <file.json> [options]
+  night-render inspect <file.blend> [--blender <path|version|latest>]
+  night-render list-blenders
+
+Options:
+  --queue <path>             Path to queue.json definition file
+  --blender <spec>           Blender executable path, version (e.g. 4.2), or 'latest'
+  --post-action <action>     Action after queue completes: none, sleep, hibernate, shutdown, restart, close_app
+  --resume                   Resume queue from missing frames only
+  --preset <name>            Apply a preset to all jobs
+  --dry-run                  Run pre-flight checks and preview queue without rendering
+  --help, -h                 Show help
+  --version, -v              Show version
+`);
+}
+
+export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
+  const cmd = parseCliArgs(argv);
+
+  switch (cmd.kind) {
+    case 'help': {
+      printHelp();
+      process.exit(0);
+      break;
+    }
+
+    case 'version': {
+      console.log(`Night Render v${VERSION}`);
+      process.exit(0);
+      break;
+    }
+
+    case 'list-blenders': {
       const blenders = await discoverAllBlenders();
       if (blenders.length === 0) {
-        console.log('No Blender installations found.');
+        console.log('No Blender installations found on system.');
       } else {
-        console.log(`Found ${blenders.length} Blender installation(s):`);
+        console.log(`Discovered ${blenders.length} Blender installation(s):`);
         for (const b of blenders) {
           console.log(`- Blender ${b.version} (${b.source}): ${b.displayPath}`);
         }
       }
-      break;
-    }
-
-    case 'header': {
-      const blendPath = args[1];
-      if (!blendPath) {
-        console.error('Usage: render-night header <file.blend>');
-        process.exit(1);
-      }
-      try {
-        const header = await readBlendHeader(blendPath);
-        console.log(`Blend Header for ${blendPath}:`);
-        console.log(`- Version: ${header.version}`);
-        console.log(`- Pointer size: ${header.is64Bit ? '64-bit' : '32-bit'}`);
-        console.log(`- Endianness: ${header.littleEndian ? 'Little-endian' : 'Big-endian'}`);
-      } catch (err) {
-        console.error(`Error reading header: ${(err as Error).message}`);
-        process.exit(1);
-      }
+      process.exit(0);
       break;
     }
 
     case 'inspect': {
-      const blendPath = args[1];
-      if (!blendPath) {
-        console.error('Usage: render-night inspect <file.blend> [blenderExecutable]');
-        process.exit(1);
+      if (!fs.existsSync(cmd.blendPath)) {
+        console.error(`Error: File not found: ${cmd.blendPath}`);
+        process.exit(2);
       }
-      const blenderCmd = args[2] || 'blender';
-      console.log(`Inspecting ${blendPath} with ${blenderCmd}...`);
       try {
-        const result = await inspectBlend(blendPath, blenderCmd);
-        console.log(`Blender version: ${result.blenderVersion}`);
-        console.log(`Saved with: ${result.savedWithVersion}`);
-        console.log(`Active scene: ${result.activeScene}`);
-        console.log(`Scenes (${result.scenes.length}):`);
-        for (const s of result.scenes) {
-          console.log(
-            `  * ${s.name} [frames ${s.frameStart}-${s.frameEnd}, ${s.resolutionX}x${s.resolutionY} @ ${s.fps}fps]`,
-          );
-          console.log(`    Active Camera: ${s.activeCamera || 'None'}`);
-          console.log(`    Cameras: ${s.cameras.join(', ') || 'None'}`);
-        }
-      } catch (err) {
-        console.error(`Inspection failed: ${(err as Error).message}`);
+        const resolvedBlender = await resolveBlenderForCli(cmd.blender);
+        const result = await inspectBlend(cmd.blendPath, resolvedBlender.executable);
+        console.log(JSON.stringify(result, null, 2));
+        process.exit(0);
+      } catch (err: unknown) {
+        console.error(`Inspection error: ${(err as Error).message}`);
         process.exit(1);
       }
       break;
     }
 
-    case 'expand': {
-      const template = args[1];
-      if (!template) {
-        console.error(
-          'Usage: render-night expand <template> --project <p> --scene <s> --camera <c> --frame <f>',
-        );
-        process.exit(1);
-      }
-      const getArg = (flag: string) => {
-        const idx = args.indexOf(flag);
-        return idx !== -1 && idx < args.length - 1 ? args[idx + 1] : '';
-      };
-      const project = getArg('--project') || 'Project';
-      const scene = getArg('--scene') || 'Scene';
-      const camera = getArg('--camera') || 'Camera';
-      const frameStr = getArg('--frame');
-      const frame = frameStr ? Number.parseInt(frameStr, 10) : undefined;
-
-      const expanded = expandTokens(template, { project, scene, camera, frame });
-      console.log(expanded);
+    case 'queue': {
+      const result = await runCliQueue({
+        queueFile: cmd.queueFile,
+        blender: cmd.blender,
+        postAction: cmd.postAction,
+        resume: cmd.resume,
+        preset: cmd.preset,
+        dryRun: cmd.dryRun,
+      });
+      process.exit(result.exitCode);
       break;
     }
 
-    case 'help':
-    default: {
-      console.log(`Render Night CLI (pure Node engine)
-Usage:
-  render-night discover                     Find installed Blender instances
-  render-night header <file.blend>          Read .blend header version bytes
-  render-night inspect <file.blend>         Run headless inspection of a .blend file
-  render-night expand <template> [options]  Expand output path tokens`);
+    case 'unknown': {
+      console.error(`Error: ${cmd.error}`);
+      console.error('Run "night-render --help" for usage information.');
+      process.exit(2);
       break;
     }
   }
 }
 
-if (
-  process.argv[1]?.endsWith('src/cli/index.ts') ||
-  process.argv[1]?.endsWith('src/cli/index.js')
-) {
-  main().catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });
-}
+main().catch((err: unknown) => {
+  console.error(`Unexpected CLI error: ${(err as Error).message}`);
+  process.exit(1);
+});

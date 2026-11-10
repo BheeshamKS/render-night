@@ -41,6 +41,6 @@ export default tseslint.config(
     },
   },
   {
-    ignores: ['node_modules', 'dist', 'resources', 'out', 'release', '*.config.js'],
+    ignores: ['node_modules', 'dist', 'dist-cli', 'resources', 'out', 'release', '*.config.js'],
   }
 )
