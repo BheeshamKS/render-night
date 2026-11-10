@@ -1,3 +1,5 @@
+export * from '../ranges';
+
 /**
  * Parse a frame range string like "1-10", "1-10x2", "1,3,5,7-9" into a
  * normalized {start, end, step} object. The returned range is inclusive of
