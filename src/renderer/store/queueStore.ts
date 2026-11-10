@@ -4,6 +4,11 @@ import {
   isPropertyModified,
   validateOverridesForJob,
 } from '../../core/overrides';
+import {
+  duplicateJob as duplicateJobTools,
+  expandAllCameras as expandAllCamerasTools,
+  expandAllScenes as expandAllScenesTools,
+} from '../../core/queue/job-tools';
 import type { QueueEngineJob, QueueState } from '../../core/queue/queue-engine';
 import {
   isFormatVideo,
@@ -74,6 +79,7 @@ export interface QueueJob {
   // Overrides & Presets
   overrides?: OverrideMap;
   presets?: string[];
+  preRenderHook?: string;
 }
 
 export interface MonitorStats {
@@ -161,6 +167,11 @@ interface QueueStoreState {
   setRenderMissingOnly: (id: string, enabled: boolean) => void;
   setJobCrashPolicy: (id: string, policy: Partial<CrashPolicy>) => void;
   retryFailedFrames: (id: string) => void;
+  duplicateJob: (id: string) => void;
+  expandAllCameras: (id: string) => void;
+  expandAllScenes: (id: string) => void;
+  openInBlender: (id: string) => Promise<void>;
+  setJobPreRenderHook: (id: string, hook: string) => void;
   moveJob: (id: string, direction: 'up' | 'down') => void;
   reorderJobs: (fromIndex: number, toIndex: number) => void;
   addLog: (msg: string) => void;
@@ -271,6 +282,7 @@ function toPersistedJob(qj: QueueJob): Job {
         ? Math.round((qj.completedFrames / qj.totalFrames) * 100)
         : 0,
     inspect: qj.inspectData,
+    preRenderHook: qj.preRenderHook,
   };
 }
 
@@ -313,6 +325,7 @@ function fromPersistedJob(pj: Job): QueueJob {
     failedFrames: pj.failedFrames || [],
     overrides: pj.overrides || {},
     presets: pj.presets || [],
+    preRenderHook: pj.preRenderHook,
   };
 }
 
@@ -783,6 +796,62 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
     );
   },
 
+  duplicateJob: (id: string) => {
+    const job = get().jobs.find((j) => j.id === id);
+    if (!job) return;
+    const duplicated = duplicateJobTools(job);
+    const index = get().jobs.findIndex((j) => j.id === id);
+    const newJobs = [...get().jobs];
+    newJobs.splice(index + 1, 0, duplicated);
+    set({ jobs: newJobs });
+    get().addLog(`Duplicated job "${job.fileName}".`);
+    get().autoSaveState();
+  },
+
+  expandAllCameras: (id: string) => {
+    const job = get().jobs.find((j) => j.id === id);
+    if (!job) return;
+    const expanded = expandAllCamerasTools(job);
+    const index = get().jobs.findIndex((j) => j.id === id);
+    const newJobs = [...get().jobs];
+    newJobs.splice(index, 1, ...expanded);
+    set({ jobs: newJobs });
+    get().addLog(`Expanded job "${job.fileName}" across ${expanded.length} camera(s).`);
+    get().autoSaveState();
+  },
+
+  expandAllScenes: (id: string) => {
+    const job = get().jobs.find((j) => j.id === id);
+    if (!job) return;
+    const expanded = expandAllScenesTools(job);
+    const index = get().jobs.findIndex((j) => j.id === id);
+    const newJobs = [...get().jobs];
+    newJobs.splice(index, 1, ...expanded);
+    set({ jobs: newJobs });
+    get().addLog(`Expanded job "${job.fileName}" across ${expanded.length} scene(s).`);
+    get().autoSaveState();
+  },
+
+  openInBlender: async (id: string) => {
+    const job = get().jobs.find((j) => j.id === id);
+    if (!job) return;
+    const bId = job.blenderOverrideId || get().selectedBlenderId;
+    const b = get().blenders.find((item) => item.id === bId) || get().blenders[0];
+    const executable = b ? b.executable : 'blender';
+    get().addLog(`Opening "${job.fileName}" in Blender GUI...`);
+    if (typeof window !== 'undefined' && window.rnApi?.openInBlender) {
+      try {
+        await window.rnApi.openInBlender(executable, job.filePath);
+      } catch (err) {
+        get().addLog(`Failed to launch Blender GUI: ${(err as Error).message}`);
+      }
+    }
+  },
+
+  setJobPreRenderHook: (id: string, hook: string) => {
+    get().updateJob(id, { preRenderHook: hook });
+  },
+
   moveJob: (id: string, direction: 'up' | 'down') => {
     const jobs = [...get().jobs];
     const index = jobs.findIndex((j) => j.id === id);
@@ -876,6 +945,7 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
         renderMissingOnly: job.renderMissingOnly,
         crashPolicy: job.crashPolicy,
         overrides: job.overrides || {},
+        preRenderHook: job.preRenderHook,
       };
     });
 

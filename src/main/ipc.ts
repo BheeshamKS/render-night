@@ -12,6 +12,7 @@ import type { PersistedQueueState, PostAction } from '../core/schemas/queue-stat
 
 import { app, dialog, ipcMain, powerSaveBlocker, shell, type BrowserWindow } from 'electron';
 
+import { spawn } from 'node:child_process';
 import * as path from 'node:path';
 
 let globalQueueEngine: QueueEngine | null = null;
@@ -135,6 +136,28 @@ export function registerIpcHandlers(mainWindowProvider: () => BrowserWindow | nu
   ipcMain.handle('blender:readHeader', async (_event, blendPath: string) => {
     return readBlendHeader(blendPath);
   });
+
+  ipcMain.handle(
+    'blender:openGui',
+    async (_event, executable: string | string[], filePath: string) => {
+      let bin: string;
+      let spawnArgs: string[];
+      if (Array.isArray(executable)) {
+        bin = executable[0];
+        spawnArgs = [...executable.slice(1), filePath];
+      } else {
+        bin = executable;
+        spawnArgs = [filePath];
+      }
+
+      const child = spawn(bin, spawnArgs, {
+        detached: true,
+        stdio: 'ignore',
+      });
+      child.unref();
+      return true;
+    },
+  );
 
   // 3. Queue execution control handlers
   ipcMain.handle('queue:start', async (_event, jobs: QueueEngineJob[]) => {

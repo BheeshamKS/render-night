@@ -31,6 +31,10 @@ const api: RenderNightApi = {
     return ipcRenderer.invoke('blender:readHeader', blendPath);
   },
 
+  openInBlender: (executable: string | string[], filePath: string): Promise<boolean> => {
+    return ipcRenderer.invoke('blender:openGui', executable, filePath);
+  },
+
   selectBlendFiles: (): Promise<string[]> => {
     return ipcRenderer.invoke('dialog:openBlendFiles');
   },

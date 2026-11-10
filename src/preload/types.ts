@@ -93,6 +93,7 @@ export interface RenderNightApi {
     options?: InspectOptions,
   ): Promise<InspectOutput>;
   readHeader(blendPath: string): Promise<BlendHeaderInfo>;
+  openInBlender(executable: string | string[], filePath: string): Promise<boolean>;
   selectBlendFiles(): Promise<string[]>;
   selectDirectory(defaultPath?: string): Promise<string | null>;
   openPath(targetPath: string): Promise<void>;
