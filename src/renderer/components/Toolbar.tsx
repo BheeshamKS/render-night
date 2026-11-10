@@ -6,6 +6,7 @@ import { Pause, Play, Plus, Shield, Square, Terminal } from 'lucide-react';
 
 export const Toolbar: React.FC = () => {
   const {
+    jobs,
     blenders,
     selectedBlenderId,
     setSelectedBlenderId,
@@ -14,6 +15,12 @@ export const Toolbar: React.FC = () => {
     autoExec,
     setAutoExec,
     addFiles,
+    queueState,
+    activeJobId,
+    startQueue,
+    pauseQueue,
+    resumeQueue,
+    stopQueue,
   } = useQueueStore();
 
   const handleAddFiles = async () => {
@@ -24,6 +31,18 @@ export const Toolbar: React.FC = () => {
       }
     }
   };
+
+  const hasEligibleJobs = jobs.some((j) => j.enabled && j.status !== 'Completed');
+  const isRunning = queueState === 'running';
+  const isPaused = queueState === 'paused';
+  const isBusy = isRunning || isPaused;
+
+  const activeJob = jobs.find((j) => j.id === activeJobId);
+  const pauseLabel = isPaused
+    ? 'Resume'
+    : activeJob?.isVideo
+      ? 'Pause After Job'
+      : 'Pause After Frame';
 
   return (
     <div className="flex h-12 flex-shrink-0 items-center justify-between border-b border-rn-border bg-rn-panel px-4 select-none">
@@ -38,7 +57,8 @@ export const Toolbar: React.FC = () => {
 
         <button
           onClick={handleAddFiles}
-          className="flex items-center space-x-1.5 rounded bg-rn-accent px-3 py-1.5 text-xs font-medium text-white transition hover:brightness-110 active:brightness-95"
+          disabled={isBusy}
+          className="flex items-center space-x-1.5 rounded bg-rn-accent px-3 py-1.5 text-xs font-medium text-white transition hover:brightness-110 active:brightness-95 disabled:opacity-50 disabled:cursor-not-allowed"
           title="Add one or more .blend files to queue"
         >
           <Plus className="h-3.5 w-3.5" />
@@ -56,7 +76,8 @@ export const Toolbar: React.FC = () => {
             id="global-blender-select"
             value={selectedBlenderId || ''}
             onChange={(e) => setSelectedBlenderId(e.target.value)}
-            className="rounded border border-rn-border bg-rn-input px-2.5 py-1 text-xs text-rn-text focus:border-rn-accent focus:outline-none"
+            disabled={isBusy}
+            className="rounded border border-rn-border bg-rn-input px-2.5 py-1 text-xs text-rn-text focus:border-rn-accent focus:outline-none disabled:opacity-50"
             title="Switch global default Blender version"
           >
             {blenders.map((b) => (
@@ -72,12 +93,13 @@ export const Toolbar: React.FC = () => {
         )}
       </div>
 
-      {/* Right: Options & Queue Control Buttons (Disabled for now) */}
+      {/* Right: Options & Queue Control Buttons */}
       <div className="flex items-center space-x-2">
         {/* Isolated Mode Toggle */}
         <button
           onClick={() => setIsolatedMode(!isolatedMode)}
-          className={`flex items-center space-x-1 rounded border px-2 py-1 text-xs transition ${
+          disabled={isBusy}
+          className={`flex items-center space-x-1 rounded border px-2 py-1 text-xs transition disabled:opacity-50 ${
             isolatedMode
               ? 'border-rn-accent bg-rn-accent/20 text-rn-text'
               : 'border-rn-border bg-rn-subpanel text-rn-muted hover:text-rn-text'
@@ -91,7 +113,8 @@ export const Toolbar: React.FC = () => {
         {/* Auto-exec Scripts Toggle */}
         <button
           onClick={() => setAutoExec(!autoExec)}
-          className={`flex items-center space-x-1 rounded border px-2 py-1 text-xs transition ${
+          disabled={isBusy}
+          className={`flex items-center space-x-1 rounded border px-2 py-1 text-xs transition disabled:opacity-50 ${
             autoExec
               ? 'border-rn-rendering bg-rn-rendering/20 text-rn-text'
               : 'border-rn-border bg-rn-subpanel text-rn-muted hover:text-rn-text'
@@ -104,29 +127,52 @@ export const Toolbar: React.FC = () => {
 
         <div className="h-4 w-[1px] bg-rn-border mx-1" />
 
-        {/* Start / Pause / Stop buttons (disabled for now) */}
+        {/* Queue State Pill */}
+        {isBusy && (
+          <span
+            className={`flex items-center space-x-1 rounded px-2 py-0.5 text-xs font-medium font-mono ${
+              isRunning
+                ? 'bg-rn-rendering/20 text-rn-rendering'
+                : 'bg-yellow-500/20 text-yellow-400'
+            }`}
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
+            <span className="capitalize">{queueState}</span>
+          </span>
+        )}
+
+        {/* Start Button */}
         <button
-          disabled
-          className="flex items-center space-x-1 rounded bg-rn-subpanel px-2.5 py-1 text-xs font-medium text-rn-muted opacity-50 cursor-not-allowed"
-          title="Start queue (Phase 3)"
+          onClick={startQueue}
+          disabled={!hasEligibleJobs || isBusy}
+          className="flex items-center space-x-1 rounded bg-rn-subpanel px-2.5 py-1 text-xs font-medium text-rn-text hover:bg-rn-accent hover:text-white transition disabled:opacity-40 disabled:cursor-not-allowed"
+          title="Start queue execution"
         >
           <Play className="h-3 w-3 fill-current" />
           <span>Start</span>
         </button>
 
+        {/* Pause / Resume Button */}
         <button
-          disabled
-          className="flex items-center space-x-1 rounded bg-rn-subpanel px-2.5 py-1 text-xs font-medium text-rn-muted opacity-50 cursor-not-allowed"
-          title="Pause queue (Phase 3)"
+          onClick={isPaused ? resumeQueue : pauseQueue}
+          disabled={!isBusy}
+          className="flex items-center space-x-1 rounded bg-rn-subpanel px-2.5 py-1 text-xs font-medium text-rn-text hover:bg-rn-subpanel/80 hover:text-yellow-400 transition disabled:opacity-40 disabled:cursor-not-allowed"
+          title={isPaused ? 'Resume queue' : 'Pause queue'}
         >
-          <Pause className="h-3 w-3 fill-current" />
-          <span>Pause</span>
+          {isPaused ? (
+            <Play className="h-3 w-3 fill-current" />
+          ) : (
+            <Pause className="h-3 w-3 fill-current" />
+          )}
+          <span>{pauseLabel}</span>
         </button>
 
+        {/* Stop Button */}
         <button
-          disabled
-          className="flex items-center space-x-1 rounded bg-rn-subpanel px-2.5 py-1 text-xs font-medium text-rn-muted opacity-50 cursor-not-allowed"
-          title="Stop queue (Phase 3)"
+          onClick={stopQueue}
+          disabled={!isBusy}
+          className="flex items-center space-x-1 rounded bg-rn-subpanel px-2.5 py-1 text-xs font-medium text-rn-text hover:bg-red-600 hover:text-white transition disabled:opacity-40 disabled:cursor-not-allowed"
+          title="Stop queue and terminate active process"
         >
           <Square className="h-3 w-3 fill-current" />
           <span>Stop</span>

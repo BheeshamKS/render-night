@@ -4,12 +4,16 @@ import React, { useState } from 'react';
 
 import {
   AlertCircle,
+  AlertTriangle,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
   Clock,
+  Cpu,
   FolderOpen,
+  HardDrive,
   Loader2,
+  Terminal,
   Trash2,
 } from 'lucide-react';
 
@@ -21,16 +25,30 @@ interface JobCardProps {
 
 export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
   const { blenders, updateJob, removeJob, moveJob } = useQueueStore();
+  const [showConsole, setShowConsole] = useState(false);
   const [showErrorDetails, setShowErrorDetails] = useState(false);
 
   const handleBrowseOutput = async () => {
     if (typeof window !== 'undefined' && window.rnApi) {
       const selected = await window.rnApi.selectDirectory(job.outputPathPattern);
       if (selected) {
-        // Append token pattern to chosen directory
         const newPattern = `${selected}/{project}_{scene}_{camera}_####.png`;
         updateJob(job.id, { outputPathPattern: newPattern });
       }
+    }
+  };
+
+  const handleOpenOutputFolder = async () => {
+    if (typeof window !== 'undefined' && window.rnApi) {
+      const preview = job.outputPreview;
+      const folder = preview.replace(/[/\\][^/\\]+$/, '');
+      await window.rnApi.openPath(folder);
+    }
+  };
+
+  const handleOpenLogsFolder = async () => {
+    if (typeof window !== 'undefined' && window.rnApi) {
+      await window.rnApi.openLogsFolder(job.id);
     }
   };
 
@@ -84,13 +102,53 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
     }
   };
 
+  const renderDeviceBadge = () => {
+    if (!job.deviceReport) return null;
+    const { mode, fallbackToCpu, devices, computeDeviceType, threads } = job.deviceReport;
+
+    if (fallbackToCpu) {
+      return (
+        <span
+          className="flex items-center space-x-1 rounded bg-yellow-500/20 px-2 py-0.5 text-[10px] font-medium text-yellow-400 border border-yellow-500/30"
+          title="Requested GPU but Cycles fell back to CPU"
+        >
+          <AlertTriangle className="h-3 w-3" />
+          <span>GPU fell back to CPU</span>
+        </span>
+      );
+    }
+
+    if (mode === 'GPU') {
+      const activeDev = devices.find((d) => d.use && d.type !== 'CPU');
+      const devName = activeDev ? activeDev.name : 'GPU';
+      return (
+        <span
+          className="flex items-center space-x-1 rounded bg-rn-accent/20 px-2 py-0.5 text-[10px] font-medium text-rn-accent"
+          title={`Compute device: ${computeDeviceType}`}
+        >
+          <Cpu className="h-3 w-3" />
+          <span>
+            GPU: {devName} ({computeDeviceType})
+          </span>
+        </span>
+      );
+    }
+
+    return (
+      <span className="flex items-center space-x-1 rounded bg-rn-subpanel px-2 py-0.5 text-[10px] font-medium text-rn-muted">
+        <Cpu className="h-3 w-3" />
+        <span>CPU: {threads || 'Auto'} threads</span>
+      </span>
+    );
+  };
+
   return (
     <div
       className={`rounded border bg-rn-panel p-3 transition-colors ${
         job.enabled ? 'border-rn-border' : 'border-rn-border/50 opacity-60'
       }`}
     >
-      {/* Top Row: Reorder, Checkbox, Filename, Status, Remove */}
+      {/* Top Row: Reorder, Checkbox, Filename, Device Badge, Status, Console Toggle, Remove */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2 flex-1 min-w-0">
           {/* Reorder Buttons */}
@@ -133,6 +191,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
                   Blender {job.savedWithVersion}
                 </span>
               )}
+              {renderDeviceBadge()}
             </div>
             <div className="text-[11px] text-rn-muted truncate" title={job.filePath}>
               {job.filePath}
@@ -140,9 +199,24 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
           </div>
         </div>
 
-        {/* Status Badge & Remove Button */}
+        {/* Status Badge, Console Toggle, Remove Button */}
         <div className="flex items-center space-x-2 pl-3">
           {getStatusBadge()}
+
+          {/* Console Drawer Button */}
+          <button
+            onClick={() => setShowConsole(!showConsole)}
+            className={`flex items-center space-x-1 rounded px-2 py-0.5 text-xs font-mono transition ${
+              showConsole
+                ? 'bg-rn-accent text-white'
+                : 'bg-rn-subpanel text-rn-muted hover:text-rn-text'
+            }`}
+            title="Toggle raw output and error drawer"
+          >
+            <Terminal className="h-3 w-3" />
+            <span>{job.logs?.length || 0}</span>
+          </button>
+
           <button
             onClick={() => removeJob(job.id)}
             className="rounded p-1 text-rn-muted hover:bg-rn-subpanel hover:text-rn-error transition"
@@ -254,11 +328,62 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
         </div>
       </div>
 
+      {/* Collapsible Console Drawer */}
+      {showConsole && (
+        <div className="mt-3 rounded border border-rn-border bg-black/60 p-2 text-xs font-mono">
+          <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-rn-border/50 text-[11px] text-rn-muted">
+            <div className="flex items-center space-x-1">
+              <Terminal className="h-3.5 w-3.5 text-rn-accent" />
+              <span>Job Console ({job.logs?.length || 0} lines)</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handleOpenOutputFolder}
+                className="flex items-center space-x-1 text-rn-muted hover:text-rn-text"
+                title="Open output destination folder in file explorer"
+              >
+                <FolderOpen className="h-3 w-3" />
+                <span>Open Output Folder</span>
+              </button>
+              <button
+                onClick={handleOpenLogsFolder}
+                className="flex items-center space-x-1 text-rn-muted hover:text-rn-text"
+                title="Open log files on disk"
+              >
+                <HardDrive className="h-3 w-3" />
+                <span>Open Logs Folder</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="max-h-48 overflow-y-auto space-y-0.5 pr-1 select-text">
+            {job.logs && job.logs.length > 0 ? (
+              job.logs.map((log, idx) => (
+                <div
+                  key={idx}
+                  className={`leading-tight break-all ${
+                    log.isError
+                      ? 'text-red-400 font-semibold'
+                      : log.stream === 'stderr'
+                        ? 'text-yellow-400/80'
+                        : 'text-rn-text/70'
+                  }`}
+                >
+                  {log.line}
+                </div>
+              ))
+            ) : (
+              <div className="text-rn-muted py-2 text-center">No logs recorded yet.</div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Error Details Accordion when Failed */}
       {job.status === 'Failed' && showErrorDetails && (
         <div className="mt-2 rounded bg-black/40 p-2 text-xs text-red-300 font-mono overflow-x-auto">
           <div className="font-semibold text-red-400">Error:</div>
-          <div>{job.inspectError}</div>
+          <div>{job.error || job.inspectError}</div>
           {job.inspectStderrTail && (
             <div className="mt-1">
               <div className="font-semibold text-red-400">Blender stderr:</div>
