@@ -3,7 +3,18 @@ import { useQueueStore } from '../store/queueStore';
 
 import React from 'react';
 
-import { Bell, Calendar, Clock, Pause, Play, Plus, Shield, Square, Terminal } from 'lucide-react';
+import {
+  Bell,
+  Calendar,
+  Clock,
+  Download,
+  Pause,
+  Play,
+  Plus,
+  Shield,
+  Square,
+  Terminal,
+} from 'lucide-react';
 
 export const Toolbar: React.FC = () => {
   const {
@@ -28,6 +39,8 @@ export const Toolbar: React.FC = () => {
     setShowHistoryModal,
     setShowScheduleModal,
     scheduleConfig,
+    copiedOverrides,
+    pasteOverrides,
   } = useQueueStore();
 
   const handleAddFiles = async () => {
@@ -191,6 +204,19 @@ export const Toolbar: React.FC = () => {
           <Terminal className="h-3.5 w-3.5" />
           <span>Auto-exec</span>
         </button>
+
+        {/* Paste Overrides to All Jobs button */}
+        {copiedOverrides && Object.keys(copiedOverrides).length > 0 && (
+          <button
+            onClick={() => pasteOverrides()}
+            disabled={jobs.length === 0}
+            className="flex items-center space-x-1 rounded border border-rn-accent/50 bg-rn-accent/20 px-2 py-1 text-xs text-rn-accent hover:bg-rn-accent hover:text-white transition disabled:opacity-40"
+            title={`Paste copied ${Object.keys(copiedOverrides).length} overrides onto all jobs in the queue`}
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span>Paste to All</span>
+          </button>
+        )}
 
         <div className="h-4 w-[1px] bg-rn-border mx-0.5" />
 
