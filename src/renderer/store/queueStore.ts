@@ -1,9 +1,15 @@
 import type { BlenderInstallation } from '../../core/blender/discovery';
 import type { QueueEngineJob, QueueState } from '../../core/queue/queue-engine';
+import {
+  isFormatVideo,
+  resolveFrameRange,
+  validateRangeForFormat,
+} from '../../core/ranges/frame-range';
 import type { GpuStatus } from '../../core/render/gpu-monitor';
-import { expandRange, parseRange } from '../../core/render/range-parser';
 import { previewTokens } from '../../core/render/token-expander';
 import type { InspectOutput, InspectScene } from '../../core/schemas/inspect';
+import type { CrashPolicy } from '../../core/schemas/override';
+import type { FailedFrame, FrameRangeConfig } from '../../core/schemas/queue-state';
 import type { DeviceReport, OverridesReport } from '../../core/schemas/runner-event';
 
 import { create } from 'zustand';
@@ -42,6 +48,15 @@ export interface QueueJob {
   totalFrames?: number;
   error?: string;
   isVideo?: boolean;
+
+  // Frame Range & Crash Recovery
+  rangeConfig: FrameRangeConfig;
+  customRangeLiveCount?: number;
+  customRangeError?: string;
+  videoRuleError?: string;
+  renderMissingOnly?: boolean;
+  crashPolicy?: CrashPolicy;
+  failedFrames: FailedFrame[];
 }
 
 export interface MonitorStats {
@@ -79,6 +94,10 @@ interface QueueStoreState {
   addFiles: (filePaths: string[]) => Promise<void>;
   removeJob: (id: string) => void;
   updateJob: (id: string, updates: Partial<QueueJob>) => void;
+  setJobRangeConfig: (id: string, config: FrameRangeConfig) => void;
+  setRenderMissingOnly: (id: string, enabled: boolean) => void;
+  setJobCrashPolicy: (id: string, policy: Partial<CrashPolicy>) => void;
+  retryFailedFrames: (id: string) => void;
   moveJob: (id: string, direction: 'up' | 'down') => void;
   reorderJobs: (fromIndex: number, toIndex: number) => void;
   addLog: (msg: string) => void;
@@ -101,6 +120,40 @@ function getProjectName(fileName: string): string {
 
 function computePreview(pattern: string, project: string, scene: string, camera: string): string {
   return previewTokens(pattern, { project, scene, camera });
+}
+
+function computeJobRangeInfo(
+  job: Partial<QueueJob>,
+  sceneName?: string,
+): {
+  rangeConfig: FrameRangeConfig;
+  liveCount: number;
+  isVideo: boolean;
+  customError?: string;
+  videoRuleError?: string;
+} {
+  const currentSceneName = sceneName || job.selectedScene || 'Scene';
+  const scene = job.scenes?.find((s) => s.name === currentSceneName);
+  const sceneDefaults = {
+    start: scene?.frameStart ?? 1,
+    end: scene?.frameEnd ?? 250,
+    step: scene?.frameStep ?? 1,
+  };
+  const config = job.rangeConfig || { mode: 'scene_default' };
+  const resolved = resolveFrameRange(config, sceneDefaults);
+
+  const rawFormat = scene?.imageSettings?.fileFormat?.value;
+  const formatVal = typeof rawFormat === 'string' ? rawFormat : undefined;
+  const isVideo = isFormatVideo(formatVal);
+  const validation = validateRangeForFormat(resolved, formatVal);
+
+  return {
+    rangeConfig: config,
+    liveCount: resolved.totalCount,
+    isVideo,
+    customError: resolved.error,
+    videoRuleError: validation.valid ? undefined : validation.reason,
+  };
 }
 
 let timerInterval: NodeJS.Timeout | null = null;
@@ -205,6 +258,9 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
         outputPathPattern: defaultPattern,
         outputPreview: computePreview(defaultPattern, project, 'Scene', ''),
         logs: [],
+        rangeConfig: { mode: 'scene_default' },
+        failedFrames: [],
+        renderMissingOnly: false,
       };
     });
 
@@ -242,9 +298,16 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
           }
 
           const preview = computePreview(fileRenderPath, job.project, sceneName, cameraName);
-          const formatVal = activeScene?.imageSettings?.fileFormat?.value;
-          const isVideo =
-            formatVal === 'FFMPEG' || formatVal === 'AVI_JPEG' || formatVal === 'AVI_RAW';
+          const rawFormat = activeScene?.imageSettings?.fileFormat?.value;
+          const formatVal = typeof rawFormat === 'string' ? rawFormat : undefined;
+          const isVideo = isFormatVideo(formatVal);
+          const sceneDefaults = {
+            start: activeScene?.frameStart ?? 1,
+            end: activeScene?.frameEnd ?? 250,
+            step: activeScene?.frameStep ?? 1,
+          };
+          const resolved = resolveFrameRange({ mode: 'scene_default' }, sceneDefaults);
+          const validation = validateRangeForFormat(resolved, formatVal);
 
           get().updateJob(job.id, {
             status: 'Queued',
@@ -257,6 +320,9 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
             outputPreview: preview,
             inspectData,
             isVideo,
+            rangeConfig: { mode: 'scene_default' },
+            customRangeLiveCount: resolved.totalCount,
+            videoRuleError: validation.valid ? undefined : validation.reason,
           });
 
           get().addLog(
@@ -311,9 +377,59 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
           merged.selectedCamera,
         );
 
+        // Recompute frame range count and validate against format
+        const rangeInfo = computeJobRangeInfo(merged, merged.selectedScene);
+        merged.isVideo = rangeInfo.isVideo;
+        merged.customRangeLiveCount = rangeInfo.liveCount;
+        merged.customRangeError = rangeInfo.customError;
+        merged.videoRuleError = rangeInfo.videoRuleError;
+
         return merged;
       }),
     }));
+  },
+
+  setJobRangeConfig: (id: string, config: FrameRangeConfig) => {
+    get().updateJob(id, { rangeConfig: config });
+  },
+
+  setRenderMissingOnly: (id: string, enabled: boolean) => {
+    get().updateJob(id, { renderMissingOnly: enabled });
+  },
+
+  setJobCrashPolicy: (id: string, policy: Partial<CrashPolicy>) => {
+    const job = get().jobs.find((j) => j.id === id);
+    if (!job) return;
+    const current = job.crashPolicy || {
+      maxRetries: 2,
+      fallbackToCpu: true,
+      skipOnFailure: true,
+      maxConsecutiveCrashes: 3,
+    };
+    get().updateJob(id, { crashPolicy: { ...current, ...policy } });
+  },
+
+  retryFailedFrames: (id: string) => {
+    const job = get().jobs.find((j) => j.id === id);
+    if (!job || !job.failedFrames || job.failedFrames.length === 0) return;
+
+    const framesToRetry = Array.from(new Set(job.failedFrames.map((f) => f.frame))).sort(
+      (a, b) => a - b,
+    );
+    const customExpression = framesToRetry.join(', ');
+
+    get().updateJob(id, {
+      status: 'Queued',
+      error: undefined,
+      rangeConfig: {
+        mode: 'custom',
+        customExpression,
+      },
+      failedFrames: [],
+    });
+    get().addLog(
+      `Queueing retry of ${framesToRetry.length} failed frame(s) for ${job.fileName} (${customExpression})`,
+    );
   },
 
   moveJob: (id: string, direction: 'up' | 'down') => {
@@ -349,6 +465,15 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
       return;
     }
 
+    // Enforce video rule validation
+    const invalidJob = eligibleJobs.find((j) => j.videoRuleError);
+    if (invalidJob) {
+      get().addLog(
+        `Cannot start queue: Job "${invalidJob.fileName}" has an invalid frame range for video format (${invalidJob.videoRuleError})`,
+      );
+      return;
+    }
+
     const defaultBlender = blenders.find((b) => b.id === selectedBlenderId) || blenders[0];
 
     const engineJobs: QueueEngineJob[] = eligibleJobs.map((job) => {
@@ -358,14 +483,17 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
       const executable = bInst ? bInst.executable : 'blender';
 
       const scene = job.scenes.find((s) => s.name === job.selectedScene);
-      let frames: number[] = [1];
-      if (scene) {
-        try {
-          frames = expandRange(parseRange(`${scene.frameStart}-${scene.frameEnd}`));
-        } catch {
-          frames = [scene.frameStart];
-        }
-      }
+      const sceneDefaults = {
+        start: scene?.frameStart ?? 1,
+        end: scene?.frameEnd ?? 250,
+        step: scene?.frameStep ?? 1,
+      };
+
+      const resolved = resolveFrameRange(
+        job.rangeConfig || { mode: 'scene_default' },
+        sceneDefaults,
+      );
+      const frames = resolved.frames.length > 0 ? resolved.frames : [sceneDefaults.start];
 
       // Compute directory from pattern
       const outputPattern = job.outputPathPattern;
@@ -386,6 +514,8 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
         isolatedMode,
         autoExec,
         isVideo: job.isVideo,
+        renderMissingOnly: job.renderMissingOnly,
+        crashPolicy: job.crashPolicy,
       };
     });
 
@@ -472,6 +602,8 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
               sampleCurrent: event.sampleCurrent ?? state.monitorStats.sampleCurrent,
               sampleTotal: event.sampleTotal ?? state.monitorStats.sampleTotal,
               peakMemory: event.peakMemory ?? state.monitorStats.peakMemory,
+              etaSeconds:
+                event.etaSeconds !== undefined ? event.etaSeconds : state.monitorStats.etaSeconds,
             },
           }));
           break;
@@ -501,12 +633,36 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
               peakMemory: event.peakMemory ?? state.monitorStats.peakMemory,
               lastThumbnailPath: event.saved,
               isExr,
+              etaSeconds:
+                event.etaSeconds !== undefined ? event.etaSeconds : state.monitorStats.etaSeconds,
             },
           }));
           const job = get().jobs.find((j) => j.id === event.jobId);
           if (job) {
             const completed = (job.completedFrames || 0) + 1;
             get().updateJob(event.jobId, { completedFrames: completed });
+          }
+          break;
+        }
+
+        case 'frame:failed': {
+          const job = get().jobs.find((j) => j.id === event.jobId);
+          if (job) {
+            const existing = job.failedFrames || [];
+            if (!existing.some((f) => f.frame === event.frame)) {
+              get().updateJob(event.jobId, {
+                failedFrames: [
+                  ...existing,
+                  {
+                    frame: event.frame,
+                    error: event.error,
+                    stderrTail: event.stderrTail,
+                    timestamp: Date.now(),
+                    attemptCount: 1,
+                  },
+                ],
+              });
+            }
           }
           break;
         }
@@ -538,15 +694,38 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
         }
 
         case 'job:done': {
-          get().updateJob(event.jobId, { status: 'Completed' });
-          get().addLog(`Job ${event.jobId} completed successfully.`);
+          const job = get().jobs.find((j) => j.id === event.jobId);
+          const failures =
+            event.failedFramesList && event.failedFramesList.length > 0
+              ? event.failedFramesList
+              : job?.failedFrames || [];
+          const hasFailures = failures.length > 0;
+
+          get().updateJob(event.jobId, {
+            status: hasFailures ? 'Failed' : 'Completed',
+            failedFrames: failures,
+          });
+          get().addLog(
+            `Job ${event.jobId} ${
+              hasFailures
+                ? `finished with ${failures.length} failed frame(s)`
+                : 'completed successfully.'
+            }`,
+          );
           break;
         }
 
         case 'job:failed': {
+          const job = get().jobs.find((j) => j.id === event.jobId);
+          const failures =
+            event.failedFrames && event.failedFrames.length > 0
+              ? event.failedFrames
+              : job?.failedFrames || [];
+
           get().updateJob(event.jobId, {
             status: 'Failed',
             error: event.error,
+            failedFrames: failures,
           });
           get().addLog(`Job ${event.jobId} failed: ${event.error}`);
           break;

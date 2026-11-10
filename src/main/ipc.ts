@@ -52,6 +52,9 @@ export function registerIpcHandlers(mainWindowProvider: () => BrowserWindow | nu
   queueEngine.on('frame:done', (data) => {
     sendEvent({ type: 'frame:done', ...data });
   });
+  queueEngine.on('frame:failed', (data) => {
+    sendEvent({ type: 'frame:failed', ...data });
+  });
   queueEngine.on('device:report', (data) => {
     sendEvent({ type: 'device:report', ...data });
   });

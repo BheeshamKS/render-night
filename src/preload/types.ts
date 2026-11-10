@@ -4,6 +4,7 @@ import type { InspectOptions } from '../core/blender/inspector';
 import type { QueueEngineJob, QueueState } from '../core/queue/queue-engine';
 import type { GpuStatus } from '../core/render/gpu-monitor';
 import type { InspectOutput } from '../core/schemas/inspect';
+import type { FailedFrame } from '../core/schemas/queue-state';
 import type { DeviceReport, OverridesReport } from '../core/schemas/runner-event';
 
 export type QueueIpcEvent =
@@ -27,6 +28,7 @@ export type QueueIpcEvent =
       peakMemory?: string;
       time?: string;
       remaining?: string;
+      etaSeconds?: number;
     }
   | { type: 'frame:start'; jobId: string; frame: number; frameIndex: number; totalFrames: number }
   | {
@@ -36,6 +38,14 @@ export type QueueIpcEvent =
       saved: string;
       timeSeconds?: number;
       peakMemory?: string;
+      etaSeconds?: number;
+    }
+  | {
+      type: 'frame:failed';
+      jobId: string;
+      frame: number;
+      error: string;
+      stderrTail?: string;
     }
   | { type: 'device:report'; jobId: string; report: DeviceReport }
   | { type: 'overrides:report'; jobId: string; report: OverridesReport }
@@ -53,8 +63,15 @@ export type QueueIpcEvent =
       completedFrames: number;
       failedFrames: number;
       durationSeconds?: number;
+      failedFramesList?: FailedFrame[];
     }
-  | { type: 'job:failed'; jobId: string; error: string; stderrTail?: string };
+  | {
+      type: 'job:failed';
+      jobId: string;
+      error: string;
+      stderrTail?: string;
+      failedFrames?: FailedFrame[];
+    };
 
 export interface RenderNightApi {
   platform: NodeJS.Platform;

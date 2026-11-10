@@ -1,3 +1,4 @@
+import type { FrameRangeConfig, FrameRangeMode } from '../../core/schemas/queue-state';
 import { useQueueStore, type QueueJob } from '../store/queueStore';
 
 import React, { useState } from 'react';
@@ -13,6 +14,7 @@ import {
   FolderOpen,
   HardDrive,
   Loader2,
+  RotateCcw,
   Terminal,
   Trash2,
 } from 'lucide-react';
@@ -24,9 +26,45 @@ interface JobCardProps {
 }
 
 export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
-  const { blenders, updateJob, removeJob, moveJob } = useQueueStore();
+  const { blenders, updateJob, removeJob, moveJob, retryFailedFrames } = useQueueStore();
   const [showConsole, setShowConsole] = useState(false);
   const [showErrorDetails, setShowErrorDetails] = useState(false);
+
+  const currentScene = job.scenes.find((s) => s.name === job.selectedScene);
+  const sceneDefaults = {
+    start: currentScene?.frameStart ?? 1,
+    end: currentScene?.frameEnd ?? 250,
+    step: currentScene?.frameStep ?? 1,
+  };
+  const rangeConfig = job.rangeConfig || { mode: 'scene_default' };
+
+  const handleRangeModeChange = (mode: FrameRangeMode) => {
+    let newConfig: FrameRangeConfig;
+    if (mode === 'scene_default') {
+      newConfig = { mode: 'scene_default' };
+    } else if (mode === 'simple') {
+      newConfig = {
+        mode: 'simple',
+        simple: rangeConfig.simple || {
+          start: sceneDefaults.start,
+          end: sceneDefaults.end,
+          step: job.isVideo ? 1 : sceneDefaults.step,
+        },
+      };
+    } else if (mode === 'custom') {
+      newConfig = {
+        mode: 'custom',
+        customExpression:
+          rangeConfig.customExpression || `${sceneDefaults.start}-${sceneDefaults.end}`,
+      };
+    } else {
+      newConfig = {
+        mode: 'single_still',
+        singleStillFrame: rangeConfig.singleStillFrame ?? sceneDefaults.start,
+      };
+    }
+    updateJob(job.id, { rangeConfig: newConfig });
+  };
 
   const handleBrowseOutput = async () => {
     if (typeof window !== 'undefined' && window.rnApi) {
@@ -292,6 +330,219 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
           </select>
         </div>
       </div>
+
+      {/* Frame Range Section */}
+      <div className="mt-3 rounded border border-rn-border/70 bg-rn-subpanel/30 p-2.5 space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center space-x-2">
+            <label className="text-[11px] font-medium text-rn-muted">Frame Range:</label>
+            <select
+              value={rangeConfig.mode}
+              onChange={(e) => handleRangeModeChange(e.target.value as FrameRangeMode)}
+              className="rounded border border-rn-border bg-rn-input px-2 py-0.5 text-xs text-rn-text focus:border-rn-accent focus:outline-none"
+            >
+              <option value="scene_default">Scene Default</option>
+              <option value="simple">Simple (Start / End / Step)</option>
+              <option value="custom" disabled={job.isVideo}>
+                Custom {job.isVideo ? '(Images Only)' : ''}
+              </option>
+              <option value="single_still" disabled={job.isVideo}>
+                Single Still {job.isVideo ? '(Images Only)' : ''}
+              </option>
+            </select>
+          </div>
+
+          {/* Live Frame Count / Status Badge */}
+          <div className="flex items-center space-x-1.5 text-xs font-mono">
+            {job.customRangeError ? (
+              <span className="rounded bg-red-500/20 px-2 py-0.5 text-red-400 font-sans text-[11px]">
+                {job.customRangeError}
+              </span>
+            ) : (
+              <span className="rounded bg-rn-panel border border-rn-border px-2 py-0.5 text-rn-accent">
+                {job.customRangeLiveCount !== undefined
+                  ? `${job.customRangeLiveCount} frame${job.customRangeLiveCount === 1 ? '' : 's'}`
+                  : '—'}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Mode-specific input row */}
+        {rangeConfig.mode === 'scene_default' && (
+          <div className="text-[11px] text-rn-muted font-mono">
+            Inspected scene frames: {sceneDefaults.start} to {sceneDefaults.end} (step{' '}
+            {sceneDefaults.step})
+          </div>
+        )}
+
+        {rangeConfig.mode === 'simple' && (
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <div className="flex items-center space-x-1">
+              <label className="text-[11px] text-rn-muted">Start:</label>
+              <input
+                type="number"
+                value={rangeConfig.simple?.start ?? sceneDefaults.start}
+                onChange={(e) =>
+                  updateJob(job.id, {
+                    rangeConfig: {
+                      mode: 'simple',
+                      simple: {
+                        start: parseInt(e.target.value, 10) || 1,
+                        end: rangeConfig.simple?.end ?? sceneDefaults.end,
+                        step: job.isVideo ? 1 : (rangeConfig.simple?.step ?? 1),
+                      },
+                    },
+                  })
+                }
+                className="w-16 rounded border border-rn-border bg-rn-input px-1.5 py-0.5 text-xs font-mono text-rn-text focus:border-rn-accent focus:outline-none"
+              />
+            </div>
+
+            <div className="flex items-center space-x-1">
+              <label className="text-[11px] text-rn-muted">End:</label>
+              <input
+                type="number"
+                value={rangeConfig.simple?.end ?? sceneDefaults.end}
+                onChange={(e) =>
+                  updateJob(job.id, {
+                    rangeConfig: {
+                      mode: 'simple',
+                      simple: {
+                        start: rangeConfig.simple?.start ?? sceneDefaults.start,
+                        end: parseInt(e.target.value, 10) || 1,
+                        step: job.isVideo ? 1 : (rangeConfig.simple?.step ?? 1),
+                      },
+                    },
+                  })
+                }
+                className="w-16 rounded border border-rn-border bg-rn-input px-1.5 py-0.5 text-xs font-mono text-rn-text focus:border-rn-accent focus:outline-none"
+              />
+            </div>
+
+            <div className="flex items-center space-x-1">
+              <label className="text-[11px] text-rn-muted">Step:</label>
+              <input
+                type="number"
+                min="1"
+                disabled={job.isVideo}
+                value={job.isVideo ? 1 : (rangeConfig.simple?.step ?? 1)}
+                onChange={(e) =>
+                  updateJob(job.id, {
+                    rangeConfig: {
+                      mode: 'simple',
+                      simple: {
+                        start: rangeConfig.simple?.start ?? sceneDefaults.start,
+                        end: rangeConfig.simple?.end ?? sceneDefaults.end,
+                        step: Math.max(1, parseInt(e.target.value, 10) || 1),
+                      },
+                    },
+                  })
+                }
+                className="w-14 rounded border border-rn-border bg-rn-input px-1.5 py-0.5 text-xs font-mono text-rn-text focus:border-rn-accent focus:outline-none disabled:opacity-50"
+                title={job.isVideo ? 'Step locked to 1 for video containers' : 'Frame step'}
+              />
+            </div>
+          </div>
+        )}
+
+        {rangeConfig.mode === 'custom' && (
+          <div className="space-y-1 pt-1">
+            <input
+              type="text"
+              value={rangeConfig.customExpression ?? ''}
+              onChange={(e) =>
+                updateJob(job.id, {
+                  rangeConfig: {
+                    mode: 'custom',
+                    customExpression: e.target.value,
+                  },
+                })
+              }
+              placeholder="e.g. 50-200, 200-300 or 1-50, 75, 120-240x2"
+              className="w-full rounded border border-rn-border bg-rn-input px-2 py-1 text-xs font-mono text-rn-text focus:border-rn-accent focus:outline-none"
+            />
+            <div className="text-[10px] text-rn-muted">
+              Supports comma-separated ranges, steps (
+              <span className="text-rn-accent">120-240x2</span>), and single frames. Overlaps are
+              deduplicated automatically.
+            </div>
+          </div>
+        )}
+
+        {rangeConfig.mode === 'single_still' && (
+          <div className="flex items-center space-x-2 pt-1">
+            <label className="text-[11px] text-rn-muted">Frame Number:</label>
+            <input
+              type="number"
+              value={rangeConfig.singleStillFrame ?? sceneDefaults.start}
+              onChange={(e) =>
+                updateJob(job.id, {
+                  rangeConfig: {
+                    mode: 'single_still',
+                    singleStillFrame: parseInt(e.target.value, 10) || 1,
+                  },
+                })
+              }
+              className="w-20 rounded border border-rn-border bg-rn-input px-2 py-0.5 text-xs font-mono text-rn-text focus:border-rn-accent focus:outline-none"
+            />
+          </div>
+        )}
+
+        {/* Video Rule Violation Warning */}
+        {job.videoRuleError && (
+          <div className="flex items-center space-x-1.5 rounded border border-yellow-500/40 bg-yellow-500/10 px-2.5 py-1.5 text-xs text-yellow-300">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-yellow-400" />
+            <span>{job.videoRuleError}</span>
+          </div>
+        )}
+
+        {/* Render Missing Frames Only (Image formats only) */}
+        {!job.isVideo && (
+          <div className="pt-1 border-t border-rn-border/40 mt-1">
+            <label className="flex items-center space-x-1.5 text-xs text-rn-muted hover:text-rn-text cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={!!job.renderMissingOnly}
+                onChange={(e) => updateJob(job.id, { renderMissingOnly: e.target.checked })}
+                className="h-3.5 w-3.5 rounded border-rn-border bg-rn-input text-rn-accent focus:ring-0 cursor-pointer"
+              />
+              <span>Render Missing Frames Only (scans output folder and skips existing files)</span>
+            </label>
+          </div>
+        )}
+      </div>
+
+      {/* Failed Frames List & Retry Button */}
+      {job.failedFrames && job.failedFrames.length > 0 && (
+        <div className="mt-2.5 rounded border border-red-500/40 bg-red-500/10 p-2.5 text-xs space-y-1.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-1.5 text-red-400 font-semibold">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>Failed Frames ({job.failedFrames.length}):</span>
+              <span className="font-mono text-rn-text">
+                [{job.failedFrames.map((f) => f.frame).join(', ')}]
+              </span>
+            </div>
+            <button
+              onClick={() => retryFailedFrames(job.id)}
+              className="flex items-center space-x-1 rounded bg-red-500/20 px-2.5 py-1 text-xs font-medium text-red-200 hover:bg-red-500/30 border border-red-500/40 transition"
+              title="Queue retry of failed frames"
+            >
+              <RotateCcw className="h-3 w-3" />
+              <span>Retry Failed Frames</span>
+            </button>
+          </div>
+          {job.failedFrames.some((f) => f.stderrTail) && (
+            <div className="text-[10px] font-mono text-red-300/80 max-h-20 overflow-y-auto whitespace-pre-wrap bg-black/40 p-1.5 rounded">
+              {job.failedFrames
+                .filter((f) => f.stderrTail)
+                .map((f) => `[Frame ${f.frame}] ${f.stderrTail}`)
+                .join('\n---\n')}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Bottom Row: Output Path & Dynamic Token Preview */}
       <div className="mt-3 space-y-1">
