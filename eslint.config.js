@@ -35,6 +35,12 @@ export default tseslint.config(
     },
   },
   {
+    files: ['src/cli/**/*.{ts,js}', 'tools/**/*.{ts,js}'],
+    rules: {
+      'no-console': 'off',
+    },
+  },
+  {
     ignores: ['node_modules', 'dist', 'resources', 'out', 'release', '*.config.js'],
   }
 )

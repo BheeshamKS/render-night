@@ -1,94 +1,174 @@
 import { inspectOutputSchema, type InspectOutput } from '../schemas';
+import { readBlendHeader } from './header-reader';
 
 import { execFile } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { existsSync, promises as fs } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+
+export interface InspectOptions {
+  isolatedMode?: boolean;
+  autoExec?: boolean;
+  timeoutMs?: number;
+}
 
 export class InspectorError extends Error {
-  constructor(message: string) {
+  public readonly stderrTail?: string;
+
+  constructor(message: string, stderrTail?: string) {
     super(message);
     this.name = 'InspectorError';
+    this.stderrTail = stderrTail;
   }
 }
 
-function scriptPath(): string {
-  return resolve(__dirname, '../../../resources/python/inspect_blend.py');
+function resolveScriptPath(): string {
+  // In dev / build environments
+  const possiblePaths = [
+    resolve(__dirname, '../../../resources/python/inspect_blend.py'),
+    resolve(__dirname, '../../resources/python/inspect_blend.py'),
+    resolve(process.cwd(), 'resources/python/inspect_blend.py'),
+  ];
+  for (const p of possiblePaths) {
+    if (existsSync(p)) return p;
+  }
+  return possiblePaths[0];
 }
 
 /**
- * Inspect a .blend file using Blender's Python API (headless, no GUI).
- * Returns a validated InspectOutput.
+ * Headlessly inspect a .blend file using Blender Python API.
+ * Emits validated InspectOutput containing scenes, cameras, RNA metadata, and devices.
  */
-export async function inspectBlend(blendPath: string, blenderPath: string): Promise<InspectOutput> {
-  if (!existsSync(blendPath)) {
-    throw new InspectorError(`Blend file not found: ${blendPath}`);
-  }
-  if (!existsSync(blenderPath)) {
-    throw new InspectorError(`Blender not found at: ${blenderPath}`);
-  }
-
-  const script = scriptPath();
-  if (!existsSync(script)) {
-    throw new InspectorError(`inspect_blend.py not found at: ${script}`);
+export async function inspectBlend(
+  blendPath: string,
+  blenderExecutable: string | string[],
+  options: InspectOptions = {},
+): Promise<InspectOutput> {
+  const resolvedBlendPath = resolve(blendPath);
+  if (!existsSync(resolvedBlendPath)) {
+    throw new InspectorError(`Blend file not found: ${resolvedBlendPath}`);
   }
 
-  return new Promise((resolve, reject) => {
+  // 1. Cheaply extract header version and verify magic before spawning Blender
+  let headerVersion = '4.2.0';
+  try {
+    const header = await readBlendHeader(resolvedBlendPath);
+    headerVersion = header.version;
+  } catch {
+    // If header read fails, still proceed to let Blender attempt opening or fail with full error
+  }
+
+  const script = resolveScriptPath();
+  const tempOutputFile = join(tmpdir(), `rn-inspect-${randomUUID()}.json`);
+
+  const argv = Array.isArray(blenderExecutable) ? [...blenderExecutable] : [blenderExecutable];
+  const [cmd, ...baseArgs] = argv;
+
+  // Build command: blender -b "<file>" [--factory-startup] [--enable-autoexec | --disable-autoexec] -P inspect_blend.py -- <out.json>
+  const args: string[] = [...baseArgs, '-b', resolvedBlendPath];
+
+  if (options.isolatedMode) {
+    args.push('--factory-startup');
+  }
+
+  if (options.autoExec) {
+    args.push('--enable-autoexec');
+  } else {
+    args.push('--disable-autoexec');
+  }
+
+  args.push('-P', script, '--', tempOutputFile);
+
+  const timeoutMs = options.timeoutMs ?? 60_000;
+
+  return new Promise((resolveResult, rejectResult) => {
     let stdout = '';
     let stderr = '';
+
     const child = execFile(
-      blenderPath,
-      ['--python', script, '--', blendPath],
+      cmd,
+      args,
       {
-        timeout: 120_000,
-        maxBuffer: 32 * 1024 * 1024,
-        env: {
-          ...process.env,
-          BLENDER_USER_SCRIPTS: '',
-          BLENDER_SYSTEM_SCRIPTS: '',
-        },
+        timeout: timeoutMs,
+        maxBuffer: 16 * 1024 * 1024,
       },
-      (err, out, errOut) => {
-        stdout = out;
-        stderr = errOut;
-        if (err) {
-          // Blender often exits non-zero even on success; we look for the JSON.
+      async (err, outStr, errStr) => {
+        stdout += outStr || '';
+        stderr += errStr || '';
+
+        try {
+          if (existsSync(tempOutputFile)) {
+            const raw = await fs.readFile(tempOutputFile, 'utf8');
+            await fs.unlink(tempOutputFile).catch(() => {});
+            const parsed = JSON.parse(raw);
+            if (!parsed.savedWithVersion && headerVersion) {
+              parsed.savedWithVersion = headerVersion;
+            }
+            const validated = inspectOutputSchema.parse(parsed);
+            resolveResult(validated);
+            return;
+          }
+
+          // If tempOutputFile was not created, Blender failed
+          const tail = stderr.slice(-1000) || stdout.slice(-1000);
+          rejectResult(
+            new InspectorError(
+              `Failed to inspect ${resolvedBlendPath}: ${err ? err.message : 'No output file generated'}${
+                tail ? `\n--- stderr ---\n${tail}` : ''
+              }`,
+              tail,
+            ),
+          );
+        } catch (parseErr) {
+          await fs.unlink(tempOutputFile).catch(() => {});
+          const tail = stderr.slice(-1000);
+          rejectResult(
+            new InspectorError(
+              `Failed to validate inspect output: ${(parseErr as Error).message}${
+                tail ? `\n--- stderr ---\n${tail}` : ''
+              }`,
+              tail,
+            ),
+          );
         }
       },
     );
 
-    child.stdout?.on('data', (d: Buffer) => {
-      stdout += d.toString();
-    });
-    child.stderr?.on('data', (d: Buffer) => {
-      stderr += d.toString();
-    });
-
-    child.on('close', () => {
-      // The script prints a JSON object on its own line, prefixed with a marker.
-      const lines = stdout.split(/\r?\n/);
-      const jsonLine = lines.find((l) => l.startsWith('RN_INSPECT_JSON::'));
-      if (!jsonLine) {
-        reject(new InspectorError(`No inspect JSON in output. stderr: ${stderr.slice(0, 500)}`));
-        return;
-      }
-      const jsonStr = jsonLine.slice('RN_INSPECT_JSON::'.length);
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(jsonStr);
-      } catch {
-        reject(new InspectorError(`Invalid JSON from inspector: ${jsonStr.slice(0, 200)}...`));
-        return;
-      }
-      const result = inspectOutputSchema.safeParse(parsed);
-      if (!result.success) {
-        reject(new InspectorError(`Inspector output failed validation: ${result.error.message}`));
-        return;
-      }
-      resolve(result.data);
-    });
-
     child.on('error', (err) => {
-      reject(new InspectorError(`Failed to spawn Blender: ${err.message}`));
+      fs.unlink(tempOutputFile).catch(() => {});
+      rejectResult(new InspectorError(`Failed to spawn Blender executable: ${err.message}`));
     });
   });
+}
+
+/**
+ * Concurrency limiter for running inspections across multiple files.
+ */
+export function createInspectQueue(concurrency: number = 2) {
+  let active = 0;
+  const queue: Array<() => void> = [];
+
+  const next = () => {
+    if (active < concurrency && queue.length > 0) {
+      active++;
+      const run = queue.shift()!;
+      run();
+    }
+  };
+
+  return function enqueue<T>(fn: () => Promise<T>): Promise<T> {
+    return new Promise((resolvePromise, rejectPromise) => {
+      queue.push(() => {
+        fn()
+          .then(resolvePromise)
+          .catch(rejectPromise)
+          .finally(() => {
+            active--;
+            next();
+          });
+      });
+      next();
+    });
+  };
 }
