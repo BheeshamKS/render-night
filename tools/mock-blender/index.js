@@ -17,10 +17,13 @@ if (args.includes('--version')) {
   process.exit(0);
 }
 
-// 2. Headless inspect request: -b <file> ... -P <script> -- <out.json>
+// 2. Check for python script (-P <script>)
+const pIdx = args.indexOf('-P');
+const scriptPath = pIdx !== -1 && pIdx < args.length - 1 ? args[pIdx + 1] : '';
 const dashDashIdx = args.indexOf('--');
-if (dashDashIdx !== -1 && dashDashIdx < args.length - 1) {
-  const outFile = args[dashDashIdx + 1];
+const payloadOrOutFile = dashDashIdx !== -1 && dashDashIdx < args.length - 1 ? args[dashDashIdx + 1] : '';
+
+if (scriptPath.includes('inspect_blend.py') || (!scriptPath.includes('render_runner.py') && payloadOrOutFile.endsWith('.json') && !args.includes('--run'))) {
   const bIdx = args.indexOf('-b');
   const blendFile = bIdx !== -1 ? args[bIdx + 1] : 'test.blend';
 
@@ -32,7 +35,7 @@ if (dashDashIdx !== -1 && dashDashIdx < args.length - 1) {
   // Load fixture inspect JSON
   const fixturePath = path.resolve(
     path.dirname(new URL(import.meta.url).pathname),
-    '../../tests/fixtures/inspect-sample.json'
+    '../../tests/fixtures/inspect-sample.json',
   );
   let fixtureData = {};
   if (fs.existsSync(fixturePath)) {
@@ -40,10 +43,164 @@ if (dashDashIdx !== -1 && dashDashIdx < args.length - 1) {
   }
   fixtureData.blendPath = blendFile;
 
-  fs.writeFileSync(outFile, JSON.stringify(fixtureData, null, 2), 'utf8');
+  fs.writeFileSync(payloadOrOutFile, JSON.stringify(fixtureData, null, 2), 'utf8');
   console.log(`Blender quit`);
   process.exit(0);
 }
 
-console.log('Mock Blender: unrecognized arguments', args);
-process.exit(0);
+if (scriptPath.includes('render_runner.py')) {
+  handleRenderRunner(payloadOrOutFile);
+} else {
+  console.log('Mock Blender: unrecognized arguments', args);
+  process.exit(0);
+}
+
+async function handleRenderRunner(payloadPath) {
+  if (!fs.existsSync(payloadPath)) {
+    console.error(`Payload file not found: ${payloadPath}`);
+    process.exit(1);
+  }
+
+  const payload = JSON.parse(fs.readFileSync(payloadPath, 'utf8'));
+  const frames = payload.frames && payload.frames.length > 0 ? payload.frames : [1];
+  const controlFile = payload.controlFile;
+  const sceneName = payload.scene || 'Scene';
+
+  // 1. Device report
+  const isGpu = payload.devicePreferences?.enableGpu !== false;
+  console.log(
+    `RN_EVENT ${JSON.stringify({
+      type: 'device_report',
+      computeDeviceType: isGpu ? payload.devicePreferences?.deviceType || 'OPTIX' : 'NONE',
+      engine: 'CYCLES',
+      mode: isGpu ? 'GPU' : 'CPU',
+      devices: isGpu
+        ? [{ name: 'NVIDIA RTX Mock 4090', type: payload.devicePreferences?.deviceType || 'OPTIX', use: true }]
+        : [{ name: 'Mock CPU', type: 'CPU', use: true }],
+      requestedGpu: isGpu,
+      fallbackToCpu: false,
+      threads: payload.threads || 16,
+    })}`,
+  );
+
+  // 2. Overrides report
+  const applied = [];
+  const skipped = [];
+  if (payload.overrides) {
+    for (const [key, value] of Object.entries(payload.overrides)) {
+      applied.push({ rnaPath: key, value });
+    }
+  }
+  console.log(`RN_EVENT ${JSON.stringify({ type: 'overrides_report', applied, skipped })}`);
+
+  // 3. Job start
+  console.log(
+    `RN_EVENT ${JSON.stringify({
+      type: 'job_start',
+      totalFrames: frames.length,
+      frames,
+      scene: sceneName,
+      camera: payload.camera || 'Camera',
+      engine: 'CYCLES',
+    })}`,
+  );
+
+  const tStart = Date.now();
+  let completedCount = 0;
+  const failedCount = 0;
+
+  for (let idx = 0; idx < frames.length; idx++) {
+    const f = frames[idx];
+
+    // Check control sentinel before frame
+    while (true) {
+      if (controlFile && fs.existsSync(controlFile)) {
+        try {
+          const ctrl = JSON.parse(fs.readFileSync(controlFile, 'utf8'));
+          if (ctrl.command === 'stop') {
+            break;
+          }
+          if (ctrl.command === 'pause') {
+            await new Promise((r) => setTimeout(r, 20));
+            continue;
+          }
+        } catch {
+          // ignore read error
+        }
+      }
+      break;
+    }
+
+    if (controlFile && fs.existsSync(controlFile)) {
+      try {
+        const ctrl = JSON.parse(fs.readFileSync(controlFile, 'utf8'));
+        if (ctrl.command === 'stop') {
+          break;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    // Frame start
+    console.log(
+      `RN_EVENT ${JSON.stringify({
+        type: 'frame_start',
+        frame: f,
+        scene: sceneName,
+        frameIndex: idx,
+        totalFrames: frames.length,
+      })}`,
+    );
+
+    // Native blender progress output
+    console.log(`Fra:${f} Mem:14.25M (Peak 25.10M) | Time:00:00.05 | Remaining:00:00.10 | Sample 64/128`);
+    await new Promise((r) => setTimeout(r, 20));
+    console.log(`Fra:${f} Mem:15.80M (Peak 25.10M) | Time:00:00.10 | Remaining:00:00.00 | Sample 128/128`);
+
+    // Output path computation
+    let frameFile = `frame_${String(f).padStart(4, '0')}.png`;
+    if (payload.outputPattern) {
+      if (payload.outputPattern.includes('#')) {
+        frameFile = payload.outputPattern.replace(/#+/g, (m) => String(f).padStart(m.length, '0'));
+      } else {
+        frameFile = payload.outputPattern;
+      }
+    }
+    const savedPath = path.isAbsolute(frameFile)
+      ? frameFile
+      : path.join(payload.outputDir || process.cwd(), frameFile);
+
+    try {
+      fs.mkdirSync(path.dirname(savedPath), { recursive: true });
+      fs.writeFileSync(savedPath, 'MOCK_IMAGE_DATA', 'utf8');
+    } catch {
+      // ignore
+    }
+
+    console.log(`Saved: "${savedPath}"`);
+    console.log(
+      `RN_EVENT ${JSON.stringify({
+        type: 'frame_done',
+        frame: f,
+        scene: sceneName,
+        saved: savedPath,
+        timeSeconds: 0.1,
+        peakMemory: '25.10M',
+      })}`,
+    );
+    completedCount++;
+  }
+
+  const durationSeconds = (Date.now() - tStart) / 1000;
+  console.log(
+    `RN_EVENT ${JSON.stringify({
+      type: 'job_done',
+      completedFrames: completedCount,
+      failedFrames: failedCount,
+      durationSeconds: Math.round(durationSeconds * 100) / 100,
+    })}`,
+  );
+  console.log(`Blender quit`);
+  process.exit(0);
+}
