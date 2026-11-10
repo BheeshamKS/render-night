@@ -1,3 +1,4 @@
+import type { SessionLockManager } from '../persistence/session-lock';
 import type { SleepBlockerManager } from '../power/sleep-blocker';
 import { filterMissingFrames } from '../ranges/missing-frames';
 import { sampleGpuUtilization } from '../render/gpu-monitor';
@@ -46,6 +47,7 @@ export interface QueueEngineOptions {
   runtimeDir: string;
   runnerScriptPath?: string;
   sleepBlocker?: SleepBlockerManager;
+  sessionLock?: SessionLockManager;
 }
 
 const ERROR_KEYWORD_REGEX = /(?:Error|Traceback|CUDA error|out of memory|Segmentation fault)/i;
@@ -98,6 +100,10 @@ export class QueueEngine extends EventEmitter {
       this.releaseSleepBlock = this.options.sleepBlocker.acquire();
     }
 
+    if (this.options.sessionLock) {
+      await this.options.sessionLock.acquireLock({ activeJobId: jobs[0]?.id });
+    }
+
     try {
       for (const job of jobs) {
         if (this.stopRequested) break;
@@ -116,6 +122,9 @@ export class QueueEngine extends EventEmitter {
       }
     } finally {
       this.cleanup();
+      if (this.options.sessionLock) {
+        await this.options.sessionLock.releaseLock();
+      }
     }
   }
 
@@ -338,6 +347,9 @@ export class QueueEngine extends EventEmitter {
           stdio: ['ignore', 'pipe', 'pipe'],
         });
         this.currentChild = child;
+        if (child.pid && this.options.sessionLock) {
+          this.options.sessionLock.updateWorkerPids([child.pid], job.id).catch(() => {});
+        }
 
         if (child.pid && job.priority) {
           try {
@@ -486,6 +498,9 @@ export class QueueEngine extends EventEmitter {
 
         child.on('close', (code) => {
           processExitCode = code;
+          if (this.options.sessionLock) {
+            this.options.sessionLock.updateWorkerPids([], job.id).catch(() => {});
+          }
           resolve();
         });
       });
