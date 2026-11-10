@@ -1,21 +1,40 @@
+import { registerIpcHandlers } from './ipc';
+
 import { app, BrowserWindow } from 'electron';
 
-import { join } from 'path';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 
-function createWindow() {
-  const mainWindow = new BrowserWindow({
-    width: 1000,
-    height: 700,
+let mainWindow: BrowserWindow | null = null;
+
+function getPreloadPath(): string {
+  const mjsPath = join(__dirname, '../preload/index.mjs');
+  if (existsSync(mjsPath)) return mjsPath;
+  return join(__dirname, '../preload/index.js');
+}
+
+function createWindow(): BrowserWindow {
+  mainWindow = new BrowserWindow({
+    width: 1100,
+    height: 750,
+    minWidth: 800,
+    minHeight: 500,
     show: false,
+    title: 'Render Night',
+    backgroundColor: '#181818',
     autoHideMenuBar: true,
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: getPreloadPath(),
       sandbox: false,
     },
   });
 
   mainWindow.on('ready-to-show', () => {
-    mainWindow.show();
+    mainWindow?.show();
+  });
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
   });
 
   if (process.env.ELECTRON_RENDERER_URL) {
@@ -23,10 +42,14 @@ function createWindow() {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'));
   }
+
+  return mainWindow;
 }
 
 app.whenReady().then(() => {
+  registerIpcHandlers(() => mainWindow);
   createWindow();
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
