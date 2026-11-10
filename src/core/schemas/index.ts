@@ -1,3 +1,4 @@
+export * from './history';
 export * from './inspect';
 export * from './override';
 export * from './preset';

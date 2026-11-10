@@ -194,7 +194,7 @@ Validated via `controlCommandSchema` in `src/core/schemas/override.ts`.
 
 ## 4. Queue State Persistence (`QueueState`)
 
-Stored in the application data folder (`render-night-queue.json`):
+Stored atomically (write to temp file then rename) in the application data folder (`render-night-queue.json`):
 ```json
 {
   "version": 1,
@@ -202,8 +202,69 @@ Stored in the application data folder (`render-night-queue.json`):
   "settings": {
     "concurrentJobs": 1,
     "stopOnFailure": false,
-    "soundOnCompletion": true
+    "postAction": "none",
+    "sound": {
+      "enabled": true,
+      "volume": 100,
+      "playOnFailure": false
+    },
+    "schedule": {
+      "enabled": false,
+      "targetTime": "23:30",
+      "blockSleepWhileWaiting": true
+    }
   }
 }
 ```
 Validated via `queueStateSchema` in `src/core/schemas/queue-state.ts`.
+
+### Session Lock Sentinel (`unclean-shutdown.lock`)
+Active while a queue is rendering:
+```json
+{
+  "pid": 12345,
+  "timestamp": 1731289200000,
+  "workerPids": [12346, 12347],
+  "statePath": "/path/to/render-night-queue.json"
+}
+```
+If present on launch and the main PID is dead, Render Night detects an unclean shutdown, kills orphaned worker processes, and prompts to resume unfinished frames.
+
+---
+
+## 5. Safe Post-Queue Actions (`PostAction`)
+
+Configurable before queue execution or while queued:
+`'none' | 'sleep' | 'hibernate' | 'shutdown' | 'restart' | 'close_app'`
+
+### Safety Invariants:
+1. **Live Graceful Completion Only**: The action only ever executes after the queue completes gracefully in a live session.
+2. **60-Second Cancel Window**: A visible modal countdown displays for 60 seconds with an immediate "Cancel" button before executing the OS power command.
+3. **Crash / Restore Disarm**: An unclean shutdown, crash, kill (`kill -9`), or restored session NEVER triggers a post-action. Restoring a queue sets `armed = false`.
+
+---
+
+## 6. Render History (`HistoryEntry`)
+
+Append-only history stored at `<userData>/history/render-history.json` with file rotation:
+```json
+{
+  "id": "hist-1731289200000",
+  "jobId": "job-1",
+  "filePath": "/path/to/scene.blend",
+  "fileName": "scene.blend",
+  "project": "scene",
+  "scene": "Scene",
+  "camera": "Camera",
+  "frameCount": 250,
+  "totalTimeSeconds": 312.4,
+  "averageFrameTimeSeconds": 1.25,
+  "engine": "CYCLES",
+  "device": "GPU: NVIDIA RTX 4090 (OPTIX)",
+  "result": "completed",
+  "failedFrames": [],
+  "outputPath": "/path/to/renders/scene_0001.png",
+  "timestamp": 1731289200000
+}
+```
+Validated via `historyEntrySchema` and `historyListSchema` in `src/core/schemas/history.ts`.

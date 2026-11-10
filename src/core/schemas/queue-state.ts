@@ -75,6 +75,34 @@ export const jobSchema = z.object({
 
 export type Job = z.infer<typeof jobSchema>;
 
+export const postActionSchema = z.enum([
+  'none',
+  'sleep',
+  'hibernate',
+  'shutdown',
+  'restart',
+  'close_app',
+]);
+
+export type PostAction = z.infer<typeof postActionSchema>;
+
+export const soundSettingsSchema = z.object({
+  enabled: z.boolean().default(true),
+  volume: z.number().min(0).max(100).default(100),
+  playOnFailure: z.boolean().default(false),
+});
+
+export type SoundSettings = z.infer<typeof soundSettingsSchema>;
+
+export const scheduleConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  targetTime: z.string().optional(), // "HH:MM"
+  targetTimestamp: z.number().optional(),
+  blockSleepWhileWaiting: z.boolean().default(true),
+});
+
+export type ScheduleConfig = z.infer<typeof scheduleConfigSchema>;
+
 export const queueSettingsSchema = z.object({
   concurrentJobs: z.number().min(1).max(8).default(1),
   stopOnFailure: z.boolean().default(false),
@@ -87,6 +115,9 @@ export const queueSettingsSchema = z.object({
   pauseOnBattery: z.boolean().default(false),
   resumeOnAc: z.boolean().default(false),
   maxConcurrentFrames: z.number().min(1).max(16).default(1),
+  postAction: postActionSchema.default('none'),
+  sound: soundSettingsSchema.default({}),
+  schedule: scheduleConfigSchema.optional(),
 });
 
 export type QueueSettings = z.infer<typeof queueSettingsSchema>;
