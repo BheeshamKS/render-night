@@ -43,6 +43,7 @@ export interface QueueEngineJob {
   crashPolicy?: CrashPolicy;
   crashConfig?: CrashConfig;
   renderMissingOnly?: boolean;
+  preRenderHook?: string;
 }
 
 export interface QueueEngineOptions {
@@ -344,6 +345,7 @@ export class QueueEngine extends EventEmitter {
         crashPolicy,
         crashConfig: job.crashConfig,
         renderMissingOnly: false,
+        preRenderHook: job.preRenderHook,
       };
       fs.writeFileSync(payloadPath, JSON.stringify(runnerPayload, null, 2), 'utf8');
 
@@ -436,6 +438,12 @@ export class QueueEngine extends EventEmitter {
                   this.emit('device:report', { jobId: job.id, report: ev as DeviceReport });
                 } else if (ev.type === 'overrides_report') {
                   this.emit('overrides:report', { jobId: job.id, report: ev as OverridesReport });
+                } else if (ev.type === 'pre_render_hook_start') {
+                  this.emit('hook:start', { jobId: job.id });
+                } else if (ev.type === 'pre_render_hook_success') {
+                  this.emit('hook:success', { jobId: job.id, hook: ev.hook });
+                } else if (ev.type === 'pre_render_hook_error') {
+                  this.emit('hook:error', { jobId: job.id, hook: ev.hook, error: ev.error });
                 } else if (ev.type === 'frame_start') {
                   this.emit('frame:start', {
                     jobId: job.id,

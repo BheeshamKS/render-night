@@ -92,6 +92,28 @@ export const jobDoneEventSchema = z.object({
 
 export type JobDoneEvent = z.infer<typeof jobDoneEventSchema>;
 
+export const preRenderHookStartEventSchema = z.object({
+  type: z.literal('pre_render_hook_start'),
+});
+
+export type PreRenderHookStartEvent = z.infer<typeof preRenderHookStartEventSchema>;
+
+export const preRenderHookSuccessEventSchema = z.object({
+  type: z.literal('pre_render_hook_success'),
+  hook: z.string(),
+});
+
+export type PreRenderHookSuccessEvent = z.infer<typeof preRenderHookSuccessEventSchema>;
+
+export const preRenderHookErrorEventSchema = z.object({
+  type: z.literal('pre_render_hook_error'),
+  hook: z.string(),
+  error: z.string(),
+  traceback: z.string().optional(),
+});
+
+export type PreRenderHookErrorEvent = z.infer<typeof preRenderHookErrorEventSchema>;
+
 // Legacy / backwards compatible event types
 export const frameEndEventSchema = z.object({
   type: z.literal('frame_end'),
@@ -132,6 +154,9 @@ export const runnerEventSchema = z.discriminatedUnion('type', [
   jobStartEventSchema,
   deviceReportSchema,
   overridesReportSchema,
+  preRenderHookStartEventSchema,
+  preRenderHookSuccessEventSchema,
+  preRenderHookErrorEventSchema,
   frameStartEventSchema,
   frameDoneEventSchema,
   frameErrorEventSchema,

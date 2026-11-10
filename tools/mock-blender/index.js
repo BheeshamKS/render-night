@@ -93,6 +93,32 @@ async function handleRenderRunner(payloadPath) {
   }
   console.log(`RN_EVENT ${JSON.stringify({ type: 'overrides_report', applied, skipped })}`);
 
+  // 2b. Pre-render hook simulation
+  if (payload.preRenderHook) {
+    console.log(`RN_EVENT ${JSON.stringify({ type: 'pre_render_hook_start' })}`);
+    if (
+      typeof payload.preRenderHook === 'string' &&
+      (payload.preRenderHook.includes('RAISE_ERROR') || payload.preRenderHook.includes('fail'))
+    ) {
+      console.log(
+        `RN_EVENT ${JSON.stringify({
+          type: 'pre_render_hook_error',
+          hook: payload.preRenderHook,
+          error: 'Simulated pre-render hook execution failure',
+        })}`,
+      );
+      console.error('Error in pre-render hook: Simulated pre-render hook execution failure');
+      process.exit(1);
+    } else {
+      console.log(
+        `RN_EVENT ${JSON.stringify({
+          type: 'pre_render_hook_success',
+          hook: payload.preRenderHook,
+        })}`,
+      );
+    }
+  }
+
   // 3. Job start
   console.log(
     `RN_EVENT ${JSON.stringify({

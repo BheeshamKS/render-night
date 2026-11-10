@@ -176,6 +176,27 @@ def apply_overrides(scene, overrides):
     return {"type": "overrides_report", "applied": applied, "skipped": skipped}
 
 
+def run_pre_render_hook(scene, hook):
+    """Run an optional per-job pre-render Python hook before rendering frames."""
+    if not hook or not str(hook).strip():
+        return
+    emit_event({"type": "pre_render_hook_start"})
+    try:
+        hook_code = str(hook)
+        if os.path.exists(hook_code) and os.path.isfile(hook_code):
+            with open(hook_code, "r", encoding="utf-8") as f:
+                hook_code = f.read()
+        global_scope = {"bpy": bpy, "scene": scene, "__name__": "__main__"}
+        exec(compile(hook_code, "<pre_render_hook>", "exec"), global_scope)
+        emit_event({"type": "pre_render_hook_success", "hook": str(hook)})
+    except Exception as exc:
+        import traceback
+        tb = traceback.format_exc()
+        emit_event({"type": "pre_render_hook_error", "hook": str(hook), "error": str(exc), "traceback": tb})
+        print(f"Pre-render hook error: {exc}\n{tb}", file=sys.stderr)
+        raise exc
+
+
 def main():
     if not bpy:
         print("Error: bpy module not available. Must run inside Blender.", file=sys.stderr)
@@ -224,6 +245,11 @@ def main():
     # 5. Overrides
     overrides_report = apply_overrides(scene, payload.get("overrides", {}))
     emit_event(overrides_report)
+
+    # 5b. Pre-Render Hook (trusted code)
+    pre_render_hook = payload.get("preRenderHook")
+    if pre_render_hook:
+        run_pre_render_hook(scene, pre_render_hook)
 
     # 6. Job Start
     frames = payload.get("frames", [int(scene.frame_current)])

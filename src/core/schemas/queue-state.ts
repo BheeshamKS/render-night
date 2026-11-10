@@ -71,6 +71,7 @@ export const jobSchema = z.object({
   progress: z.number().default(0),
   lastFrame: z.number().optional(),
   inspect: z.unknown().optional(),
+  preRenderHook: z.string().optional(),
 });
 
 export type Job = z.infer<typeof jobSchema>;

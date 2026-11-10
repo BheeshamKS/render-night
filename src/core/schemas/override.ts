@@ -67,6 +67,7 @@ export const runnerPayloadSchema = z.object({
   crashPolicy: crashPolicySchema.optional(),
   crashConfig: crashConfigSchema.optional(),
   renderMissingOnly: z.boolean().optional(),
+  preRenderHook: z.string().optional(),
 });
 
 export type RunnerPayload = z.infer<typeof runnerPayloadSchema>;
