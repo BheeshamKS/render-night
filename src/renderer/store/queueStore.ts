@@ -131,6 +131,9 @@ interface QueueStoreState {
   scheduleConfig: ScheduleConfigState;
   activeSleepBlockId: number | null;
 
+  activeTab: 'queue' | 'sequences';
+  setActiveTab: (tab: 'queue' | 'sequences') => void;
+
   showCrashRestoreBanner: boolean;
   showPostActionModal: boolean;
   showSoundModal: boolean;
@@ -383,6 +386,9 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
     blockSleep: true,
   },
   activeSleepBlockId: null,
+
+  activeTab: 'queue',
+  setActiveTab: (tab) => set({ activeTab: tab }),
 
   showCrashRestoreBanner: false,
   showPostActionModal: false,

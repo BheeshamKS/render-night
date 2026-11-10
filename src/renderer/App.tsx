@@ -8,12 +8,13 @@ import { PreflightModal } from './components/PreflightModal';
 import { ScheduleModal } from './components/ScheduleModal';
 import { SoundSettingsModal } from './components/SoundSettingsModal';
 import { Toolbar } from './components/Toolbar';
+import { ImageSequenceTab } from './components/sequence/ImageSequenceTab';
 import { useQueueStore } from './store/queueStore';
 
 import React, { useEffect } from 'react';
 
 export default function App() {
-  const { loadBlenders, initIpcListeners } = useQueueStore();
+  const { loadBlenders, initIpcListeners, activeTab } = useQueueStore();
 
   useEffect(() => {
     loadBlenders();
@@ -29,8 +30,8 @@ export default function App() {
       {/* Crash Restore Alert Banner */}
       <CrashRestoreBanner />
 
-      {/* Main Queue & Drop Area */}
-      <DropZone />
+      {/* Main Content: Queue or Image Sequences */}
+      {activeTab === 'queue' ? <DropZone /> : <ImageSequenceTab />}
 
       {/* Bottom Monitor Dock */}
       <MonitorDock />

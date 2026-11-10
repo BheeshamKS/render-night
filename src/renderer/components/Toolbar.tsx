@@ -8,6 +8,8 @@ import {
   Calendar,
   Clock,
   Download,
+  Film,
+  ListOrdered,
   Pause,
   Play,
   Plus,
@@ -41,6 +43,8 @@ export const Toolbar: React.FC = () => {
     scheduleConfig,
     copiedOverrides,
     pasteOverrides,
+    activeTab,
+    setActiveTab,
   } = useQueueStore();
 
   const handleAddFiles = async () => {
@@ -84,6 +88,32 @@ export const Toolbar: React.FC = () => {
           <Plus className="h-3.5 w-3.5" />
           <span>Add .blend</span>
         </button>
+
+        {/* Tab Navigation */}
+        <div className="flex items-center space-x-1 bg-rn-input p-0.5 rounded border border-rn-border ml-2">
+          <button
+            onClick={() => setActiveTab('queue')}
+            className={`flex items-center space-x-1.5 px-2.5 py-1 rounded text-xs font-medium transition ${
+              activeTab === 'queue'
+                ? 'bg-rn-panel text-white shadow-sm'
+                : 'text-rn-muted hover:text-rn-text'
+            }`}
+          >
+            <ListOrdered className="w-3.5 h-3.5" />
+            <span>Queue</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('sequences')}
+            className={`flex items-center space-x-1.5 px-2.5 py-1 rounded text-xs font-medium transition ${
+              activeTab === 'sequences'
+                ? 'bg-rn-panel text-white shadow-sm'
+                : 'text-rn-muted hover:text-rn-text'
+            }`}
+          >
+            <Film className="w-3.5 h-3.5" />
+            <span>Image Sequences</span>
+          </button>
+        </div>
       </div>
 
       {/* Center: Blender Version Selector */}
