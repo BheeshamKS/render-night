@@ -124,6 +124,30 @@ const api: RenderNightApi = {
   releaseSleepBlock: (id) => {
     return ipcRenderer.invoke('power:releaseSleepBlock', id);
   },
+
+  loadPresets: () => {
+    return ipcRenderer.invoke('presets:load');
+  },
+
+  savePreset: (input) => {
+    return ipcRenderer.invoke('presets:save', input);
+  },
+
+  renamePreset: (id, newName) => {
+    return ipcRenderer.invoke('presets:rename', id, newName);
+  },
+
+  deletePreset: (id) => {
+    return ipcRenderer.invoke('presets:delete', id);
+  },
+
+  exportPresets: (ids) => {
+    return ipcRenderer.invoke('presets:export', ids);
+  },
+
+  importPresets: (jsonStr) => {
+    return ipcRenderer.invoke('presets:import', jsonStr);
+  },
 };
 
 contextBridge.exposeInMainWorld('rnApi', api);

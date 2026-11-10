@@ -6,6 +6,7 @@ import { QueuePersistence } from '../core/persistence/queue-persistence';
 import { SessionLockManager } from '../core/persistence/session-lock';
 import { executeOsPostAction } from '../core/post-actions/post-action-executor';
 import { type PowerSaveBlockerDriver, SleepBlockerManager } from '../core/power/sleep-blocker';
+import { PresetStore, type SavePresetInput } from '../core/presets';
 import { QueueEngine, type QueueEngineJob } from '../core/queue/queue-engine';
 import type { PersistedQueueState, PostAction } from '../core/schemas/queue-state';
 
@@ -49,6 +50,8 @@ export function registerIpcHandlers(mainWindowProvider: () => BrowserWindow | nu
   const historyStore = new HistoryStore({
     historyDir,
   });
+
+  const presetStore = new PresetStore(path.join(userDataDir, 'presets', 'presets.json'));
 
   const runnerScriptPath = app.isPackaged
     ? path.join(process.resourcesPath, 'python', 'render_runner.py')
@@ -235,7 +238,32 @@ export function registerIpcHandlers(mainWindowProvider: () => BrowserWindow | nu
     }
   });
 
-  // 9. Dialog & shell handlers
+  // 9. Presets handlers
+  ipcMain.handle('presets:load', async () => {
+    return presetStore.loadPresets();
+  });
+
+  ipcMain.handle('presets:save', async (_event, input: SavePresetInput) => {
+    return presetStore.savePreset(input);
+  });
+
+  ipcMain.handle('presets:rename', async (_event, id: string, newName: string) => {
+    return presetStore.renamePreset(id, newName);
+  });
+
+  ipcMain.handle('presets:delete', async (_event, id: string) => {
+    return presetStore.deletePreset(id);
+  });
+
+  ipcMain.handle('presets:export', async (_event, ids?: string[]) => {
+    return presetStore.exportPresetsJson(ids);
+  });
+
+  ipcMain.handle('presets:import', async (_event, jsonStr: string) => {
+    return presetStore.importPresetsJson(jsonStr);
+  });
+
+  // 10. Dialog & shell handlers
   ipcMain.handle('dialog:openBlendFiles', async () => {
     const win = mainWindowProvider();
     const result = win

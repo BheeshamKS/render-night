@@ -2,10 +2,12 @@ import type { BlenderInstallation } from '../core/blender/discovery';
 import type { BlendHeaderInfo } from '../core/blender/header-reader';
 import type { InspectOptions } from '../core/blender/inspector';
 import type { HistoryFilter } from '../core/history';
+import type { ImportPresetsResult, SavePresetInput } from '../core/presets';
 import type { QueueEngineJob, QueueState } from '../core/queue/queue-engine';
 import type { GpuStatus } from '../core/render/gpu-monitor';
 import type { HistoryEntry } from '../core/schemas/history';
 import type { InspectOutput } from '../core/schemas/inspect';
+import type { Preset } from '../core/schemas/preset';
 import type { FailedFrame, PersistedQueueState, PostAction } from '../core/schemas/queue-state';
 import type { DeviceReport, OverridesReport } from '../core/schemas/runner-event';
 
@@ -125,6 +127,14 @@ export interface RenderNightApi {
   // Scheduling & Sleep Blocker
   acquireSleepBlock(): Promise<number>;
   releaseSleepBlock(id: number): Promise<void>;
+
+  // Presets
+  loadPresets(): Promise<Preset[]>;
+  savePreset(input: SavePresetInput): Promise<Preset>;
+  renamePreset(id: string, newName: string): Promise<Preset | null>;
+  deletePreset(id: string): Promise<boolean>;
+  exportPresets(ids?: string[]): Promise<string>;
+  importPresets(jsonStr: string): Promise<ImportPresetsResult>;
 }
 
 declare global {
