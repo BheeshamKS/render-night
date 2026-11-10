@@ -66,49 +66,102 @@ Validated via `runnerEventSchema` in `src/core/schemas/runner-event.ts`.
 
 ### Event Types
 
-1. `frame_start`:
+1. `job_start`:
    ```json
-   { "type": "frame_start", "frame": 1, "scene": "Scene" }
+   {
+     "type": "job_start",
+     "totalFrames": 100,
+     "frames": [1, 2, 3],
+     "scene": "Scene",
+     "camera": "Camera",
+     "engine": "CYCLES"
+   }
    ```
-2. `frame_end`:
+2. `device_report`:
    ```json
-   { "type": "frame_end", "frame": 1, "scene": "Scene", "saved": "/path/to/frame_0001.png", "time": 1.23 }
+   {
+     "type": "device_report",
+     "computeDeviceType": "OPTIX",
+     "engine": "CYCLES",
+     "mode": "GPU",
+     "devices": [{ "name": "NVIDIA GeForce RTX 4090", "type": "OPTIX", "use": true }],
+     "requestedGpu": true,
+     "fallbackToCpu": false,
+     "threads": 16
+   }
    ```
-3. `device_report`:
+3. `overrides_report`:
    ```json
-   { "type": "device_report", "devices": [{ "name": "GeForce RTX 4090", "type": "OPTIX", "use": true }] }
+   {
+     "type": "overrides_report",
+     "applied": [{ "rnaPath": "scene.cycles.samples", "value": 256 }],
+     "skipped": [{ "rnaPath": "scene.eevee.bloom", "reason": "Property not found in Blender 4.2+" }]
+   }
    ```
-4. `override_applied`:
+4. `frame_start`:
    ```json
-   { "type": "override_applied", "rnaPath": "scene.cycles.samples", "value": 256 }
+   { "type": "frame_start", "frame": 1, "scene": "Scene", "frameIndex": 0, "totalFrames": 100 }
    ```
-5. `override_skipped`:
+5. `frame_done`:
    ```json
-   { "type": "override_skipped", "rnaPath": "scene.eevee.bloom", "reason": "Property not found in Blender 4.2+" }
+   {
+     "type": "frame_done",
+     "frame": 1,
+     "scene": "Scene",
+     "saved": "/path/to/frame_0001.png",
+     "timeSeconds": 1.23,
+     "peakMemory": "4.2G"
+   }
    ```
-6. `error`:
+6. `frame_error`:
    ```json
-   { "type": "error", "message": "Out of GPU memory", "frame": 5, "fatal": true }
+   { "type": "frame_error", "frame": 1, "message": "CUDA out of memory" }
+   ```
+7. `job_done`:
+   ```json
+   { "type": "job_done", "completedFrames": 100, "failedFrames": 0, "durationSeconds": 123.4 }
    ```
 
 ---
 
-## 3. Override Payload (`OverridePayload`)
+## 3. Runner Payload (`RunnerPayload`) & Control Channel
 
-Passed to `render_runner.py` specifying the diff against file defaults:
+Passed to `render_runner.py` specifying render parameters and control file:
+```bash
+blender -b "<blend_file>" -P render_runner.py -- "<payload.json>"
+```
+Validated via `runnerPayloadSchema` in `src/core/schemas/override.ts`.
+
 ```json
 {
   "blendPath": "/path/to/project.blend",
   "scene": "Scene",
-  "device": "GPU",
-  "range": { "start": 1, "end": 100, "step": 1 },
+  "camera": "Camera",
+  "viewLayers": ["ViewLayer"],
   "overrides": {
     "scene.cycles.samples": 256,
     "scene.render.resolution_percentage": 50
-  }
+  },
+  "frames": [1, 2, 3, 4, 5],
+  "outputPattern": "//render/test_####.png",
+  "outputDir": "/path/to/renders",
+  "controlFile": "/path/to/control.json",
+  "devicePreferences": {
+    "deviceType": "OPTIX",
+    "enableGpu": true,
+    "selectedDevices": ["NVIDIA GeForce RTX 4090"]
+  },
+  "threads": 8
 }
 ```
-Validated via `overridePayloadSchema` in `src/core/schemas/override.ts`.
+
+### Control Sentinel (`control.json`)
+
+Between frames, `render_runner.py` polls `controlFile`:
+- `{"command": "continue"}`: Normal execution.
+- `{"command": "pause"}`: Pause after current frame and wait until resumed.
+- `{"command": "stop"}`: Abort remaining frames and terminate cleanly.
+Validated via `controlCommandSchema` in `src/core/schemas/override.ts`.
 
 ---
 

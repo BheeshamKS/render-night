@@ -25,3 +25,34 @@ export const overridePayloadSchema = z.object({
 });
 
 export type OverridePayload = z.infer<typeof overridePayloadSchema>;
+
+export const devicePreferencesSchema = z.object({
+  deviceType: z.string().optional(),
+  enableGpu: z.boolean().default(true),
+  selectedDevices: z.array(z.string()).optional(),
+});
+
+export type DevicePreferences = z.infer<typeof devicePreferencesSchema>;
+
+export const runnerPayloadSchema = z.object({
+  blendPath: z.string(),
+  scene: z.string().optional(),
+  camera: z.string().optional(),
+  viewLayers: z.array(z.string()).optional(),
+  overrides: overrideMapSchema.default({}),
+  frames: z.array(z.number()),
+  outputPattern: z.string(),
+  outputDir: z.string(),
+  controlFile: z.string(),
+  devicePreferences: devicePreferencesSchema.optional(),
+  threads: z.number().optional(),
+});
+
+export type RunnerPayload = z.infer<typeof runnerPayloadSchema>;
+
+export const controlCommandSchema = z.object({
+  command: z.enum(['continue', 'pause', 'stop']),
+  timestamp: z.number().optional(),
+});
+
+export type ControlCommand = z.infer<typeof controlCommandSchema>;
