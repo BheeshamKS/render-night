@@ -44,7 +44,8 @@ export const crashPolicySchema = z.object({
 export type CrashPolicy = z.infer<typeof crashPolicySchema>;
 
 export const crashConfigSchema = z.object({
-  frame: z.number(),
+  frame: z.number().optional(),
+  frames: z.array(z.number()).optional(),
   crashGpu: z.boolean().default(true),
   crashCpu: z.boolean().default(true),
 });

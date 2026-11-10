@@ -1,8 +1,10 @@
 import type { SleepBlockerManager } from '../power/sleep-blocker';
+import { filterMissingFrames } from '../ranges/missing-frames';
 import { sampleGpuUtilization } from '../render/gpu-monitor';
 import { killProcessTree } from '../render/process-killer';
 import { parseStdoutLine } from '../render/stdout-parser';
-import type { RunnerPayload } from '../schemas/override';
+import type { CrashConfig, CrashPolicy, RunnerPayload } from '../schemas/override';
+import type { FailedFrame } from '../schemas/queue-state';
 import type { DeviceReport, OverridesReport } from '../schemas/runner-event';
 
 import { spawn, type ChildProcess } from 'node:child_process';
@@ -34,6 +36,9 @@ export interface QueueEngineJob {
   isolatedMode?: boolean;
   autoExec?: boolean;
   isVideo?: boolean;
+  crashPolicy?: CrashPolicy;
+  crashConfig?: CrashConfig;
+  renderMissingOnly?: boolean;
 }
 
 export interface QueueEngineOptions {
@@ -44,6 +49,16 @@ export interface QueueEngineOptions {
 }
 
 const ERROR_KEYWORD_REGEX = /(?:Error|Traceback|CUDA error|out of memory|Segmentation fault)/i;
+
+export function parseRemainingSeconds(timeStr?: string): number | undefined {
+  if (!timeStr) return undefined;
+  const parts = timeStr.split(':').map((p) => Number.parseFloat(p));
+  if (parts.some((p) => Number.isNaN(p))) return undefined;
+  if (parts.length === 1) return Math.round(parts[0]);
+  if (parts.length === 2) return Math.round(parts[0] * 60 + parts[1]);
+  if (parts.length === 3) return Math.round(parts[0] * 3600 + parts[1] * 60 + parts[2]);
+  return undefined;
+}
 
 export class QueueEngine extends EventEmitter {
   private options: QueueEngineOptions;
@@ -153,7 +168,6 @@ export class QueueEngine extends EventEmitter {
 
     if (this.currentChild && this.currentChild.pid) {
       const pid = this.currentChild.pid;
-      // Wait up to 500ms for graceful stop, then force kill tree
       await Promise.race([
         new Promise((resolve) => this.currentChild?.once('close', resolve)),
         new Promise((resolve) => setTimeout(resolve, 500)),
@@ -192,7 +206,36 @@ export class QueueEngine extends EventEmitter {
     this.activeJobId = job.id;
     this.emit('queue:state', this.state, job.id);
 
-    // Prepare job runtime directory and control/payload files
+    // 1. Missing frames check
+    let remainingFrames = [...job.frames];
+    if (job.renderMissingOnly) {
+      const { missingFrames, existingFrames } = filterMissingFrames(
+        job.frames,
+        job.outputPattern,
+        job.outputDir,
+      );
+      if (existingFrames.length > 0) {
+        this.emit('log', {
+          jobId: job.id,
+          stream: 'stdout',
+          line: `[MissingFrames] Skipping ${existingFrames.length} existing frame(s). ${missingFrames.length} frame(s) remain to render.`,
+          isErrorKeyword: false,
+          timestamp: Date.now(),
+        });
+      }
+      if (missingFrames.length === 0) {
+        this.emit('job:done', {
+          jobId: job.id,
+          completedFrames: existingFrames.length,
+          failedFrames: 0,
+          durationSeconds: 0,
+        });
+        return;
+      }
+      remainingFrames = [...missingFrames];
+    }
+
+    // 2. Setup job runtime directory and control/log paths
     const jobRuntimeDir = path.join(this.options.runtimeDir, 'run', job.id);
     fs.mkdirSync(jobRuntimeDir, { recursive: true });
 
@@ -200,29 +243,6 @@ export class QueueEngine extends EventEmitter {
     this.currentControlFile = controlFile;
     fs.writeFileSync(controlFile, JSON.stringify({ command: 'continue' }), 'utf8');
 
-    const payloadPath = path.join(jobRuntimeDir, 'payload.json');
-    const runnerPayload: RunnerPayload = {
-      blendPath: job.blendPath,
-      scene: job.scene,
-      camera: job.camera,
-      viewLayers: job.viewLayers,
-      overrides: job.overrides || {},
-      frames: job.frames,
-      outputPattern: job.outputPattern,
-      outputDir: job.outputDir,
-      controlFile,
-      devicePreferences: job.devicePreferences
-        ? {
-            enableGpu: job.devicePreferences.enableGpu ?? true,
-            deviceType: job.devicePreferences.deviceType,
-            selectedDevices: job.devicePreferences.selectedDevices,
-          }
-        : undefined,
-      threads: job.threads,
-    };
-    fs.writeFileSync(payloadPath, JSON.stringify(runnerPayload, null, 2), 'utf8');
-
-    // Setup disk logging
     const jobLogsDir = path.join(this.options.logsDir, job.id);
     fs.mkdirSync(jobLogsDir, { recursive: true });
     const logFilePath = path.join(jobLogsDir, `${Date.now()}.log`);
@@ -232,175 +252,347 @@ export class QueueEngine extends EventEmitter {
       this.options.runnerScriptPath ||
       path.resolve(__dirname, '../../../resources/python/render_runner.py');
 
-    // Build args
-    const execArgs: string[] = ['-b', job.blendPath];
-    if (job.isolatedMode) {
-      execArgs.push('--factory-startup');
-    }
-    if (job.autoExec) {
-      execArgs.push('--enable-autoexec');
-    }
-    if (job.threads && job.threads > 0) {
-      execArgs.push('-t', String(job.threads));
-    }
-    execArgs.push('-P', runnerScript, '--', payloadPath);
+    // 3. Crash recovery configuration & state
+    const crashPolicy: CrashPolicy = job.crashPolicy || {
+      maxRetries: 2,
+      fallbackToCpu: true,
+      skipOnFailure: true,
+      maxConsecutiveCrashes: 3,
+    };
 
-    // Command executable resolution
-    let bin: string;
-    let spawnArgs: string[];
-    if (Array.isArray(job.executable)) {
-      bin = job.executable[0];
-      spawnArgs = [...job.executable.slice(1), ...execArgs];
-    } else {
-      bin = job.executable;
-      spawnArgs = execArgs;
-    }
+    const frameRetryCounts = new Map<number, number>();
+    const frameCpuFallbackTried = new Set<number>();
+    const failedFramesList: FailedFrame[] = [];
+    const completedFramesSet = new Set<number>();
+    let consecutiveCrashes = 0;
+    const recentFrameDurations: number[] = [];
+    const ROLLING_WINDOW_SIZE = 10;
+    const jobStartTime = Date.now();
 
-    const stderrLines: string[] = [];
+    // 4. Execution loop (resumes by relaunching Blender with remaining frames if crash occurs)
+    while (remainingFrames.length > 0 && !this.stopRequested) {
+      const activeFrame = remainingFrames[0];
+      const runOnCpu = frameCpuFallbackTried.has(activeFrame);
 
-    await new Promise<void>((resolve) => {
-      const child = spawn(bin, spawnArgs, {
-        detached: process.platform !== 'win32',
-        stdio: ['ignore', 'pipe', 'pipe'],
-      });
-      this.currentChild = child;
+      // If this frame is running on CPU fallback, run it as a standalone frame first
+      const framesForThisProcess = runOnCpu ? [activeFrame] : [...remainingFrames];
 
-      // Set process priority if requested
-      if (child.pid && job.priority) {
-        try {
-          let priorityVal = os.constants.priority.PRIORITY_NORMAL;
-          if (job.priority === 'low') priorityVal = os.constants.priority.PRIORITY_LOW;
-          else if (job.priority === 'below-normal')
-            priorityVal = os.constants.priority.PRIORITY_BELOW_NORMAL;
-          os.setPriority(child.pid, priorityVal);
-        } catch {
-          // Ignore
-        }
+      const payloadPath = path.join(jobRuntimeDir, `payload-${Date.now()}.json`);
+      const effectiveDevicePrefs = runOnCpu
+        ? { enableGpu: false }
+        : job.devicePreferences
+          ? {
+              enableGpu: job.devicePreferences.enableGpu ?? true,
+              deviceType: job.devicePreferences.deviceType,
+              selectedDevices: job.devicePreferences.selectedDevices,
+            }
+          : undefined;
+
+      const runnerPayload: RunnerPayload = {
+        blendPath: job.blendPath,
+        scene: job.scene,
+        camera: job.camera,
+        viewLayers: job.viewLayers,
+        overrides: job.overrides || {},
+        frames: framesForThisProcess,
+        outputPattern: job.outputPattern,
+        outputDir: job.outputDir,
+        controlFile,
+        devicePreferences: effectiveDevicePrefs,
+        threads: job.threads,
+        crashPolicy,
+        crashConfig: job.crashConfig,
+        renderMissingOnly: false,
+      };
+      fs.writeFileSync(payloadPath, JSON.stringify(runnerPayload, null, 2), 'utf8');
+
+      const execArgs: string[] = ['-b', job.blendPath];
+      if (job.isolatedMode) {
+        execArgs.push('--factory-startup');
+      }
+      if (job.autoExec) {
+        execArgs.push('--enable-autoexec');
+      }
+      if (job.threads && job.threads > 0) {
+        execArgs.push('-t', String(job.threads));
+      }
+      execArgs.push('-P', runnerScript, '--', payloadPath);
+
+      let bin: string;
+      let spawnArgs: string[];
+      if (Array.isArray(job.executable)) {
+        bin = job.executable[0];
+        spawnArgs = [...job.executable.slice(1), ...execArgs];
+      } else {
+        bin = job.executable;
+        spawnArgs = execArgs;
       }
 
-      let stdoutBuf = '';
-      child.stdout.on('data', (chunk: Buffer) => {
-        stdoutBuf += chunk.toString();
-        const lines = stdoutBuf.split('\n');
-        stdoutBuf = lines.pop() ?? '';
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed) continue;
+      const stderrLines: string[] = [];
+      let lastCompletedFrame: number | null = null;
+      let processExitCode: number | null = null;
 
-          logStream.write(`[${new Date().toISOString()}] [stdout] ${trimmed}\n`);
+      await new Promise<void>((resolve) => {
+        const child = spawn(bin, spawnArgs, {
+          detached: process.platform !== 'win32',
+          stdio: ['ignore', 'pipe', 'pipe'],
+        });
+        this.currentChild = child;
 
-          const isErrorKeyword = ERROR_KEYWORD_REGEX.test(trimmed);
-          this.emit('log', {
-            jobId: job.id,
-            stream: 'stdout',
-            line: trimmed,
-            isErrorKeyword,
-            timestamp: Date.now(),
-          });
-
-          // Parse line
+        if (child.pid && job.priority) {
           try {
-            const parsed = parseStdoutLine(trimmed);
-            if (parsed.kind === 'event' && parsed.event) {
-              const ev = parsed.event;
-              if (ev.type === 'job_start') {
-                this.emit('job:start', {
-                  jobId: job.id,
-                  totalFrames: ev.totalFrames,
-                  frames: ev.frames,
-                  scene: ev.scene,
-                  camera: ev.camera,
-                  engine: ev.engine,
-                });
-              } else if (ev.type === 'device_report') {
-                this.emit('device:report', { jobId: job.id, report: ev as DeviceReport });
-              } else if (ev.type === 'overrides_report') {
-                this.emit('overrides:report', { jobId: job.id, report: ev as OverridesReport });
-              } else if (ev.type === 'frame_start') {
-                this.emit('frame:start', {
-                  jobId: job.id,
-                  frame: ev.frame,
-                  frameIndex: ev.frameIndex ?? 0,
-                  totalFrames: ev.totalFrames ?? job.frames.length,
-                });
-              } else if (ev.type === 'frame_done') {
-                this.emit('frame:done', {
-                  jobId: job.id,
-                  frame: ev.frame,
-                  saved: ev.saved,
-                  timeSeconds: ev.timeSeconds,
-                  peakMemory: ev.peakMemory,
-                });
-              } else if (ev.type === 'job_done') {
-                this.emit('job:done', {
-                  jobId: job.id,
-                  completedFrames: ev.completedFrames,
-                  failedFrames: ev.failedFrames,
-                  durationSeconds: ev.durationSeconds,
-                });
-              }
-            } else if (parsed.kind === 'progress' && parsed.progress) {
-              this.emit('job:progress', {
-                jobId: job.id,
-                frame: parsed.progress.frame,
-                sampleCurrent: parsed.progress.samples?.current,
-                sampleTotal: parsed.progress.samples?.total,
-                memory: parsed.progress.memory,
-                peakMemory: parsed.progress.peakMemory,
-                time: parsed.progress.time,
-                remaining: parsed.progress.remaining,
-              });
-            }
+            let priorityVal = os.constants.priority.PRIORITY_NORMAL;
+            if (job.priority === 'low') priorityVal = os.constants.priority.PRIORITY_LOW;
+            else if (job.priority === 'below-normal')
+              priorityVal = os.constants.priority.PRIORITY_BELOW_NORMAL;
+            os.setPriority(child.pid, priorityVal);
           } catch {
-            // Ignore parse errors on arbitrary lines
+            // Ignore
           }
         }
-      });
 
-      let stderrBuf = '';
-      child.stderr.on('data', (chunk: Buffer) => {
-        stderrBuf += chunk.toString();
-        const lines = stderrBuf.split('\n');
-        stderrBuf = lines.pop() ?? '';
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed) continue;
-          stderrLines.push(trimmed);
-          if (stderrLines.length > 50) stderrLines.shift();
+        let stdoutBuf = '';
+        child.stdout.on('data', (chunk: Buffer) => {
+          stdoutBuf += chunk.toString();
+          const lines = stdoutBuf.split('\n');
+          stdoutBuf = lines.pop() ?? '';
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
 
-          logStream.write(`[${new Date().toISOString()}] [stderr] ${trimmed}\n`);
+            logStream.write(`[${new Date().toISOString()}] [stdout] ${trimmed}\n`);
 
-          const isErrorKeyword = ERROR_KEYWORD_REGEX.test(trimmed);
+            const isErrorKeyword = ERROR_KEYWORD_REGEX.test(trimmed);
+            this.emit('log', {
+              jobId: job.id,
+              stream: 'stdout',
+              line: trimmed,
+              isErrorKeyword,
+              timestamp: Date.now(),
+            });
+
+            try {
+              const parsed = parseStdoutLine(trimmed);
+              if (parsed.kind === 'event' && parsed.event) {
+                const ev = parsed.event;
+                if (ev.type === 'job_start') {
+                  this.emit('job:start', {
+                    jobId: job.id,
+                    totalFrames: ev.totalFrames,
+                    frames: ev.frames,
+                    scene: ev.scene,
+                    camera: ev.camera,
+                    engine: ev.engine,
+                  });
+                } else if (ev.type === 'device_report') {
+                  this.emit('device:report', { jobId: job.id, report: ev as DeviceReport });
+                } else if (ev.type === 'overrides_report') {
+                  this.emit('overrides:report', { jobId: job.id, report: ev as OverridesReport });
+                } else if (ev.type === 'frame_start') {
+                  this.emit('frame:start', {
+                    jobId: job.id,
+                    frame: ev.frame,
+                    frameIndex: ev.frameIndex ?? 0,
+                    totalFrames: ev.totalFrames ?? job.frames.length,
+                  });
+                } else if (ev.type === 'frame_done') {
+                  completedFramesSet.add(ev.frame);
+                  remainingFrames = remainingFrames.filter((f) => f !== ev.frame);
+                  lastCompletedFrame = ev.frame;
+                  consecutiveCrashes = 0;
+
+                  // Rolling average ETA calculation
+                  if (ev.timeSeconds && ev.timeSeconds > 0) {
+                    recentFrameDurations.push(ev.timeSeconds);
+                    if (recentFrameDurations.length > ROLLING_WINDOW_SIZE) {
+                      recentFrameDurations.shift();
+                    }
+                  }
+
+                  let etaSeconds: number | undefined;
+                  if (!job.isVideo && recentFrameDurations.length > 0) {
+                    const avg =
+                      recentFrameDurations.reduce((a, b) => a + b, 0) / recentFrameDurations.length;
+                    etaSeconds = Math.round(avg * remainingFrames.length);
+                  }
+
+                  this.emit('frame:done', {
+                    jobId: job.id,
+                    frame: ev.frame,
+                    saved: ev.saved,
+                    timeSeconds: ev.timeSeconds,
+                    peakMemory: ev.peakMemory,
+                    etaSeconds,
+                  });
+                }
+              } else if (parsed.kind === 'progress' && parsed.progress) {
+                let etaSeconds: number | undefined;
+                if (job.isVideo && parsed.progress.remaining) {
+                  etaSeconds = parseRemainingSeconds(parsed.progress.remaining);
+                }
+
+                this.emit('job:progress', {
+                  jobId: job.id,
+                  frame: parsed.progress.frame,
+                  sampleCurrent: parsed.progress.samples?.current,
+                  sampleTotal: parsed.progress.samples?.total,
+                  memory: parsed.progress.memory,
+                  peakMemory: parsed.progress.peakMemory,
+                  time: parsed.progress.time,
+                  remaining: parsed.progress.remaining,
+                  etaSeconds,
+                });
+              }
+            } catch {
+              // Ignore parse errors on arbitrary lines
+            }
+          }
+        });
+
+        let stderrBuf = '';
+        child.stderr.on('data', (chunk: Buffer) => {
+          stderrBuf += chunk.toString();
+          const lines = stderrBuf.split('\n');
+          stderrBuf = lines.pop() ?? '';
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            stderrLines.push(trimmed);
+            if (stderrLines.length > 50) stderrLines.shift();
+
+            logStream.write(`[${new Date().toISOString()}] [stderr] ${trimmed}\n`);
+
+            const isErrorKeyword = ERROR_KEYWORD_REGEX.test(trimmed);
+            this.emit('log', {
+              jobId: job.id,
+              stream: 'stderr',
+              line: trimmed,
+              isErrorKeyword,
+              timestamp: Date.now(),
+            });
+          }
+        });
+
+        child.on('error', (err) => {
+          logStream.write(`[${new Date().toISOString()}] [error] ${err.message}\n`);
           this.emit('log', {
             jobId: job.id,
             stream: 'stderr',
-            line: trimmed,
-            isErrorKeyword,
+            line: `[Process Error] ${err.message}`,
+            isErrorKeyword: true,
             timestamp: Date.now(),
           });
-        }
-      });
+        });
 
-      child.on('error', (err) => {
-        logStream.write(`[${new Date().toISOString()}] [error] ${err.message}\n`);
-        this.emit('job:failed', {
-          jobId: job.id,
-          error: err.message,
-          stderrTail: stderrLines.slice(-10).join('\n'),
+        child.on('close', (code) => {
+          processExitCode = code;
+          resolve();
         });
       });
 
-      child.on('close', (code) => {
-        logStream.end();
-        if (code !== 0 && !this.stopRequested) {
+      // 5. Evaluate process exit status & crash recovery
+      if (this.stopRequested) break;
+
+      if (remainingFrames.length === 0) {
+        break; // All frames done!
+      }
+
+      // If child exited with non-zero or exited prematurely before finishing remaining frames
+      if (processExitCode !== 0 || lastCompletedFrame === null) {
+        const crashedFrame = remainingFrames[0];
+        const attempts = frameRetryCounts.get(crashedFrame) || 0;
+        const stderrTail = stderrLines.slice(-10).join('\n');
+
+        this.emit('log', {
+          jobId: job.id,
+          stream: 'stderr',
+          line: `[Crash] Blender crashed at frame ${crashedFrame} (exit code ${processExitCode}).`,
+          isErrorKeyword: true,
+          timestamp: Date.now(),
+        });
+
+        // Step A: Retry the frame up to maxRetries times
+        if (attempts < crashPolicy.maxRetries) {
+          frameRetryCounts.set(crashedFrame, attempts + 1);
+          this.emit('log', {
+            jobId: job.id,
+            stream: 'stdout',
+            line: `[Recovery] Retrying frame ${crashedFrame} (attempt ${attempts + 1}/${crashPolicy.maxRetries})...`,
+            isErrorKeyword: false,
+            timestamp: Date.now(),
+          });
+          continue;
+        }
+
+        // Step B: Optional fallback to CPU for that frame
+        if (crashPolicy.fallbackToCpu && !frameCpuFallbackTried.has(crashedFrame)) {
+          frameCpuFallbackTried.add(crashedFrame);
+          this.emit('log', {
+            jobId: job.id,
+            stream: 'stdout',
+            line: `[Recovery] Frame ${crashedFrame} failed GPU retries. Falling back to CPU for frame ${crashedFrame}...`,
+            isErrorKeyword: false,
+            timestamp: Date.now(),
+          });
+          continue;
+        }
+
+        // Step C: Skip frame and record as failed
+        this.emit('log', {
+          jobId: job.id,
+          stream: 'stderr',
+          line: `[Recovery] Frame ${crashedFrame} failed permanently. Skipping frame and continuing queue.`,
+          isErrorKeyword: true,
+          timestamp: Date.now(),
+        });
+
+        const failedItem: FailedFrame = {
+          frame: crashedFrame,
+          error: `Blender process crashed (exit code ${processExitCode})`,
+          stderrTail,
+          timestamp: Date.now(),
+          attemptCount: attempts + 1,
+        };
+        failedFramesList.push(failedItem);
+        this.emit('frame:failed', {
+          jobId: job.id,
+          frame: crashedFrame,
+          error: failedItem.error,
+          stderrTail,
+        });
+
+        remainingFrames = remainingFrames.filter((f) => f !== crashedFrame);
+        consecutiveCrashes++;
+
+        if (consecutiveCrashes >= crashPolicy.maxConsecutiveCrashes) {
+          this.emit('log', {
+            jobId: job.id,
+            stream: 'stderr',
+            line: `[Recovery] Exceeded maximum consecutive crashes (${crashPolicy.maxConsecutiveCrashes}). Failing job ${job.id}.`,
+            isErrorKeyword: true,
+            timestamp: Date.now(),
+          });
           this.emit('job:failed', {
             jobId: job.id,
-            error: `Blender process exited with code ${code}`,
-            stderrTail: stderrLines.slice(-10).join('\n'),
+            error: `Exceeded maximum consecutive crashes (${crashPolicy.maxConsecutiveCrashes})`,
+            failedFrames: failedFramesList,
+            stderrTail,
           });
+          logStream.end();
+          return; // Fails this job, but queue continues to next job!
         }
-        resolve();
-      });
+      }
+    }
+
+    logStream.end();
+
+    const durationSeconds = (Date.now() - jobStartTime) / 1000;
+    this.emit('job:done', {
+      jobId: job.id,
+      completedFrames: completedFramesSet.size,
+      failedFrames: failedFramesList.length,
+      durationSeconds: Math.round(durationSeconds * 100) / 100,
+      failedFramesList,
     });
   }
 

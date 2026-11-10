@@ -142,6 +142,22 @@ async function handleRenderRunner(payloadPath) {
       }
     }
 
+    // Crash simulation
+    const crashConfig = payload.crashConfig;
+    const shouldCrash =
+      crashConfig &&
+      (crashConfig.frame === f ||
+        (Array.isArray(crashConfig.frames) && crashConfig.frames.includes(f)));
+    if (shouldCrash) {
+      if ((isGpu && crashConfig.crashGpu !== false) || (!isGpu && crashConfig.crashCpu !== false)) {
+        console.error(`CUDA error: Out of memory at frame ${f} (simulated crash)`);
+        console.error(`Traceback (most recent call last):`);
+        console.error(`  File "render_runner.py", line 123, in render_frame`);
+        console.error(`RuntimeError: GPU/CPU out of memory at frame ${f}`);
+        process.exit(139);
+      }
+    }
+
     // Frame start
     console.log(
       `RN_EVENT ${JSON.stringify({
