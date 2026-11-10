@@ -1,4 +1,4 @@
-import { overrideMapSchema } from './override';
+import { crashPolicySchema, overrideMapSchema } from './override';
 
 import { z } from 'zod';
 
@@ -13,6 +13,37 @@ export const jobStatusSchema = z.enum([
 
 export type JobStatus = z.infer<typeof jobStatusSchema>;
 
+export const frameRangeModeSchema = z.enum(['scene_default', 'simple', 'custom', 'single_still']);
+
+export type FrameRangeMode = z.infer<typeof frameRangeModeSchema>;
+
+export const simpleRangeSchema = z.object({
+  start: z.number(),
+  end: z.number(),
+  step: z.number().min(1).default(1),
+});
+
+export type SimpleRange = z.infer<typeof simpleRangeSchema>;
+
+export const frameRangeConfigSchema = z.object({
+  mode: frameRangeModeSchema.default('scene_default'),
+  simple: simpleRangeSchema.optional(),
+  customExpression: z.string().optional(),
+  singleStillFrame: z.number().optional(),
+});
+
+export type FrameRangeConfig = z.infer<typeof frameRangeConfigSchema>;
+
+export const failedFrameSchema = z.object({
+  frame: z.number(),
+  error: z.string(),
+  stderrTail: z.string().optional(),
+  timestamp: z.number(),
+  attemptCount: z.number().default(1),
+});
+
+export type FailedFrame = z.infer<typeof failedFrameSchema>;
+
 export const jobSchema = z.object({
   id: z.string(),
   blendPath: z.string(),
@@ -23,6 +54,10 @@ export const jobSchema = z.object({
     end: z.number(),
     step: z.number(),
   }),
+  rangeConfig: frameRangeConfigSchema.optional(),
+  crashPolicy: crashPolicySchema.optional(),
+  renderMissingOnly: z.boolean().default(false),
+  failedFrames: z.array(failedFrameSchema).default([]),
   overrides: overrideMapSchema,
   presets: z.array(z.string()),
   outputDir: z.string().optional(),

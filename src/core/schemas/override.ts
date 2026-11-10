@@ -34,6 +34,23 @@ export const devicePreferencesSchema = z.object({
 
 export type DevicePreferences = z.infer<typeof devicePreferencesSchema>;
 
+export const crashPolicySchema = z.object({
+  maxRetries: z.number().min(0).default(2),
+  fallbackToCpu: z.boolean().default(true),
+  skipOnFailure: z.boolean().default(true),
+  maxConsecutiveCrashes: z.number().min(1).default(3),
+});
+
+export type CrashPolicy = z.infer<typeof crashPolicySchema>;
+
+export const crashConfigSchema = z.object({
+  frame: z.number(),
+  crashGpu: z.boolean().default(true),
+  crashCpu: z.boolean().default(true),
+});
+
+export type CrashConfig = z.infer<typeof crashConfigSchema>;
+
 export const runnerPayloadSchema = z.object({
   blendPath: z.string(),
   scene: z.string().optional(),
@@ -46,6 +63,9 @@ export const runnerPayloadSchema = z.object({
   controlFile: z.string(),
   devicePreferences: devicePreferencesSchema.optional(),
   threads: z.number().optional(),
+  crashPolicy: crashPolicySchema.optional(),
+  crashConfig: crashConfigSchema.optional(),
+  renderMissingOnly: z.boolean().optional(),
 });
 
 export type RunnerPayload = z.infer<typeof runnerPayloadSchema>;

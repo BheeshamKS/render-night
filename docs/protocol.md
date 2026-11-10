@@ -151,9 +151,36 @@ Validated via `runnerPayloadSchema` in `src/core/schemas/override.ts`.
     "enableGpu": true,
     "selectedDevices": ["NVIDIA GeForce RTX 4090"]
   },
-  "threads": 8
+  "threads": 8,
+  "crashPolicy": {
+    "maxRetries": 2,
+    "fallbackToCpu": true,
+    "skipOnFailure": true,
+    "maxConsecutiveCrashes": 3
+  },
+  "renderMissingOnly": false
 }
 ```
+
+### Frame Range Modes & Constraints
+
+1. `scene_default`: Uses inspected scene `frameStart`, `frameEnd`, and `frameStep`.
+2. `simple`: User-defined continuous linear range `{ start, end, step }`.
+3. `custom`: Comma-separated expression (e.g. `"50-200, 200-300"`, `"1-50, 75, 120-240x2"`). Dedupes overlapping frame numbers and sorts ascending.
+4. `single_still`: Single frame number.
+
+**Image vs Video Rule:**
+- Custom multi-range, stepped discontinuous, and single still modes are allowed **ONLY** for image formats.
+- For FFmpeg video container formats (`FFMPEG`, `AVI_JPEG`, `AVI_RAW`), the engine strictly enforces `scene_default` or `simple` continuous sequential ranges (`step = 1`). Video containers cannot mux non-sequential frame streams.
+
+### Crash Recovery Policy (`CrashPolicy`)
+
+When a Blender worker process crashes or exits unexpectedly on frame `F`:
+1. Relaunches Blender with remaining frames starting at `F`, retrying up to `maxRetries` times.
+2. If retries fail and `fallbackToCpu` is `true`, attempts frame `F` once on CPU (`scene.cycles.device = 'CPU'`).
+3. If CPU fallback also fails, records frame `F` in `failedFrames` with error and stderr tail, increments consecutive crash counter, and skips to frame `F+1`.
+4. If consecutive crashes exceed `maxConsecutiveCrashes`, marks the job as `failed` without terminating remaining jobs in the queue.
+5. Failed frames can be retried via the "Retry failed frames" action.
 
 ### Control Sentinel (`control.json`)
 
