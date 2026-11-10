@@ -1,3 +1,4 @@
+import { CopyPasteOverridesModal } from './components/CopyPasteOverridesModal';
 import { CrashRestoreBanner } from './components/CrashRestoreBanner';
 import { DropZone } from './components/DropZone';
 import { HistoryModal } from './components/HistoryModal';
@@ -38,6 +39,7 @@ export default function App() {
       <SoundSettingsModal />
       <HistoryModal />
       <ScheduleModal />
+      <CopyPasteOverridesModal />
     </div>
   );
 }

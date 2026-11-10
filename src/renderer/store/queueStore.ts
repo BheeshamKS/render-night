@@ -1,4 +1,9 @@
 import type { BlenderInstallation } from '../../core/blender/discovery';
+import {
+  getRnaDefaultValue,
+  isPropertyModified,
+  validateOverridesForJob,
+} from '../../core/overrides';
 import type { QueueEngineJob, QueueState } from '../../core/queue/queue-engine';
 import {
   isFormatVideo,
@@ -8,7 +13,8 @@ import {
 import type { GpuStatus } from '../../core/render/gpu-monitor';
 import { previewTokens } from '../../core/render/token-expander';
 import type { InspectOutput, InspectScene } from '../../core/schemas/inspect';
-import type { CrashPolicy } from '../../core/schemas/override';
+import type { CrashPolicy, OverrideMap } from '../../core/schemas/override';
+import type { Preset } from '../../core/schemas/preset';
 import type {
   FailedFrame,
   FrameRangeConfig,
@@ -64,6 +70,10 @@ export interface QueueJob {
   renderMissingOnly?: boolean;
   crashPolicy?: CrashPolicy;
   failedFrames: FailedFrame[];
+
+  // Overrides & Presets
+  overrides?: OverrideMap;
+  presets?: string[];
 }
 
 export interface MonitorStats {
@@ -118,6 +128,25 @@ interface QueueStoreState {
   showSoundModal: boolean;
   showHistoryModal: boolean;
   showScheduleModal: boolean;
+
+  // Overrides & Presets
+  copiedOverrides: OverrideMap | null;
+  pasteReportModal: {
+    isOpen: boolean;
+    reports: Array<{
+      jobId: string;
+      jobName: string;
+      applied: string[];
+      skipped: Array<{ rnaPath: string; reason: string }>;
+    }>;
+  } | null;
+  copyOverrides: (jobId: string) => void;
+  pasteOverrides: (targetJobIds?: string[]) => void;
+  closePasteReportModal: () => void;
+  setJobOverride: (jobId: string, rnaPath: string, value: unknown) => void;
+  resetJobOverride: (jobId: string, rnaPath: string) => void;
+  resetAllJobOverrides: (jobId: string) => void;
+  applyPresetToJob: (jobId: string, preset: Preset) => void;
 
   // Actions
   loadBlenders: () => Promise<void>;
@@ -229,8 +258,8 @@ function toPersistedJob(qj: QueueJob): Job {
     crashPolicy: qj.crashPolicy,
     renderMissingOnly: qj.renderMissingOnly ?? false,
     failedFrames: qj.failedFrames || [],
-    overrides: {},
-    presets: [],
+    overrides: qj.overrides || {},
+    presets: qj.presets || [],
     outputDir: qj.outputPathPattern,
     outputPattern: qj.outputPathPattern,
     device: qj.deviceReport?.mode,
@@ -282,6 +311,8 @@ function fromPersistedJob(pj: Job): QueueJob {
     renderMissingOnly: pj.renderMissingOnly,
     crashPolicy: pj.crashPolicy,
     failedFrames: pj.failedFrames || [],
+    overrides: pj.overrides || {},
+    presets: pj.presets || [],
   };
 }
 
@@ -334,6 +365,167 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
   showSoundModal: false,
   showHistoryModal: false,
   showScheduleModal: false,
+
+  // Overrides & Presets
+  copiedOverrides: null,
+  pasteReportModal: null,
+
+  copyOverrides: (jobId: string) => {
+    const job = get().jobs.find((j) => j.id === jobId);
+    if (!job) return;
+    const diff = { ...(job.overrides || {}) };
+    set({ copiedOverrides: diff });
+    const count = Object.keys(diff).length;
+    get().addLog(`Copied ${count} override(s) from ${job.fileName} to clipboard.`);
+  },
+
+  pasteOverrides: (targetJobIds?: string[]) => {
+    const { copiedOverrides, jobs } = get();
+    if (!copiedOverrides || Object.keys(copiedOverrides).length === 0) {
+      get().addLog('Clipboard has no overrides to paste.');
+      return;
+    }
+
+    const targets = targetJobIds ? jobs.filter((j) => targetJobIds.includes(j.id)) : jobs;
+
+    const reports: Array<{
+      jobId: string;
+      jobName: string;
+      applied: string[];
+      skipped: Array<{ rnaPath: string; reason: string }>;
+    }> = [];
+
+    const updatedJobs = jobs.map((job) => {
+      if (!targets.some((t) => t.id === job.id)) return job;
+
+      const currentScene = job.scenes.find((s) => s.name === job.selectedScene);
+      const validation = validateOverridesForJob(copiedOverrides, {
+        engine:
+          job.deviceReport?.engine || (currentScene?.render?.engine?.value as string | undefined),
+        inspectData: job.inspectData,
+        sceneName: job.selectedScene,
+      });
+
+      reports.push({
+        jobId: job.id,
+        jobName: job.fileName,
+        applied: Object.keys(validation.applicable),
+        skipped: validation.skipped,
+      });
+
+      return {
+        ...job,
+        overrides: {
+          ...(job.overrides || {}),
+          ...validation.applicable,
+        },
+      };
+    });
+
+    set({
+      jobs: updatedJobs,
+      pasteReportModal: {
+        isOpen: true,
+        reports,
+      },
+    });
+
+    get().addLog(`Pasted overrides onto ${targets.length} job(s).`);
+    get().autoSaveState();
+  },
+
+  closePasteReportModal: () => set({ pasteReportModal: null }),
+
+  setJobOverride: (jobId: string, rnaPath: string, value: unknown) => {
+    set((state) => ({
+      jobs: state.jobs.map((job) => {
+        if (job.id !== jobId) return job;
+        const currentScene = job.scenes.find((s) => s.name === job.selectedScene);
+        const fileDefault = getRnaDefaultValue(currentScene, rnaPath);
+
+        const newOverrides = { ...(job.overrides || {}) };
+        if (!isPropertyModified(rnaPath, value, fileDefault)) {
+          delete newOverrides[rnaPath];
+        } else {
+          newOverrides[rnaPath] = value;
+        }
+
+        return { ...job, overrides: newOverrides };
+      }),
+    }));
+    get().autoSaveState();
+  },
+
+  resetJobOverride: (jobId: string, rnaPath: string) => {
+    set((state) => ({
+      jobs: state.jobs.map((job) => {
+        if (job.id !== jobId) return job;
+        const newOverrides = { ...(job.overrides || {}) };
+        delete newOverrides[rnaPath];
+        return { ...job, overrides: newOverrides };
+      }),
+    }));
+    get().autoSaveState();
+  },
+
+  resetAllJobOverrides: (jobId: string) => {
+    set((state) => ({
+      jobs: state.jobs.map((job) => {
+        if (job.id !== jobId) return job;
+        return { ...job, overrides: {} };
+      }),
+    }));
+    get().addLog('Reset all overrides for job.');
+    get().autoSaveState();
+  },
+
+  applyPresetToJob: (jobId: string, preset: Preset) => {
+    const job = get().jobs.find((j) => j.id === jobId);
+    if (!job) return;
+
+    const currentScene = job.scenes.find((s) => s.name === job.selectedScene);
+    const validation = validateOverridesForJob(preset.overrides, {
+      engine:
+        job.deviceReport?.engine || (currentScene?.render?.engine?.value as string | undefined),
+      inspectData: job.inspectData,
+      sceneName: job.selectedScene,
+    });
+
+    const newPresets = Array.from(new Set([...(job.presets || []), preset.name]));
+
+    set((state) => ({
+      jobs: state.jobs.map((j) => {
+        if (j.id !== jobId) return j;
+        return {
+          ...j,
+          overrides: {
+            ...(j.overrides || {}),
+            ...validation.applicable,
+          },
+          presets: newPresets,
+        };
+      }),
+    }));
+
+    if (validation.skipped.length > 0) {
+      set({
+        pasteReportModal: {
+          isOpen: true,
+          reports: [
+            {
+              jobId: job.id,
+              jobName: job.fileName,
+              applied: Object.keys(validation.applicable),
+              skipped: validation.skipped,
+            },
+          ],
+        },
+      });
+    }
+
+    get().addLog(`Applied preset "${preset.name}" to ${job.fileName}.`);
+    get().autoSaveState();
+  },
 
   addLog: (msg: string) => {
     const timestamp = new Date().toLocaleTimeString();
@@ -414,6 +606,8 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
         rangeConfig: { mode: 'scene_default' },
         failedFrames: [],
         renderMissingOnly: false,
+        overrides: {},
+        presets: [],
       };
     });
 
@@ -681,6 +875,7 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
         isVideo: job.isVideo,
         renderMissingOnly: job.renderMissingOnly,
         crashPolicy: job.crashPolicy,
+        overrides: job.overrides || {},
       };
     });
 

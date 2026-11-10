@@ -1,5 +1,6 @@
 import type { FrameRangeConfig, FrameRangeMode } from '../../core/schemas/queue-state';
 import { useQueueStore, type QueueJob } from '../store/queueStore';
+import { AdvancedJobDrawer } from './drawer';
 
 import React, { useState } from 'react';
 
@@ -15,6 +16,7 @@ import {
   HardDrive,
   Loader2,
   RotateCcw,
+  Sliders,
   Terminal,
   Trash2,
 } from 'lucide-react';
@@ -28,6 +30,7 @@ interface JobCardProps {
 export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
   const { blenders, updateJob, removeJob, moveJob, retryFailedFrames } = useQueueStore();
   const [showConsole, setShowConsole] = useState(false);
+  const [showAdvancedDrawer, setShowAdvancedDrawer] = useState(false);
   const [showErrorDetails, setShowErrorDetails] = useState(false);
 
   const currentScene = job.scenes.find((s) => s.name === job.selectedScene);
@@ -237,9 +240,30 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
           </div>
         </div>
 
-        {/* Status Badge, Console Toggle, Remove Button */}
+        {/* Status Badge, Console Toggle, Overrides Toggle, Remove Button */}
         <div className="flex items-center space-x-2 pl-3">
           {getStatusBadge()}
+
+          {/* Overrides Drawer Button */}
+          <button
+            onClick={() => setShowAdvancedDrawer(!showAdvancedDrawer)}
+            className={`flex items-center space-x-1.5 rounded px-2 py-0.5 text-xs transition ${
+              showAdvancedDrawer
+                ? 'bg-rn-accent text-white font-medium'
+                : Object.keys(job.overrides || {}).length > 0
+                  ? 'bg-rn-accent/20 border border-rn-accent/40 text-rn-accent'
+                  : 'bg-rn-subpanel text-rn-muted hover:text-rn-text'
+            }`}
+            title="Toggle advanced properties and overrides drawer"
+          >
+            <Sliders className="h-3 w-3" />
+            <span>Overrides</span>
+            {Object.keys(job.overrides || {}).length > 0 && (
+              <span className="rounded bg-rn-accent px-1 py-0.2 text-[10px] text-white font-mono">
+                {Object.keys(job.overrides || {}).length}
+              </span>
+            )}
+          </button>
 
           {/* Console Drawer Button */}
           <button
@@ -579,6 +603,9 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
         </div>
       </div>
 
+      {/* Advanced Properties & Overrides Drawer */}
+      {showAdvancedDrawer && <AdvancedJobDrawer job={job} />}
+
       {/* Collapsible Console Drawer */}
       {showConsole && (
         <div className="mt-3 rounded border border-rn-border bg-black/60 p-2 text-xs font-mono">
@@ -606,6 +633,39 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
               </button>
             </div>
           </div>
+
+          {/* Overrides Report if emitted by runner */}
+          {job.overridesReport && (
+            <div className="mb-2 p-2 rounded bg-rn-panel/80 border border-rn-border font-sans text-[11px] space-y-1">
+              <div className="font-semibold text-rn-text flex items-center justify-between">
+                <span>Runner Overrides Report:</span>
+                <span className="text-[10px] text-rn-muted font-mono">
+                  {job.overridesReport.applied?.length || 0} applied
+                  {job.overridesReport.skipped?.length
+                    ? `, ${job.overridesReport.skipped.length} skipped`
+                    : ''}
+                </span>
+              </div>
+              {job.overridesReport.applied && job.overridesReport.applied.length > 0 && (
+                <div className="flex flex-wrap gap-1 font-mono text-[10px]">
+                  {job.overridesReport.applied.map((app, idx) => (
+                    <span key={idx} className="rounded bg-rn-input px-1.5 py-0.5 text-green-400">
+                      {app.rnaPath}: {String(app.value)}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {job.overridesReport.skipped && job.overridesReport.skipped.length > 0 && (
+                <div className="space-y-0.5 pt-1 border-t border-rn-border/50 text-yellow-400">
+                  {job.overridesReport.skipped.map((sk, idx) => (
+                    <div key={idx} className="font-mono text-[10px]">
+                      Skipped {sk.rnaPath}: {sk.reason}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="max-h-48 overflow-y-auto space-y-0.5 pr-1 select-text">
             {job.logs && job.logs.length > 0 ? (
