@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+dist-electron/
+out/
+release/
+*.snap
+
+# Editor / OS
+.claude/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Environment
+.env
+.env.*
+!*.env.example
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Coverage
+coverage/
+htmlcov/
+
+# Vite cache
+.vite/
+vitest.config.ts.tmp
+
+# Typecheck
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.pyc
+*.pyo

@@ -1,0 +1,21 @@
+{
+  "semi": true,
+  "singleQuote": true,
+  "trailingComma": "all",
+  "printWidth": 100,
+  "tabWidth": 2,
+  "endOfLine": "lf",
+  "plugins": ["@trivago/prettier-plugin-sort-imports"],
+  "importOrder": [
+    "^(react|react-dom|react.*)$",
+    "^(zod|zustand|clsx|howler|framer-motion|lucide-react)$",
+    "^(electron|electron-store|@radix-ui.*)$",
+    "@core",
+    "@main",
+    "@preload",
+    "@",
+    "^[^.].*$"
+  ],
+  "importOrderSeparation": true,
+  "importOrderSideEffects": true
+}
