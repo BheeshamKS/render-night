@@ -81,6 +81,7 @@ export interface QueueJob {
   overrides?: OverrideMap;
   presets?: string[];
   preRenderHook?: string;
+  stitchToMp4?: boolean;
 }
 
 export interface MonitorStats {
@@ -176,6 +177,7 @@ interface QueueStoreState {
   expandAllScenes: (id: string) => void;
   openInBlender: (id: string) => Promise<void>;
   setJobPreRenderHook: (id: string, hook: string) => void;
+  setJobStitchToMp4: (id: string, enabled: boolean) => void;
   moveJob: (id: string, direction: 'up' | 'down') => void;
   reorderJobs: (fromIndex: number, toIndex: number) => void;
   addLog: (msg: string) => void;
@@ -864,6 +866,10 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
     get().updateJob(id, { preRenderHook: hook });
   },
 
+  setJobStitchToMp4: (id: string, enabled: boolean) => {
+    get().updateJob(id, { stitchToMp4: enabled });
+  },
+
   moveJob: (id: string, direction: 'up' | 'down') => {
     const jobs = [...get().jobs];
     const index = jobs.findIndex((j) => j.id === id);
@@ -1450,6 +1456,46 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
           // Play finish sound "to-DUNG"
           const { soundSettings } = get();
           playTodungSound(soundSettings.volume / 100, soundSettings.isMuted);
+
+          // If "Stitch to MP4 when finished" is enabled on image jobs
+          if (
+            !hasFailures &&
+            job?.stitchToMp4 &&
+            !job?.isVideo &&
+            window.rnApi?.detectSequence &&
+            window.rnApi?.stitchSequence
+          ) {
+            get().addLog(`Starting post-render MP4 stitch for job ${job.fileName}...`);
+            window.rnApi
+              .detectSequence(job.outputPreview || job.outputPathPattern)
+              .then((seq) => {
+                if (seq && seq.totalFrames > 0) {
+                  const baseName = seq.baseName.replace(/[_\-.]$/, '');
+                  const outputPath = `${seq.directory}/${baseName || 'sequence'}_stitched.mp4`;
+                  const fps =
+                    job.inspectData?.scenes?.find((s) => s.name === job.selectedScene)?.fps || 24;
+                  return window.rnApi.stitchSequence({
+                    inputPattern: seq.pattern,
+                    startFrame: seq.startFrame,
+                    totalFrames: seq.totalFrames,
+                    fps,
+                    outputFormat: 'mp4_h264',
+                    outputPath,
+                  });
+                }
+                return null;
+              })
+              .then((outPath) => {
+                if (outPath) {
+                  get().addLog(`Successfully stitched MP4: ${outPath}`);
+                }
+              })
+              .catch((err) => {
+                get().addLog(
+                  `Post-render MP4 stitch failed: ${err instanceof Error ? err.message : String(err)}`,
+                );
+              });
+          }
           break;
         }
 

@@ -1,6 +1,8 @@
 import type { BlenderInstallation } from '../core/blender/discovery';
 import type { BlendHeaderInfo } from '../core/blender/header-reader';
 import type { InspectOptions } from '../core/blender/inspector';
+import type { StitchOptions, StitchProgress } from '../core/ffmpeg/converter';
+import type { FfmpegInfo } from '../core/ffmpeg/discovery';
 import type { HistoryFilter } from '../core/history';
 import type { PreflightJobInput, PreflightOptions } from '../core/preflight';
 import type { ImportPresetsResult, SavePresetInput } from '../core/presets';
@@ -12,6 +14,8 @@ import type { PreflightReport } from '../core/schemas/preflight';
 import type { Preset } from '../core/schemas/preset';
 import type { FailedFrame, PersistedQueueState, PostAction } from '../core/schemas/queue-state';
 import type { DeviceReport, OverridesReport } from '../core/schemas/runner-event';
+import type { ImageSequenceInfo } from '../core/schemas/sequence';
+import type { ProxyResult } from '../core/sequence/proxy-generator';
 
 export type QueueIpcEvent =
   | { type: 'queue:state'; state: QueueState; activeJobId?: string }
@@ -139,6 +143,16 @@ export interface RenderNightApi {
   deletePreset(id: string): Promise<boolean>;
   exportPresets(ids?: string[]): Promise<string>;
   importPresets(jsonStr: string): Promise<ImportPresetsResult>;
+
+  // Image Sequence Tools & FFmpeg
+  detectSequence(dirOrPath: string): Promise<ImageSequenceInfo | null>;
+  generateProxy(sourcePath: string): Promise<ProxyResult>;
+  stitchSequence(options: StitchOptions): Promise<string>;
+  cancelStitch(): Promise<void>;
+  onStitchProgress(listener: (progress: StitchProgress) => void): () => void;
+  selectAudioFile(): Promise<string | null>;
+  selectSaveVideoPath(defaultName?: string): Promise<string | null>;
+  getFfmpegInfo(): Promise<FfmpegInfo | null>;
 }
 
 declare global {

@@ -1,6 +1,8 @@
 import { discoverAllBlenders, validateCustomBlender } from '../core/blender/discovery';
 import { readBlendHeader } from '../core/blender/header-reader';
 import { inspectBlend, type InspectOptions } from '../core/blender/inspector';
+import { SequenceStitcher, type StitchOptions } from '../core/ffmpeg/converter';
+import { getFfmpegPath } from '../core/ffmpeg/discovery';
 import { HistoryStore, type HistoryFilter } from '../core/history';
 import { QueuePersistence } from '../core/persistence/queue-persistence';
 import { SessionLockManager } from '../core/persistence/session-lock';
@@ -10,6 +12,8 @@ import { PreflightChecker, type PreflightJobInput, type PreflightOptions } from 
 import { PresetStore, type SavePresetInput } from '../core/presets';
 import { QueueEngine, type QueueEngineJob } from '../core/queue/queue-engine';
 import type { PersistedQueueState, PostAction } from '../core/schemas/queue-state';
+import { generateFrameProxy } from '../core/sequence/proxy-generator';
+import { detectSequence } from '../core/sequence/sequence-detector';
 
 import { app, dialog, ipcMain, powerSaveBlocker, shell, type BrowserWindow } from 'electron';
 
@@ -17,6 +21,7 @@ import { spawn } from 'node:child_process';
 import * as path from 'node:path';
 
 let globalQueueEngine: QueueEngine | null = null;
+let activeStitcher: SequenceStitcher | null = null;
 
 export function isQueueActive(): boolean {
   if (!globalQueueEngine) return false;
@@ -338,5 +343,95 @@ export function registerIpcHandlers(mainWindowProvider: () => BrowserWindow | nu
 
   ipcMain.handle('shell:openPath', async (_event, targetPath: string) => {
     await shell.openPath(targetPath);
+  });
+
+  // Image Sequence Tools & FFmpeg
+  ipcMain.handle('sequence:detect', async (_event, dirOrPath: string) => {
+    return detectSequence(dirOrPath);
+  });
+
+  ipcMain.handle('sequence:generateProxy', async (_event, sourcePath: string) => {
+    const cacheDir = path.join(app.getPath('userData'), 'cache', 'proxies');
+    return generateFrameProxy(sourcePath, cacheDir);
+  });
+
+  ipcMain.handle('sequence:stitch', async (_event, options: StitchOptions) => {
+    activeStitcher = new SequenceStitcher(options);
+    try {
+      const win = mainWindowProvider();
+      const result = await activeStitcher.start((progress) => {
+        win?.webContents.send('sequence:stitchProgress', progress);
+      });
+      return result;
+    } finally {
+      activeStitcher = null;
+    }
+  });
+
+  ipcMain.handle('sequence:cancelStitch', async () => {
+    if (activeStitcher) {
+      await activeStitcher.cancel();
+      activeStitcher = null;
+    }
+  });
+
+  ipcMain.handle('dialog:selectAudioFile', async () => {
+    const win = mainWindowProvider();
+    const result = win
+      ? await dialog.showOpenDialog(win, {
+          title: 'Select Audio File',
+          properties: ['openFile'],
+          filters: [
+            {
+              name: 'Audio Files',
+              extensions: ['wav', 'mp3', 'aac', 'flac', 'ogg', 'm4a', 'aiff'],
+            },
+            { name: 'All Files', extensions: ['*'] },
+          ],
+        })
+      : await dialog.showOpenDialog({
+          title: 'Select Audio File',
+          properties: ['openFile'],
+          filters: [
+            {
+              name: 'Audio Files',
+              extensions: ['wav', 'mp3', 'aac', 'flac', 'ogg', 'm4a', 'aiff'],
+            },
+            { name: 'All Files', extensions: ['*'] },
+          ],
+        });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return result.filePaths[0];
+  });
+
+  ipcMain.handle('dialog:selectSaveVideoPath', async (_event, defaultName?: string) => {
+    const win = mainWindowProvider();
+    const result = win
+      ? await dialog.showSaveDialog(win, {
+          title: 'Export Video',
+          defaultPath: defaultName || 'output.mp4',
+          filters: [
+            { name: 'MP4 Video', extensions: ['mp4'] },
+            { name: 'WebM Video', extensions: ['webm'] },
+            { name: 'Apple ProRes / QuickTime', extensions: ['mov'] },
+            { name: 'All Files', extensions: ['*'] },
+          ],
+        })
+      : await dialog.showSaveDialog({
+          title: 'Export Video',
+          defaultPath: defaultName || 'output.mp4',
+          filters: [
+            { name: 'MP4 Video', extensions: ['mp4'] },
+            { name: 'WebM Video', extensions: ['webm'] },
+            { name: 'Apple ProRes / QuickTime', extensions: ['mov'] },
+            { name: 'All Files', extensions: ['*'] },
+          ],
+        });
+    if (result.canceled || !result.filePath) return null;
+    return result.filePath;
+  });
+
+  ipcMain.handle('ffmpeg:getInfo', async () => {
+    return getFfmpegPath();
   });
 }

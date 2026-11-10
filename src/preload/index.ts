@@ -1,6 +1,7 @@
 import type { BlenderInstallation } from '../core/blender/discovery';
 import type { BlendHeaderInfo } from '../core/blender/header-reader';
 import type { InspectOptions } from '../core/blender/inspector';
+import type { StitchProgress } from '../core/ffmpeg/converter';
 import type { QueueEngineJob, QueueState } from '../core/queue/queue-engine';
 import type { GpuStatus } from '../core/render/gpu-monitor';
 import type { InspectOutput } from '../core/schemas/inspect';
@@ -155,6 +156,44 @@ const api: RenderNightApi = {
 
   importPresets: (jsonStr) => {
     return ipcRenderer.invoke('presets:import', jsonStr);
+  },
+
+  // Image Sequence Tools & FFmpeg
+  detectSequence: (dirOrPath) => {
+    return ipcRenderer.invoke('sequence:detect', dirOrPath);
+  },
+
+  generateProxy: (sourcePath) => {
+    return ipcRenderer.invoke('sequence:generateProxy', sourcePath);
+  },
+
+  stitchSequence: (options) => {
+    return ipcRenderer.invoke('sequence:stitch', options);
+  },
+
+  cancelStitch: () => {
+    return ipcRenderer.invoke('sequence:cancelStitch');
+  },
+
+  onStitchProgress: (listener) => {
+    const handler = (_event: Electron.IpcRendererEvent, progress: StitchProgress) =>
+      listener(progress);
+    ipcRenderer.on('sequence:stitchProgress', handler);
+    return () => {
+      ipcRenderer.removeListener('sequence:stitchProgress', handler);
+    };
+  },
+
+  selectAudioFile: () => {
+    return ipcRenderer.invoke('dialog:selectAudioFile');
+  },
+
+  selectSaveVideoPath: (defaultName) => {
+    return ipcRenderer.invoke('dialog:selectSaveVideoPath', defaultName);
+  },
+
+  getFfmpegInfo: () => {
+    return ipcRenderer.invoke('ffmpeg:getInfo');
   },
 };
 
