@@ -1,5 +1,10 @@
+import { CrashRestoreBanner } from './components/CrashRestoreBanner';
 import { DropZone } from './components/DropZone';
+import { HistoryModal } from './components/HistoryModal';
 import { MonitorDock } from './components/MonitorDock';
+import { PostActionCountdownModal } from './components/PostActionCountdownModal';
+import { ScheduleModal } from './components/ScheduleModal';
+import { SoundSettingsModal } from './components/SoundSettingsModal';
 import { Toolbar } from './components/Toolbar';
 import { useQueueStore } from './store/queueStore';
 
@@ -19,11 +24,20 @@ export default function App() {
       {/* Top Application Toolbar */}
       <Toolbar />
 
+      {/* Crash Restore Alert Banner */}
+      <CrashRestoreBanner />
+
       {/* Main Queue & Drop Area */}
       <DropZone />
 
       {/* Bottom Monitor Dock */}
       <MonitorDock />
+
+      {/* Modals & Overlays */}
+      <PostActionCountdownModal />
+      <SoundSettingsModal />
+      <HistoryModal />
+      <ScheduleModal />
     </div>
   );
 }

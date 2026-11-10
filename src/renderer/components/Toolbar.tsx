@@ -1,8 +1,9 @@
+import type { PostAction } from '../../core/schemas/queue-state';
 import { useQueueStore } from '../store/queueStore';
 
 import React from 'react';
 
-import { Pause, Play, Plus, Shield, Square, Terminal } from 'lucide-react';
+import { Bell, Calendar, Clock, Pause, Play, Plus, Shield, Square, Terminal } from 'lucide-react';
 
 export const Toolbar: React.FC = () => {
   const {
@@ -21,6 +22,12 @@ export const Toolbar: React.FC = () => {
     pauseQueue,
     resumeQueue,
     stopQueue,
+    postAction,
+    setPostAction,
+    setShowSoundModal,
+    setShowHistoryModal,
+    setShowScheduleModal,
+    scheduleConfig,
   } = useQueueStore();
 
   const handleAddFiles = async () => {
@@ -93,8 +100,68 @@ export const Toolbar: React.FC = () => {
         )}
       </div>
 
-      {/* Right: Options & Queue Control Buttons */}
+      {/* Right: Modals, Post-Action & Controls */}
       <div className="flex items-center space-x-2">
+        {/* Modals & Tools: Schedule, Finish Sound, History */}
+        <button
+          onClick={() => setShowScheduleModal(true)}
+          className={`flex items-center space-x-1 rounded border px-2 py-1 text-xs transition ${
+            scheduleConfig.enabled
+              ? 'border-rn-accent bg-rn-accent/20 text-rn-accent font-semibold'
+              : 'border-rn-border bg-rn-subpanel text-rn-muted hover:text-rn-text'
+          }`}
+          title={
+            scheduleConfig.enabled
+              ? `Scheduled to start at ${scheduleConfig.time}`
+              : 'Schedule queue to start at a specific time'
+          }
+        >
+          <Calendar className="h-3.5 w-3.5" />
+          <span>{scheduleConfig.enabled ? scheduleConfig.time : 'Schedule'}</span>
+        </button>
+
+        <button
+          onClick={() => setShowSoundModal(true)}
+          className="flex items-center space-x-1 rounded border border-rn-border bg-rn-subpanel px-2 py-1 text-xs text-rn-muted hover:text-rn-text transition"
+          title="Finish sound ('to-DUNG') settings"
+        >
+          <Bell className="h-3.5 w-3.5" />
+          <span>Sound</span>
+        </button>
+
+        <button
+          onClick={() => setShowHistoryModal(true)}
+          className="flex items-center space-x-1 rounded border border-rn-border bg-rn-subpanel px-2 py-1 text-xs text-rn-muted hover:text-rn-text transition"
+          title="View past render history"
+        >
+          <Clock className="h-3.5 w-3.5" />
+          <span>History</span>
+        </button>
+
+        <div className="h-4 w-[1px] bg-rn-border mx-0.5" />
+
+        {/* Post-Queue Action Dropdown */}
+        <div className="flex items-center space-x-1">
+          <label htmlFor="post-action-select" className="text-[11px] text-rn-muted">
+            After:
+          </label>
+          <select
+            id="post-action-select"
+            value={postAction}
+            onChange={(e) => setPostAction(e.target.value as PostAction)}
+            disabled={isBusy}
+            className="rounded border border-rn-border bg-rn-input px-2 py-1 text-xs text-rn-text focus:border-rn-accent focus:outline-none disabled:opacity-50"
+            title="Safe Post-Queue Action: Only executes after queue finishes gracefully, followed by a 60-second cancel countdown"
+          >
+            <option value="none">Do Nothing</option>
+            <option value="sleep">Sleep</option>
+            <option value="hibernate">Hibernate</option>
+            <option value="shutdown">Shutdown</option>
+            <option value="restart">Restart</option>
+            <option value="close_app">Close Night Render</option>
+          </select>
+        </div>
+
         {/* Isolated Mode Toggle */}
         <button
           onClick={() => setIsolatedMode(!isolatedMode)}
@@ -125,7 +192,7 @@ export const Toolbar: React.FC = () => {
           <span>Auto-exec</span>
         </button>
 
-        <div className="h-4 w-[1px] bg-rn-border mx-1" />
+        <div className="h-4 w-[1px] bg-rn-border mx-0.5" />
 
         {/* Queue State Pill */}
         {isBusy && (

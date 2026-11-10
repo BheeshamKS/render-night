@@ -9,8 +9,15 @@ import type { GpuStatus } from '../../core/render/gpu-monitor';
 import { previewTokens } from '../../core/render/token-expander';
 import type { InspectOutput, InspectScene } from '../../core/schemas/inspect';
 import type { CrashPolicy } from '../../core/schemas/override';
-import type { FailedFrame, FrameRangeConfig } from '../../core/schemas/queue-state';
+import type {
+  FailedFrame,
+  FrameRangeConfig,
+  Job,
+  PersistedQueueState,
+  PostAction,
+} from '../../core/schemas/queue-state';
 import type { DeviceReport, OverridesReport } from '../../core/schemas/runner-event';
+import { playTodungSound } from '../utils/soundPlayer';
 
 import { create } from 'zustand';
 
@@ -72,6 +79,18 @@ export interface MonitorStats {
   overallProgress: number;
 }
 
+export interface SoundSettingsState {
+  volume: number;
+  isMuted: boolean;
+  playOnFailure: boolean;
+}
+
+export interface ScheduleConfigState {
+  enabled: boolean;
+  time: string;
+  blockSleep: boolean;
+}
+
 interface QueueStoreState {
   jobs: QueueJob[];
   blenders: BlenderInstallation[];
@@ -84,6 +103,21 @@ interface QueueStoreState {
   activeJobId: string | null;
   gpuStatus: GpuStatus | null;
   monitorStats: MonitorStats;
+
+  // Persistence & Post-Actions & Finish Sound & History & Scheduling
+  soundSettings: SoundSettingsState;
+  postAction: PostAction;
+  postActionArmed: boolean;
+  postActionCountdown: number | null;
+  isRestoredSession: boolean;
+  scheduleConfig: ScheduleConfigState;
+  activeSleepBlockId: number | null;
+
+  showCrashRestoreBanner: boolean;
+  showPostActionModal: boolean;
+  showSoundModal: boolean;
+  showHistoryModal: boolean;
+  showScheduleModal: boolean;
 
   // Actions
   loadBlenders: () => Promise<void>;
@@ -107,6 +141,21 @@ interface QueueStoreState {
   resumeQueue: () => Promise<void>;
   stopQueue: () => Promise<void>;
   initIpcListeners: () => () => void;
+
+  // Persistence, Sound & Modal controls
+  setPostAction: (action: PostAction) => void;
+  startPostActionCountdown: () => void;
+  cancelPostActionCountdown: () => void;
+  executePostActionImmediately: () => Promise<void>;
+  setSoundSettings: (settings: Partial<SoundSettingsState>) => void;
+  setShowSoundModal: (val: boolean) => void;
+  setShowHistoryModal: (val: boolean) => void;
+  setShowScheduleModal: (val: boolean) => void;
+  setSchedule: (config: ScheduleConfigState) => Promise<void>;
+  cancelSchedule: () => Promise<void>;
+  resumeFromCrash: () => Promise<void>;
+  dismissCrashBanner: () => Promise<void>;
+  autoSaveState: () => Promise<void>;
 }
 
 function getFileName(filePath: string): string {
@@ -156,7 +205,89 @@ function computeJobRangeInfo(
   };
 }
 
+function toPersistedJob(qj: QueueJob): Job {
+  const statusMap: Record<JobStatus, Job['status']> = {
+    Queued: 'pending',
+    Inspecting: 'pending',
+    Rendering: 'active',
+    Completed: 'done',
+    Failed: 'failed',
+    Skipped: 'canceled',
+  };
+  const scene = qj.scenes?.find((s) => s.name === qj.selectedScene);
+  return {
+    id: qj.id,
+    blendPath: qj.filePath,
+    name: qj.fileName,
+    status: statusMap[qj.status] || 'pending',
+    range: {
+      start: scene?.frameStart ?? 1,
+      end: scene?.frameEnd ?? 250,
+      step: scene?.frameStep ?? 1,
+    },
+    rangeConfig: qj.rangeConfig,
+    crashPolicy: qj.crashPolicy,
+    renderMissingOnly: qj.renderMissingOnly ?? false,
+    failedFrames: qj.failedFrames || [],
+    overrides: {},
+    presets: [],
+    outputDir: qj.outputPathPattern,
+    outputPattern: qj.outputPathPattern,
+    device: qj.deviceReport?.mode,
+    engine: qj.deviceReport?.engine,
+    createdAt: Date.now(),
+    error: qj.error,
+    progress:
+      qj.completedFrames && qj.totalFrames
+        ? Math.round((qj.completedFrames / qj.totalFrames) * 100)
+        : 0,
+    inspect: qj.inspectData,
+  };
+}
+
+function fromPersistedJob(pj: Job): QueueJob {
+  const uiStatusMap: Record<Job['status'], JobStatus> = {
+    pending: 'Queued',
+    active: 'Queued',
+    paused: 'Queued',
+    done: 'Completed',
+    failed: 'Failed',
+    canceled: 'Skipped',
+  };
+  const inspectData = pj.inspect as InspectOutput | undefined;
+  const scenes = inspectData?.scenes || [];
+  const activeScene = scenes.find((s) => s.name === inspectData?.activeScene) || scenes[0];
+  const sceneName = activeScene?.name || 'Scene';
+  const cameras = activeScene?.cameras || [];
+  const cameraName = activeScene?.activeCamera || cameras[0] || '';
+  const pattern = pj.outputPattern || '//render/{project}/{scene}_{camera}_####.png';
+  const project = getProjectName(pj.name);
+
+  return {
+    id: pj.id,
+    filePath: pj.blendPath,
+    fileName: pj.name,
+    project,
+    enabled: true,
+    status: uiStatusMap[pj.status] || 'Queued',
+    selectedScene: sceneName,
+    selectedCamera: cameraName,
+    scenes,
+    availableCameras: cameras,
+    outputPathPattern: pattern,
+    outputPreview: computePreview(pattern, project, sceneName, cameraName),
+    inspectData,
+    logs: [],
+    rangeConfig: pj.rangeConfig || { mode: 'scene_default' },
+    renderMissingOnly: pj.renderMissingOnly,
+    crashPolicy: pj.crashPolicy,
+    failedFrames: pj.failedFrames || [],
+  };
+}
+
 let timerInterval: NodeJS.Timeout | null = null;
+let postActionInterval: NodeJS.Timeout | null = null;
+let scheduleCheckInterval: NodeJS.Timeout | null = null;
 
 export const useQueueStore = create<QueueStoreState>((set, get) => ({
   jobs: [],
@@ -181,6 +312,28 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
     isExr: false,
     overallProgress: 0,
   },
+
+  soundSettings: {
+    volume: 100,
+    isMuted: false,
+    playOnFailure: false,
+  },
+  postAction: 'none',
+  postActionArmed: false,
+  postActionCountdown: null,
+  isRestoredSession: false,
+  scheduleConfig: {
+    enabled: false,
+    time: '23:00',
+    blockSleep: true,
+  },
+  activeSleepBlockId: null,
+
+  showCrashRestoreBanner: false,
+  showPostActionModal: false,
+  showSoundModal: false,
+  showHistoryModal: false,
+  showScheduleModal: false,
 
   addLog: (msg: string) => {
     const timestamp = new Date().toLocaleTimeString();
@@ -265,6 +418,7 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
     });
 
     set((state) => ({ jobs: [...state.jobs, ...newJobs] }));
+    get().autoSaveState();
 
     const blenders = get().blenders;
     const globalBlender = blenders.find((b) => b.id === get().selectedBlenderId) || blenders[0];
@@ -350,10 +504,12 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
         get().addLog(`Failed to inspect ${job.fileName}: ${errorMsg}`);
       }
     }
+    get().autoSaveState();
   },
 
   removeJob: (id: string) => {
     set((state) => ({ jobs: state.jobs.filter((j) => j.id !== id) }));
+    get().autoSaveState();
   },
 
   updateJob: (id: string, updates: Partial<QueueJob>) => {
@@ -387,6 +543,7 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
         return merged;
       }),
     }));
+    get().autoSaveState();
   },
 
   setJobRangeConfig: (id: string, config: FrameRangeConfig) => {
@@ -399,88 +556,100 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
 
   setJobCrashPolicy: (id: string, policy: Partial<CrashPolicy>) => {
     const job = get().jobs.find((j) => j.id === id);
-    if (!job) return;
-    const current = job.crashPolicy || {
-      maxRetries: 2,
-      fallbackToCpu: true,
-      skipOnFailure: true,
-      maxConsecutiveCrashes: 3,
-    };
-    get().updateJob(id, { crashPolicy: { ...current, ...policy } });
+    if (job) {
+      const mergedPolicy: CrashPolicy = {
+        maxRetries: policy.maxRetries ?? job.crashPolicy?.maxRetries ?? 2,
+        fallbackToCpu: policy.fallbackToCpu ?? job.crashPolicy?.fallbackToCpu ?? true,
+        skipOnFailure: policy.skipOnFailure ?? job.crashPolicy?.skipOnFailure ?? true,
+        maxConsecutiveCrashes:
+          policy.maxConsecutiveCrashes ?? job.crashPolicy?.maxConsecutiveCrashes ?? 3,
+      };
+      get().updateJob(id, { crashPolicy: mergedPolicy });
+    }
   },
 
   retryFailedFrames: (id: string) => {
     const job = get().jobs.find((j) => j.id === id);
     if (!job || !job.failedFrames || job.failedFrames.length === 0) return;
 
-    const framesToRetry = Array.from(new Set(job.failedFrames.map((f) => f.frame))).sort(
-      (a, b) => a - b,
-    );
+    const framesToRetry = job.failedFrames.map((f) => f.frame).sort((a, b) => a - b);
     const customExpression = framesToRetry.join(', ');
 
     get().updateJob(id, {
       status: 'Queued',
-      error: undefined,
       rangeConfig: {
         mode: 'custom',
         customExpression,
       },
       failedFrames: [],
     });
+
     get().addLog(
-      `Queueing retry of ${framesToRetry.length} failed frame(s) for ${job.fileName} (${customExpression})`,
+      `Job ${job.fileName}: Re-queued ${framesToRetry.length} failed frame(s): ${customExpression}`,
     );
   },
 
   moveJob: (id: string, direction: 'up' | 'down') => {
-    const { jobs } = get();
-    const idx = jobs.findIndex((j) => j.id === id);
-    if (idx === -1) return;
-
-    const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
-    if (targetIdx < 0 || targetIdx >= jobs.length) return;
-
-    const newJobs = [...jobs];
-    const [moved] = newJobs.splice(idx, 1);
-    newJobs.splice(targetIdx, 0, moved);
-    set({ jobs: newJobs });
+    const jobs = [...get().jobs];
+    const index = jobs.findIndex((j) => j.id === id);
+    if (index === -1) return;
+    if (direction === 'up' && index > 0) {
+      const temp = jobs[index - 1];
+      jobs[index - 1] = jobs[index];
+      jobs[index] = temp;
+      set({ jobs });
+      get().autoSaveState();
+    } else if (direction === 'down' && index < jobs.length - 1) {
+      const temp = jobs[index + 1];
+      jobs[index + 1] = jobs[index];
+      jobs[index] = temp;
+      set({ jobs });
+      get().autoSaveState();
+    }
   },
 
   reorderJobs: (fromIndex: number, toIndex: number) => {
-    const { jobs } = get();
-    if (fromIndex < 0 || fromIndex >= jobs.length || toIndex < 0 || toIndex >= jobs.length) {
+    const jobs = [...get().jobs];
+    if (
+      fromIndex < 0 ||
+      fromIndex >= jobs.length ||
+      toIndex < 0 ||
+      toIndex >= jobs.length ||
+      fromIndex === toIndex
+    ) {
       return;
     }
-    const newJobs = [...jobs];
-    const [moved] = newJobs.splice(fromIndex, 1);
-    newJobs.splice(toIndex, 0, moved);
-    set({ jobs: newJobs });
+    const [movedJob] = jobs.splice(fromIndex, 1);
+    jobs.splice(toIndex, 0, movedJob);
+    set({ jobs });
+    get().autoSaveState();
   },
 
   startQueue: async () => {
-    const { jobs, blenders, selectedBlenderId, isolatedMode, autoExec } = get();
-    const eligibleJobs = jobs.filter((j) => j.enabled && j.status !== 'Completed');
-    if (eligibleJobs.length === 0) {
-      get().addLog('No eligible enabled jobs to start.');
+    const jobs = get().jobs.filter((j) => j.enabled && j.status !== 'Completed');
+    if (jobs.length === 0) {
+      get().addLog('No eligible jobs to start.');
       return;
     }
 
-    // Enforce video rule validation
-    const invalidJob = eligibleJobs.find((j) => j.videoRuleError);
-    if (invalidJob) {
-      get().addLog(
-        `Cannot start queue: Job "${invalidJob.fileName}" has an invalid frame range for video format (${invalidJob.videoRuleError})`,
-      );
-      return;
+    // Cancel any active schedule since queue is starting now
+    if (get().scheduleConfig.enabled) {
+      get().cancelSchedule();
     }
 
-    const defaultBlender = blenders.find((b) => b.id === selectedBlenderId) || blenders[0];
+    // HARD SAFETY RULE: When queue is manually started in a live session, post-action is ARMED
+    set({ postActionArmed: true });
 
-    const engineJobs: QueueEngineJob[] = eligibleJobs.map((job) => {
-      const bInst = job.blenderOverrideId
-        ? blenders.find((b) => b.id === job.blenderOverrideId) || defaultBlender
-        : defaultBlender;
-      const executable = bInst ? bInst.executable : 'blender';
+    const blenders = get().blenders;
+    const globalBlender = blenders.find((b) => b.id === get().selectedBlenderId) || blenders[0];
+    const isolatedMode = get().isolatedMode;
+    const autoExec = get().autoExec;
+
+    const engineJobs: QueueEngineJob[] = jobs.map((job) => {
+      const b = job.blenderOverrideId
+        ? blenders.find((item) => item.id === job.blenderOverrideId) || globalBlender
+        : globalBlender;
+      const executable = b ? b.executable : 'blender';
 
       const scene = job.scenes.find((s) => s.name === job.selectedScene);
       const sceneDefaults = {
@@ -489,14 +658,10 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
         step: scene?.frameStep ?? 1,
       };
 
-      const resolved = resolveFrameRange(
-        job.rangeConfig || { mode: 'scene_default' },
-        sceneDefaults,
-      );
-      const frames = resolved.frames.length > 0 ? resolved.frames : [sceneDefaults.start];
+      const resolved = resolveFrameRange(job.rangeConfig, sceneDefaults);
+      const frames = resolved.frames;
 
-      // Compute directory from pattern
-      const outputPattern = job.outputPathPattern;
+      const outputPattern = job.outputPreview;
       const baseDir = job.filePath.replace(/[/\\][^/\\]+$/, '');
       const outputDir = outputPattern.startsWith('//')
         ? outputPattern.replace(/^\/\//, `${baseDir}/`).replace(/[/\\][^/\\]+$/, '')
@@ -563,14 +728,193 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
     }
   },
 
+  setPostAction: (action: PostAction) => {
+    set({ postAction: action });
+    get().autoSaveState();
+  },
+
+  startPostActionCountdown: () => {
+    if (postActionInterval) clearInterval(postActionInterval);
+    set({ showPostActionModal: true, postActionCountdown: 60 });
+
+    postActionInterval = setInterval(() => {
+      const current = get().postActionCountdown;
+      if (current === null || current <= 1) {
+        if (postActionInterval) {
+          clearInterval(postActionInterval);
+          postActionInterval = null;
+        }
+        set({ postActionCountdown: 0, showPostActionModal: false });
+        get().executePostActionImmediately();
+      } else {
+        set({ postActionCountdown: current - 1 });
+      }
+    }, 1000);
+  },
+
+  cancelPostActionCountdown: () => {
+    if (postActionInterval) {
+      clearInterval(postActionInterval);
+      postActionInterval = null;
+    }
+    set({ showPostActionModal: false, postActionCountdown: null, postActionArmed: false });
+    get().addLog('Post-queue action countdown cancelled by user.');
+  },
+
+  executePostActionImmediately: async () => {
+    if (postActionInterval) {
+      clearInterval(postActionInterval);
+      postActionInterval = null;
+    }
+    const action = get().postAction;
+    set({ showPostActionModal: false, postActionCountdown: null, postActionArmed: false });
+    if (action !== 'none' && typeof window !== 'undefined' && window.rnApi) {
+      get().addLog(`Executing post-queue action: ${action}`);
+      await window.rnApi.executePostAction(action);
+    }
+  },
+
+  setSoundSettings: (updates: Partial<SoundSettingsState>) => {
+    set((state) => ({ soundSettings: { ...state.soundSettings, ...updates } }));
+    get().autoSaveState();
+  },
+
+  setShowSoundModal: (val: boolean) => set({ showSoundModal: val }),
+  setShowHistoryModal: (val: boolean) => set({ showHistoryModal: val }),
+  setShowScheduleModal: (val: boolean) => set({ showScheduleModal: val }),
+
+  setSchedule: async (config: ScheduleConfigState) => {
+    if (config.enabled && config.blockSleep && typeof window !== 'undefined' && window.rnApi) {
+      const blockId = await window.rnApi.acquireSleepBlock();
+      set({ activeSleepBlockId: blockId });
+    } else if (
+      !config.enabled &&
+      get().activeSleepBlockId !== null &&
+      typeof window !== 'undefined' &&
+      window.rnApi
+    ) {
+      await window.rnApi.releaseSleepBlock(get().activeSleepBlockId!);
+      set({ activeSleepBlockId: null });
+    }
+    set({ scheduleConfig: config });
+    get().addLog(`One-shot schedule set: start queue at ${config.time}`);
+    get().autoSaveState();
+  },
+
+  cancelSchedule: async () => {
+    if (get().activeSleepBlockId !== null && typeof window !== 'undefined' && window.rnApi) {
+      await window.rnApi.releaseSleepBlock(get().activeSleepBlockId!);
+    }
+    set({
+      scheduleConfig: { enabled: false, time: get().scheduleConfig.time, blockSleep: false },
+      activeSleepBlockId: null,
+    });
+    get().addLog('Queue schedule cancelled.');
+    get().autoSaveState();
+  },
+
+  resumeFromCrash: async () => {
+    if (typeof window !== 'undefined' && window.rnApi) {
+      const saved = await window.rnApi.loadSavedQueue();
+      if (saved && saved.jobs && saved.jobs.length > 0) {
+        const restoredJobs = saved.jobs.map(fromPersistedJob);
+        const targetJob = restoredJobs.find((j) => j.status === 'Queued');
+        if (targetJob) {
+          targetJob.renderMissingOnly = true;
+        }
+        set({
+          jobs: restoredJobs,
+          showCrashRestoreBanner: false,
+          isRestoredSession: true,
+          postAction: saved.settings?.postAction || 'none',
+          postActionArmed: false, // HARD SAFETY RULE: disarmed on restore!
+        });
+        get().addLog('Resumed queue from previous session. Post-queue power action disarmed.');
+      } else {
+        set({ showCrashRestoreBanner: false });
+      }
+      await window.rnApi.clearUncleanShutdownLock();
+    }
+  },
+
+  dismissCrashBanner: async () => {
+    set({ showCrashRestoreBanner: false });
+    if (typeof window !== 'undefined' && window.rnApi) {
+      await window.rnApi.clearUncleanShutdownLock();
+    }
+  },
+
+  autoSaveState: async () => {
+    if (typeof window !== 'undefined' && typeof window.rnApi?.saveQueue === 'function') {
+      const { jobs, postAction, soundSettings, scheduleConfig } = get();
+      const persistedState: PersistedQueueState = {
+        version: 1,
+        jobs: jobs.map(toPersistedJob),
+        settings: {
+          concurrentJobs: 1,
+          stopOnFailure: false,
+          closeAppOnCompletion: false,
+          closeAppOnCompletionMode: 'last',
+          soundOnCompletion: !soundSettings.isMuted,
+          soundOnFailure: soundSettings.playOnFailure,
+          powerMode: 'none',
+          pauseOnBattery: false,
+          resumeOnAc: false,
+          maxConcurrentFrames: 1,
+          postAction,
+          sound: {
+            enabled: !soundSettings.isMuted,
+            volume: soundSettings.volume,
+            playOnFailure: soundSettings.playOnFailure,
+          },
+          schedule: scheduleConfig.enabled
+            ? {
+                enabled: true,
+                targetTime: scheduleConfig.time,
+                blockSleepWhileWaiting: scheduleConfig.blockSleep,
+              }
+            : undefined,
+        },
+      };
+      await window.rnApi.saveQueue(persistedState).catch(() => {});
+    }
+  },
+
   initIpcListeners: () => {
     if (typeof window === 'undefined' || !window.rnApi) {
       return () => {};
     }
 
+    // Check unclean shutdown on startup
+    window.rnApi
+      .checkUncleanShutdown()
+      .then(({ isUnclean }) => {
+        if (isUnclean) {
+          set({ showCrashRestoreBanner: true });
+        }
+      })
+      .catch(() => {});
+
+    // Scheduler tick check
+    if (scheduleCheckInterval) clearInterval(scheduleCheckInterval);
+    scheduleCheckInterval = setInterval(() => {
+      const { scheduleConfig, queueState, startQueue } = get();
+      if (scheduleConfig.enabled && scheduleConfig.time && queueState === 'idle') {
+        const now = new Date();
+        const currentHHMM = `${String(now.getHours()).padStart(2, '0')}:${String(
+          now.getMinutes(),
+        ).padStart(2, '0')}`;
+        if (currentHHMM === scheduleConfig.time) {
+          get().setSchedule({ enabled: false, time: scheduleConfig.time, blockSleep: false });
+          startQueue();
+        }
+      }
+    }, 1000);
+
     const unsub = window.rnApi.onQueueEvent((event) => {
       switch (event.type) {
-        case 'queue:state':
+        case 'queue:state': {
+          const prevState = get().queueState;
           set({
             queueState: event.state,
             activeJobId: event.activeJobId || null,
@@ -579,7 +923,15 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
             clearInterval(timerInterval);
             timerInterval = null;
           }
+          // Graceful queue completion check for post-queue action
+          if (prevState === 'running' && event.state === 'idle') {
+            const { postAction, postActionArmed } = get();
+            if (postAction !== 'none' && postActionArmed) {
+              get().startPostActionCountdown();
+            }
+          }
           break;
+        }
 
         case 'job:start': {
           get().updateJob(event.jobId, {
@@ -599,8 +951,16 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
           set((state) => ({
             monitorStats: {
               ...state.monitorStats,
-              sampleCurrent: event.sampleCurrent ?? state.monitorStats.sampleCurrent,
-              sampleTotal: event.sampleTotal ?? state.monitorStats.sampleTotal,
+              currentFrame:
+                event.frame !== undefined ? event.frame : state.monitorStats.currentFrame,
+              sampleCurrent:
+                event.sampleCurrent !== undefined
+                  ? event.sampleCurrent
+                  : state.monitorStats.sampleCurrent,
+              sampleTotal:
+                event.sampleTotal !== undefined
+                  ? event.sampleTotal
+                  : state.monitorStats.sampleTotal,
               peakMemory: event.peakMemory ?? state.monitorStats.peakMemory,
               etaSeconds:
                 event.etaSeconds !== undefined ? event.etaSeconds : state.monitorStats.etaSeconds,
@@ -614,7 +974,6 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
             monitorStats: {
               ...state.monitorStats,
               currentFrame: event.frame,
-              totalFrames: event.totalFrames,
               overallProgress:
                 event.totalFrames > 0
                   ? Math.round((event.frameIndex / event.totalFrames) * 100)
@@ -712,6 +1071,10 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
                 : 'completed successfully.'
             }`,
           );
+
+          // Play finish sound "to-DUNG"
+          const { soundSettings } = get();
+          playTodungSound(soundSettings.volume / 100, soundSettings.isMuted);
           break;
         }
 
@@ -728,11 +1091,31 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
             failedFrames: failures,
           });
           get().addLog(`Job ${event.jobId} failed: ${event.error}`);
+
+          // Play finish sound if playOnFailure is enabled
+          const { soundSettings } = get();
+          if (soundSettings.playOnFailure) {
+            playTodungSound(soundSettings.volume / 100, soundSettings.isMuted);
+          }
           break;
         }
       }
     });
 
-    return unsub;
+    return () => {
+      unsub();
+      if (scheduleCheckInterval) {
+        clearInterval(scheduleCheckInterval);
+        scheduleCheckInterval = null;
+      }
+      if (postActionInterval) {
+        clearInterval(postActionInterval);
+        postActionInterval = null;
+      }
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+    };
   },
 }));
