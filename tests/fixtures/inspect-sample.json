@@ -29,7 +29,7 @@
           ]
         },
         "filepath": {
-          "value": "//render/output_####.png",
+          "value": "//render/{project}/{scene}_{camera}_####.png",
           "type": "STRING",
           "name": "File Path"
         }
