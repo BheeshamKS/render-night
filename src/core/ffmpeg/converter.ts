@@ -51,7 +51,7 @@ export function buildFfmpegArgs(options: StitchOptions): string[] {
     filters.push(`scale=${options.resolution.width}:${options.resolution.height}`);
   } else if (options.outputFormat.startsWith('mp4')) {
     // For H.264/H.265 ensure dimensions are divisible by 2
-    filters.push('scale=trunc(iw/2)*2:trunc(ih/2)*2');
+    filters.push('pad=ceil(iw/2)*2:ceil(ih/2)*2');
   }
 
   if (filters.length > 0) {
