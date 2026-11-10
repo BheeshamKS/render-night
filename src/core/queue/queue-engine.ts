@@ -1,14 +1,17 @@
+import { formatActualDevice, type HistoryStore } from '../history';
 import type { SessionLockManager } from '../persistence/session-lock';
 import type { SleepBlockerManager } from '../power/sleep-blocker';
 import { filterMissingFrames } from '../ranges/missing-frames';
 import { sampleGpuUtilization } from '../render/gpu-monitor';
 import { killProcessTree } from '../render/process-killer';
 import { parseStdoutLine } from '../render/stdout-parser';
+import type { HistoryEntry } from '../schemas/history';
 import type { CrashConfig, CrashPolicy, RunnerPayload } from '../schemas/override';
 import type { FailedFrame } from '../schemas/queue-state';
 import type { DeviceReport, OverridesReport } from '../schemas/runner-event';
 
 import { spawn, type ChildProcess } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -48,6 +51,7 @@ export interface QueueEngineOptions {
   runnerScriptPath?: string;
   sleepBlocker?: SleepBlockerManager;
   sessionLock?: SessionLockManager;
+  historyStore?: HistoryStore;
 }
 
 const ERROR_KEYWORD_REGEX = /(?:Error|Traceback|CUDA error|out of memory|Segmentation fault)/i;
@@ -233,11 +237,34 @@ export class QueueEngine extends EventEmitter {
         });
       }
       if (missingFrames.length === 0) {
+        const historyEntry: HistoryEntry = {
+          id: randomUUID(),
+          jobId: job.id,
+          filePath: job.blendPath,
+          fileName: path.basename(job.blendPath),
+          project: path.basename(path.dirname(job.blendPath)),
+          scene: job.scene ?? 'Scene',
+          camera: job.camera ?? 'Camera',
+          frameCount: existingFrames.length,
+          totalTimeSeconds: 0,
+          averageFrameTimeSeconds: 0,
+          engine: 'CYCLES',
+          device: formatActualDevice(undefined, job.devicePreferences),
+          result: 'completed',
+          failedFrames: [],
+          outputPath: job.outputDir,
+          timestamp: Date.now(),
+        };
+        this.emit('job:history', historyEntry);
+        if (this.options.historyStore) {
+          await this.options.historyStore.appendEntry(historyEntry).catch(() => {});
+        }
         this.emit('job:done', {
           jobId: job.id,
           completedFrames: existingFrames.length,
           failedFrames: 0,
           durationSeconds: 0,
+          historyEntry,
         });
         return;
       }
@@ -277,6 +304,11 @@ export class QueueEngine extends EventEmitter {
     const recentFrameDurations: number[] = [];
     const ROLLING_WINDOW_SIZE = 10;
     const jobStartTime = Date.now();
+
+    let currentJobScene: string | undefined = job.scene;
+    let currentJobCamera: string | undefined = job.camera;
+    let currentJobEngine: string | undefined = undefined;
+    let currentJobDeviceReport: DeviceReport | undefined = undefined;
 
     // 4. Execution loop (resumes by relaunching Blender with remaining frames if crash occurs)
     while (remainingFrames.length > 0 && !this.stopRequested) {
@@ -388,6 +420,9 @@ export class QueueEngine extends EventEmitter {
               if (parsed.kind === 'event' && parsed.event) {
                 const ev = parsed.event;
                 if (ev.type === 'job_start') {
+                  currentJobScene = ev.scene || currentJobScene;
+                  currentJobCamera = ev.camera || currentJobCamera;
+                  currentJobEngine = ev.engine || currentJobEngine;
                   this.emit('job:start', {
                     jobId: job.id,
                     totalFrames: ev.totalFrames,
@@ -397,6 +432,7 @@ export class QueueEngine extends EventEmitter {
                     engine: ev.engine,
                   });
                 } else if (ev.type === 'device_report') {
+                  currentJobDeviceReport = ev as DeviceReport;
                   this.emit('device:report', { jobId: job.id, report: ev as DeviceReport });
                 } else if (ev.type === 'overrides_report') {
                   this.emit('overrides:report', { jobId: job.id, report: ev as OverridesReport });
@@ -587,11 +623,43 @@ export class QueueEngine extends EventEmitter {
             isErrorKeyword: true,
             timestamp: Date.now(),
           });
+          const durationSeconds = (Date.now() - jobStartTime) / 1000;
+          const avgFrameTime =
+            recentFrameDurations.length > 0
+              ? recentFrameDurations.reduce((a, b) => a + b, 0) / recentFrameDurations.length
+              : completedFramesSet.size > 0
+                ? durationSeconds / completedFramesSet.size
+                : 0;
+
+          const historyEntry: HistoryEntry = {
+            id: randomUUID(),
+            jobId: job.id,
+            filePath: job.blendPath,
+            fileName: path.basename(job.blendPath),
+            project: path.basename(path.dirname(job.blendPath)),
+            scene: currentJobScene ?? job.scene ?? 'Scene',
+            camera: currentJobCamera ?? job.camera ?? 'Camera',
+            frameCount: completedFramesSet.size,
+            totalTimeSeconds: Math.round(durationSeconds * 100) / 100,
+            averageFrameTimeSeconds: Math.round(avgFrameTime * 100) / 100,
+            engine: currentJobEngine ?? 'CYCLES',
+            device: formatActualDevice(currentJobDeviceReport, job.devicePreferences),
+            result: 'failed',
+            failedFrames: failedFramesList.map((f) => f.frame),
+            outputPath: job.outputDir,
+            timestamp: Date.now(),
+          };
+          this.emit('job:history', historyEntry);
+          if (this.options.historyStore) {
+            await this.options.historyStore.appendEntry(historyEntry).catch(() => {});
+          }
+
           this.emit('job:failed', {
             jobId: job.id,
             error: `Exceeded maximum consecutive crashes (${crashPolicy.maxConsecutiveCrashes})`,
             failedFrames: failedFramesList,
             stderrTail,
+            historyEntry,
           });
           logStream.end();
           return; // Fails this job, but queue continues to next job!
@@ -602,12 +670,49 @@ export class QueueEngine extends EventEmitter {
     logStream.end();
 
     const durationSeconds = (Date.now() - jobStartTime) / 1000;
+    const avgFrameTime =
+      recentFrameDurations.length > 0
+        ? recentFrameDurations.reduce((a, b) => a + b, 0) / recentFrameDurations.length
+        : completedFramesSet.size > 0
+          ? durationSeconds / completedFramesSet.size
+          : 0;
+
+    const historyResult = this.stopRequested
+      ? 'canceled'
+      : failedFramesList.length > 0 && completedFramesSet.size === 0
+        ? 'failed'
+        : 'completed';
+
+    const historyEntry: HistoryEntry = {
+      id: randomUUID(),
+      jobId: job.id,
+      filePath: job.blendPath,
+      fileName: path.basename(job.blendPath),
+      project: path.basename(path.dirname(job.blendPath)),
+      scene: currentJobScene ?? job.scene ?? 'Scene',
+      camera: currentJobCamera ?? job.camera ?? 'Camera',
+      frameCount: completedFramesSet.size,
+      totalTimeSeconds: Math.round(durationSeconds * 100) / 100,
+      averageFrameTimeSeconds: Math.round(avgFrameTime * 100) / 100,
+      engine: currentJobEngine ?? 'CYCLES',
+      device: formatActualDevice(currentJobDeviceReport, job.devicePreferences),
+      result: historyResult,
+      failedFrames: failedFramesList.map((f) => f.frame),
+      outputPath: job.outputDir,
+      timestamp: Date.now(),
+    };
+    this.emit('job:history', historyEntry);
+    if (this.options.historyStore) {
+      await this.options.historyStore.appendEntry(historyEntry).catch(() => {});
+    }
+
     this.emit('job:done', {
       jobId: job.id,
       completedFrames: completedFramesSet.size,
       failedFrames: failedFramesList.length,
       durationSeconds: Math.round(durationSeconds * 100) / 100,
       failedFramesList,
+      historyEntry,
     });
   }
 
