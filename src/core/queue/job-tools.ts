@@ -3,7 +3,16 @@ import type { InspectScene } from '../schemas/inspect';
 import type { CrashPolicy, OverrideMap } from '../schemas/override';
 import type { FrameRangeConfig } from '../schemas/queue-state';
 
-import { randomUUID } from 'node:crypto';
+function generateUuid(): string {
+  if (typeof globalThis !== 'undefined' && globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
 
 export interface JobToolsTarget {
   id: string;
@@ -42,7 +51,7 @@ export interface JobToolsTarget {
  * Duplicate a job, generating a fresh ID and resetting all runtime progress/logs.
  */
 export function duplicateJob<T extends JobToolsTarget>(job: T): T {
-  const newId = randomUUID();
+  const newId = generateUuid();
   return {
     ...job,
     id: newId,

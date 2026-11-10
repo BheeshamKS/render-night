@@ -271,4 +271,8 @@ export class PreflightChecker {
       jobReports,
     };
   }
+
+  checkAll(jobs: PreflightJobInput[], options: PreflightOptions = {}): PreflightReport {
+    return this.checkAllJobs(jobs, options);
+  }
 }

@@ -9,12 +9,14 @@ import { BlenderNumberField, CollapsiblePanel, PanelRow, SegmentedEnumToggle } f
 
 import React from 'react';
 
+import { ShieldAlert } from 'lucide-react';
+
 export interface RenderPropertiesTabProps {
   job: QueueJob;
 }
 
 export const RenderPropertiesTab: React.FC<RenderPropertiesTabProps> = ({ job }) => {
-  const { setJobOverride, resetJobOverride } = useQueueStore();
+  const { setJobOverride, resetJobOverride, setJobPreRenderHook } = useQueueStore();
 
   const currentScene = job.scenes.find((s) => s.name === job.selectedScene) || job.scenes[0];
   const activeEngine = getActiveEngine(job);
@@ -503,6 +505,31 @@ export const RenderPropertiesTab: React.FC<RenderPropertiesTabProps> = ({ job })
             onChange={(val) => gammaProp.setValue(val)}
           />
         </PanelRow>
+      </CollapsiblePanel>
+
+      {/* 5. Pre-Render Python Hook (Advanced & Trusted Code Only) */}
+      <CollapsiblePanel
+        title="Pre-Render Python Hook"
+        overrideCount={job.preRenderHook ? 1 : 0}
+        onResetAll={() => setJobPreRenderHook(job.id, '')}
+      >
+        <div className="space-y-2 p-2">
+          <div className="flex items-center space-x-1.5 text-[11px] text-yellow-400 font-medium">
+            <ShieldAlert className="h-3.5 w-3.5 text-yellow-400 flex-shrink-0" />
+            <span>Advanced: Trusted Code Only</span>
+          </div>
+          <p className="text-[11px] text-rn-muted leading-tight">
+            Executes Python code in Blender memory after overrides and before rendering frames.
+            Enter Python code or an absolute path to a .py script.
+          </p>
+          <textarea
+            value={job.preRenderHook || ''}
+            onChange={(e) => setJobPreRenderHook(job.id, e.target.value)}
+            placeholder="# e.g. bpy.context.scene.render.resolution_x = 1920"
+            rows={4}
+            className="w-full rounded border border-rn-border bg-rn-input p-2 font-mono text-xs text-rn-text placeholder-rn-muted/40 focus:border-rn-accent focus:outline-none"
+          />
+        </div>
       </CollapsiblePanel>
     </div>
   );

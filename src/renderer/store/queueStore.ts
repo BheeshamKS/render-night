@@ -19,6 +19,7 @@ import type { GpuStatus } from '../../core/render/gpu-monitor';
 import { previewTokens } from '../../core/render/token-expander';
 import type { InspectOutput, InspectScene } from '../../core/schemas/inspect';
 import type { CrashPolicy, OverrideMap } from '../../core/schemas/override';
+import type { PreflightIssue, PreflightReport } from '../../core/schemas/preflight';
 import type { Preset } from '../../core/schemas/preset';
 import type {
   FailedFrame,
@@ -134,6 +135,9 @@ interface QueueStoreState {
   showSoundModal: boolean;
   showHistoryModal: boolean;
   showScheduleModal: boolean;
+  showPreflightModal: boolean;
+  preflightReport: PreflightReport | null;
+  preflightTargetJobId: string | null;
 
   // Overrides & Presets
   copiedOverrides: OverrideMap | null;
@@ -191,6 +195,11 @@ interface QueueStoreState {
   setShowSoundModal: (val: boolean) => void;
   setShowHistoryModal: (val: boolean) => void;
   setShowScheduleModal: (val: boolean) => void;
+  setShowPreflightModal: (val: boolean) => void;
+  runPreflightCheck: (targetJobId?: string) => Promise<PreflightReport>;
+  startQueueWithPreflight: () => Promise<void>;
+  closePreflightModal: () => void;
+  applyQuickFix: (issue: PreflightIssue) => Promise<void>;
   setSchedule: (config: ScheduleConfigState) => Promise<void>;
   cancelSchedule: () => Promise<void>;
   resumeFromCrash: () => Promise<void>;
@@ -378,6 +387,9 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
   showSoundModal: false,
   showHistoryModal: false,
   showScheduleModal: false,
+  showPreflightModal: false,
+  preflightReport: null,
+  preflightTargetJobId: null,
 
   // Overrides & Presets
   copiedOverrides: null,
@@ -1107,6 +1119,104 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
     if (typeof window !== 'undefined' && window.rnApi) {
       await window.rnApi.clearUncleanShutdownLock();
     }
+  },
+
+  setShowPreflightModal: (val: boolean) => set({ showPreflightModal: val }),
+
+  runPreflightCheck: async (targetJobId?: string): Promise<PreflightReport> => {
+    const { jobs, blenders, selectedBlenderId } = get();
+    const globalBlender = blenders.find((b) => b.id === selectedBlenderId) || blenders[0];
+    const candidateJobs = targetJobId
+      ? jobs.filter((j) => j.id === targetJobId)
+      : jobs.filter((j) => j.enabled && j.status !== 'Completed');
+
+    const jobsInput = candidateJobs.map((j) => ({
+      id: j.id,
+      fileName: j.fileName,
+      filePath: j.filePath,
+      selectedScene: j.selectedScene,
+      selectedCamera: j.selectedCamera,
+      scenes: j.scenes,
+      availableCameras: j.availableCameras,
+      outputPathPattern: j.outputPathPattern,
+      outputPreview: j.outputPreview,
+      rangeConfig: j.rangeConfig,
+      overrides: j.overrides,
+      savedWithVersion: j.savedWithVersion,
+      inspectData: j.inspectData,
+      deviceReport: j.deviceReport
+        ? {
+            requestedGpu: j.deviceReport.requestedGpu,
+            engine: j.deviceReport.engine,
+          }
+        : undefined,
+    }));
+
+    const options = {
+      selectedBlender: globalBlender
+        ? {
+            version: globalBlender.version,
+            executable: Array.isArray(globalBlender.executable)
+              ? globalBlender.executable[0]
+              : globalBlender.executable,
+          }
+        : undefined,
+    };
+
+    let report: PreflightReport;
+    if (typeof window !== 'undefined' && window.rnApi?.runPreflight) {
+      report = await window.rnApi.runPreflight(jobsInput, options);
+    } else {
+      const modulePath = '../../core/preflight';
+      const { PreflightChecker } = await import(/* @vite-ignore */ modulePath);
+      const checker = new PreflightChecker();
+      report = checker.checkAll(jobsInput, options);
+    }
+
+    set({ preflightReport: report, preflightTargetJobId: targetJobId ?? null });
+    return report;
+  },
+
+  startQueueWithPreflight: async () => {
+    const report = await get().runPreflightCheck();
+    if (report.hasErrors || report.hasWarnings) {
+      set({ showPreflightModal: true, preflightTargetJobId: null });
+      return;
+    }
+    await get().startQueue();
+  },
+
+  closePreflightModal: () => {
+    set({ showPreflightModal: false, preflightTargetJobId: null });
+  },
+
+  applyQuickFix: async (issue: PreflightIssue) => {
+    if (!issue.quickFix) return;
+    const { action } = issue.quickFix;
+    const job = get().jobs.find((j) => j.id === issue.jobId);
+    if (!job) return;
+
+    if (action === 'switch_range_to_continuous') {
+      const currentScene = job.scenes.find((s) => s.name === job.selectedScene);
+      const start = currentScene?.frameStart ?? 1;
+      const end = currentScene?.frameEnd ?? 250;
+      get().updateJob(job.id, {
+        rangeConfig: {
+          mode: 'simple',
+          simple: { start, end, step: 1 },
+        },
+      });
+      get().addLog(
+        `Quick Fix: Switched frame range for "${job.fileName}" to continuous (${start}-${end}).`,
+      );
+    } else if (action === 'switch_to_cpu') {
+      get().setJobOverride(job.id, 'scene.cycles.device', 'CPU');
+      get().addLog(`Quick Fix: Switched compute device for "${job.fileName}" to CPU.`);
+    }
+
+    // Live refresh preflight report
+    const updated = await get().runPreflightCheck(get().preflightTargetJobId || undefined);
+    set({ preflightReport: updated });
   },
 
   autoSaveState: async () => {

@@ -2,11 +2,13 @@ import type { BlenderInstallation } from '../core/blender/discovery';
 import type { BlendHeaderInfo } from '../core/blender/header-reader';
 import type { InspectOptions } from '../core/blender/inspector';
 import type { HistoryFilter } from '../core/history';
+import type { PreflightJobInput, PreflightOptions } from '../core/preflight';
 import type { ImportPresetsResult, SavePresetInput } from '../core/presets';
 import type { QueueEngineJob, QueueState } from '../core/queue/queue-engine';
 import type { GpuStatus } from '../core/render/gpu-monitor';
 import type { HistoryEntry } from '../core/schemas/history';
 import type { InspectOutput } from '../core/schemas/inspect';
+import type { PreflightReport } from '../core/schemas/preflight';
 import type { Preset } from '../core/schemas/preset';
 import type { FailedFrame, PersistedQueueState, PostAction } from '../core/schemas/queue-state';
 import type { DeviceReport, OverridesReport } from '../core/schemas/runner-event';
@@ -106,6 +108,7 @@ export interface RenderNightApi {
   getQueueState(): Promise<{ state: QueueState; activeJobId?: string }>;
   sampleGpu(): Promise<GpuStatus>;
   openLogsFolder(jobId?: string): Promise<void>;
+  runPreflight(jobs: PreflightJobInput[], options?: PreflightOptions): Promise<PreflightReport>;
   onQueueEvent(listener: (event: QueueIpcEvent) => void): () => void;
 
   // Persistence & Crash Restore

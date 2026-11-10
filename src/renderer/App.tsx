@@ -4,6 +4,7 @@ import { DropZone } from './components/DropZone';
 import { HistoryModal } from './components/HistoryModal';
 import { MonitorDock } from './components/MonitorDock';
 import { PostActionCountdownModal } from './components/PostActionCountdownModal';
+import { PreflightModal } from './components/PreflightModal';
 import { ScheduleModal } from './components/ScheduleModal';
 import { SoundSettingsModal } from './components/SoundSettingsModal';
 import { Toolbar } from './components/Toolbar';
@@ -40,6 +41,7 @@ export default function App() {
       <HistoryModal />
       <ScheduleModal />
       <CopyPasteOverridesModal />
+      <PreflightModal />
     </div>
   );
 }

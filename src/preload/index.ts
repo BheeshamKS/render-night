@@ -75,6 +75,10 @@ const api: RenderNightApi = {
     return ipcRenderer.invoke('queue:openLogsFolder', jobId);
   },
 
+  runPreflight: (jobs, options) => {
+    return ipcRenderer.invoke('queue:preflight', jobs, options);
+  },
+
   onQueueEvent: (listener: (event: QueueIpcEvent) => void): (() => void) => {
     const handler = (_event: Electron.IpcRendererEvent, payload: QueueIpcEvent) => {
       listener(payload);

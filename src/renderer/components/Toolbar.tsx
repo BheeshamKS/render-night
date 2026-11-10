@@ -29,7 +29,7 @@ export const Toolbar: React.FC = () => {
     addFiles,
     queueState,
     activeJobId,
-    startQueue,
+    startQueueWithPreflight,
     pauseQueue,
     resumeQueue,
     stopQueue,
@@ -236,10 +236,10 @@ export const Toolbar: React.FC = () => {
 
         {/* Start Button */}
         <button
-          onClick={startQueue}
+          onClick={startQueueWithPreflight}
           disabled={!hasEligibleJobs || isBusy}
           className="flex items-center space-x-1 rounded bg-rn-subpanel px-2.5 py-1 text-xs font-medium text-rn-text hover:bg-rn-accent hover:text-white transition disabled:opacity-40 disabled:cursor-not-allowed"
-          title="Start queue execution"
+          title="Start queue execution (runs pre-flight check)"
         >
           <Play className="h-3 w-3 fill-current" />
           <span>Start</span>

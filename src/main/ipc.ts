@@ -6,6 +6,7 @@ import { QueuePersistence } from '../core/persistence/queue-persistence';
 import { SessionLockManager } from '../core/persistence/session-lock';
 import { executeOsPostAction } from '../core/post-actions/post-action-executor';
 import { type PowerSaveBlockerDriver, SleepBlockerManager } from '../core/power/sleep-blocker';
+import { PreflightChecker, type PreflightJobInput, type PreflightOptions } from '../core/preflight';
 import { PresetStore, type SavePresetInput } from '../core/presets';
 import { QueueEngine, type QueueEngineJob } from '../core/queue/queue-engine';
 import type { PersistedQueueState, PostAction } from '../core/schemas/queue-state';
@@ -197,6 +198,14 @@ export function registerIpcHandlers(mainWindowProvider: () => BrowserWindow | nu
     const target = jobId ? path.join(logsDir, jobId) : logsDir;
     await shell.openPath(target);
   });
+
+  ipcMain.handle(
+    'queue:preflight',
+    async (_event, jobs: PreflightJobInput[], options?: PreflightOptions) => {
+      const checker = new PreflightChecker();
+      return checker.checkAll(jobs, options);
+    },
+  );
 
   // 4. Persistence & Crash Restore handlers
   ipcMain.handle('persistence:checkUncleanShutdown', async () => {

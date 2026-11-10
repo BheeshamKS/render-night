@@ -7,15 +7,20 @@ import React, { useState } from 'react';
 import {
   AlertCircle,
   AlertTriangle,
+  Camera,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
   Clock,
+  Copy,
   Cpu,
+  ExternalLink,
   FolderOpen,
   HardDrive,
+  Layers,
   Loader2,
   RotateCcw,
+  ShieldCheck,
   Sliders,
   Terminal,
   Trash2,
@@ -28,7 +33,19 @@ interface JobCardProps {
 }
 
 export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
-  const { blenders, updateJob, removeJob, moveJob, retryFailedFrames } = useQueueStore();
+  const {
+    blenders,
+    updateJob,
+    removeJob,
+    moveJob,
+    retryFailedFrames,
+    duplicateJob,
+    expandAllCameras,
+    expandAllScenes,
+    openInBlender,
+    runPreflightCheck,
+    setShowPreflightModal,
+  } = useQueueStore();
   const [showConsole, setShowConsole] = useState(false);
   const [showAdvancedDrawer, setShowAdvancedDrawer] = useState(false);
   const [showErrorDetails, setShowErrorDetails] = useState(false);
@@ -600,6 +617,76 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
           <span className="font-mono text-rn-accent truncate" title={job.outputPreview}>
             {job.outputPreview}
           </span>
+        </div>
+      </div>
+
+      {/* Job Tools Toolbar */}
+      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-1.5 border-t border-rn-border/50 pt-2 text-xs">
+        <div className="flex items-center space-x-1.5">
+          {/* Preflight Check Button */}
+          <button
+            onClick={async () => {
+              await runPreflightCheck(job.id);
+              setShowPreflightModal(true);
+            }}
+            className="flex items-center space-x-1 rounded bg-rn-subpanel px-2 py-0.5 text-[11px] text-rn-text hover:bg-rn-accent hover:text-white transition"
+            title="Run pre-flight validation on this job"
+          >
+            <ShieldCheck className="h-3 w-3 text-rn-accent" />
+            <span>Pre-flight</span>
+          </button>
+
+          {/* Duplicate Job */}
+          <button
+            onClick={() => duplicateJob(job.id)}
+            className="flex items-center space-x-1 rounded bg-rn-subpanel px-2 py-0.5 text-[11px] text-rn-muted hover:text-rn-text transition"
+            title="Duplicate job"
+          >
+            <Copy className="h-3 w-3" />
+            <span>Duplicate</span>
+          </button>
+
+          {/* Render All Cameras */}
+          <button
+            onClick={() => expandAllCameras(job.id)}
+            disabled={job.availableCameras.length <= 1}
+            className="flex items-center space-x-1 rounded bg-rn-subpanel px-2 py-0.5 text-[11px] text-rn-muted hover:text-rn-text transition disabled:opacity-30 disabled:cursor-not-allowed"
+            title={
+              job.availableCameras.length > 1
+                ? `Expand into ${job.availableCameras.length} separate jobs (one per camera)`
+                : 'Only 1 camera available'
+            }
+          >
+            <Camera className="h-3 w-3" />
+            <span>All Cameras ({job.availableCameras.length})</span>
+          </button>
+
+          {/* Render All Scenes */}
+          <button
+            onClick={() => expandAllScenes(job.id)}
+            disabled={job.scenes.length <= 1}
+            className="flex items-center space-x-1 rounded bg-rn-subpanel px-2 py-0.5 text-[11px] text-rn-muted hover:text-rn-text transition disabled:opacity-30 disabled:cursor-not-allowed"
+            title={
+              job.scenes.length > 1
+                ? `Expand into ${job.scenes.length} separate jobs (one per scene)`
+                : 'Only 1 scene available'
+            }
+          >
+            <Layers className="h-3 w-3" />
+            <span>All Scenes ({job.scenes.length})</span>
+          </button>
+        </div>
+
+        <div>
+          {/* Open in Blender GUI */}
+          <button
+            onClick={() => openInBlender(job.id)}
+            className="flex items-center space-x-1 rounded bg-rn-subpanel px-2 py-0.5 text-[11px] text-rn-muted hover:text-rn-accent hover:bg-rn-subpanel/80 transition"
+            title="Open this file in Blender GUI (runs separately from queue)"
+          >
+            <ExternalLink className="h-3 w-3" />
+            <span>Open in Blender</span>
+          </button>
         </div>
       </div>
 
