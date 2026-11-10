@@ -1,145 +1,107 @@
 import { z } from 'zod';
 
 /**
- * Schema for a single render device reported by Blender's Cycles/EEVEE device enum.
+ * An item in an RNA enum property (e.g. engine, file format, view transform).
  */
-export const deviceSchema = z.object({
+export const rnaEnumItemSchema = z.object({
+  identifier: z.string(),
   name: z.string(),
-  type: z.string(),
-  use: z.boolean(),
+  description: z.string().optional(),
 });
 
-export type Device = z.infer<typeof deviceSchema>;
+export type RnaEnumItem = z.infer<typeof rnaEnumItemSchema>;
 
 /**
- * Schema for a scene entry inside an inspected .blend file.
+ * RNA property metadata introspected from Blender bpy.types.
  */
-export const sceneSchema = z.object({
+export const rnaPropertyMetaSchema = z.object({
+  value: z.unknown(),
+  type: z.string().optional(),
+  name: z.string().optional(),
+  description: z.string().optional(),
+  default: z.unknown().optional(),
+  min: z.number().optional(),
+  max: z.number().optional(),
+  enumItems: z.array(rnaEnumItemSchema).optional(),
+});
+
+export type RnaPropertyMeta = z.infer<typeof rnaPropertyMetaSchema>;
+
+/**
+ * A dictionary of property name -> RNA property metadata.
+ */
+export const rnaStructSchema = z.record(z.string(), rnaPropertyMetaSchema);
+
+export type RnaStruct = z.infer<typeof rnaStructSchema>;
+
+/**
+ * A single scene in the .blend file.
+ */
+export const inspectSceneSchema = z.object({
   name: z.string(),
+  activeCamera: z.string().nullable().optional(),
+  cameras: z.array(z.string()).default([]),
+  viewLayers: z.array(z.string()).default([]),
   frameStart: z.number(),
   frameEnd: z.number(),
-  frameStep: z.number(),
+  frameStep: z.number().default(1),
+  fps: z.number().default(24),
+  fpsBase: z.number().default(1),
   resolutionX: z.number(),
   resolutionY: z.number(),
-  resolutionPercentage: z.number(),
-  useFilmTransparent: z.boolean(),
-  useSimplify: z.boolean(),
-  simplifySubdivision: z.number(),
-  simplifyRenderSamples: z.number(),
+  resolutionPercentage: z.number().default(100),
+  render: rnaStructSchema.default({}),
+  imageSettings: rnaStructSchema.default({}),
+  ffmpeg: rnaStructSchema.default({}),
+  cycles: rnaStructSchema.default({}),
+  eevee: rnaStructSchema.default({}),
+  viewSettings: rnaStructSchema.default({}),
+  displaySettings: rnaStructSchema.default({}),
 });
 
-export type Scene = z.infer<typeof sceneSchema>;
+export type InspectScene = z.infer<typeof inspectSceneSchema>;
 
 /**
- * Schema for the render-image settings block.
+ * Missing external file path reported by Blender inspector.
  */
-export const imageSettingsSchema = z.object({
-  fileFormat: z.string(),
-  colorMode: z.string(),
-  quality: z.number(),
-  codec: z.string(),
-  compression: z.number(),
-  outputDir: z.string(),
-  fileName: z.string(),
-  usePreview: z.boolean(),
-  useFileExtension: z.boolean(),
-  isFloat: z.boolean(),
-  viewAsRender: z.boolean(),
+export const missingFileSchema = z.object({
+  path: z.string(),
+  type: z.enum(['image', 'library', 'sound']),
+  datablock: z.string().optional(),
 });
 
-export type ImageSettings = z.infer<typeof imageSettingsSchema>;
+export type MissingFile = z.infer<typeof missingFileSchema>;
 
 /**
- * Schema for the view/display settings block.
+ * Render compute device available to Cycles.
  */
-export const viewSettingsSchema = z.object({
-  viewTransform: z.string(),
-  look: z.string(),
-  exposure: z.number(),
-  gamma: z.number(),
-  useFalseColor: z.boolean(),
-  displayDevice: z.string(),
-  lookBlend: z.string(),
-  useStereo3d: z.boolean(),
+export const cyclesDeviceSchema = z.object({
+  id: z.string().optional(),
+  name: z.string(),
+  type: z.string(),
+  use: z.boolean().default(true),
 });
 
-export type ViewSettings = z.infer<typeof viewSettingsSchema>;
+export type CyclesDevice = z.infer<typeof cyclesDeviceSchema>;
 
 /**
- * Schema for Cycles-specific render settings.
- */
-export const cyclesSettingsSchema = z.object({
-  device: z.string(),
-  samples: z.number(),
-  useDenoising: z.boolean(),
-  denoiser: z.string(),
-  useAdaptiveSampling: z.boolean(),
-  adaptiveThreshold: z.number(),
-  adaptiveMinSamples: z.number(),
-  maxBounces: z.number(),
-  diffuseBounces: z.number(),
-  glossyBounces: z.number(),
-  transmissionBounces: z.number(),
-  transparentMaxBounces: z.number(),
-  causticsReflective: z.boolean(),
-  causticsRefractive: z.boolean(),
-  blurGlossy: z.string(),
-  fastGI: z.boolean(),
-  usePersistentData: z.boolean(),
-  tiling: z.object({
-    enabled: z.boolean(),
-    size: z.number(),
-  }),
-});
-
-export type CyclesSettings = z.infer<typeof cyclesSettingsSchema>;
-
-/**
- * Schema for EEVEE-specific render settings.
- */
-export const eeveeSettingsSchema = z.object({
-  taaRenderSamples: z.number(),
-  useGtao: z.boolean(),
-  gtaoDistance: z.number(),
-  gtaoFactor: z.number(),
-  useSsr: z.boolean(),
-  ssrMaxRoughness: z.number(),
-  ssrRayCount: z.number(),
-  ssrSteps: z.number(),
-  useBloom: z.boolean(),
-  bloomIntensity: z.number(),
-  bloomRadius: z.number(),
-  useSoftShadows: z.boolean(),
-  useRaytracing: z.boolean(),
-  shadowRayCount: z.number(),
-  useShadows: z.boolean(),
-});
-
-export type EeveeSettings = z.infer<typeof eeveeSettingsSchema>;
-
-/**
- * Schema for the full output of `inspect_blend.py`.
+ * Full output emitted by inspect_blend.py.
  */
 export const inspectOutputSchema = z.object({
-  schemaVersion: z.number(),
+  schemaVersion: z.number().default(1),
   blenderVersion: z.string(),
+  savedWithVersion: z.string(),
   blendPath: z.string(),
-  blendName: z.string(),
-  scenes: z.array(sceneSchema),
   activeScene: z.string(),
-  imageSettings: imageSettingsSchema,
-  viewSettings: viewSettingsSchema,
-  cyclesSettings: cyclesSettingsSchema.nullable(),
-  eeveeSettings: eeveeSettingsSchema.nullable(),
-  devices: z.array(deviceSchema),
-  engine: z.string(),
-  engineItems: z.array(z.tuple([z.string(), z.string()])),
-  formatItems: z.array(z.tuple([z.string(), z.string()])),
-  codecItems: z.array(z.tuple([z.string(), z.string()])),
-  viewTransformItems: z.array(z.tuple([z.string(), z.string()])),
-  lookItems: z.array(z.tuple([z.string(), z.string()])),
-  deviceItems: z.array(z.tuple([z.string(), z.string()])),
-  engineNextItems: z.array(z.tuple([z.string(), z.string()])).optional(),
+  scenes: z.array(inspectSceneSchema),
+  missingFiles: z.array(missingFileSchema).default([]),
+  cyclesDevices: z.array(cyclesDeviceSchema).default([]),
+  engineItems: z.array(rnaEnumItemSchema).default([]),
+  formatItems: z.array(rnaEnumItemSchema).default([]),
+  codecItems: z.array(rnaEnumItemSchema).default([]),
+  viewTransformItems: z.array(rnaEnumItemSchema).default([]),
+  lookItems: z.array(rnaEnumItemSchema).default([]),
+  deviceItems: z.array(rnaEnumItemSchema).default([]),
 });
 
 export type InspectOutput = z.infer<typeof inspectOutputSchema>;

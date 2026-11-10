@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 1,
+  "blenderVersion": "4.2.0",
+  "savedWithVersion": "4.2.0",
+  "blendPath": "/path/to/test.blend",
+  "activeScene": "Scene",
+  "scenes": [
+    {
+      "name": "Scene",
+      "activeCamera": "Camera",
+      "cameras": ["Camera", "Camera.001"],
+      "viewLayers": ["ViewLayer"],
+      "frameStart": 1,
+      "frameEnd": 250,
+      "frameStep": 1,
+      "fps": 24,
+      "fpsBase": 1.0,
+      "resolutionX": 1920,
+      "resolutionY": 1080,
+      "resolutionPercentage": 100,
+      "render": {
+        "engine": {
+          "value": "CYCLES",
+          "type": "ENUM",
+          "name": "Engine",
+          "enumItems": [
+            { "identifier": "CYCLES", "name": "Cycles" },
+            { "identifier": "BLENDER_EEVEE_NEXT", "name": "EEVEE" }
+          ]
+        },
+        "filepath": {
+          "value": "//render/output_####.png",
+          "type": "STRING",
+          "name": "File Path"
+        }
+      },
+      "imageSettings": {
+        "file_format": {
+          "value": "PNG",
+          "type": "ENUM",
+          "name": "File Format",
+          "enumItems": [
+            { "identifier": "PNG", "name": "PNG" },
+            { "identifier": "OPEN_EXR", "name": "OpenEXR" }
+          ]
+        },
+        "color_mode": {
+          "value": "RGBA",
+          "type": "ENUM",
+          "name": "Color Mode"
+        }
+      },
+      "ffmpeg": {},
+      "cycles": {
+        "device": {
+          "value": "GPU",
+          "type": "ENUM",
+          "name": "Device",
+          "enumItems": [
+            { "identifier": "CPU", "name": "CPU" },
+            { "identifier": "GPU", "name": "GPU Compute" }
+          ]
+        },
+        "samples": {
+          "value": 128,
+          "type": "INT",
+          "name": "Samples",
+          "min": 1,
+          "max": 100000
+        }
+      },
+      "eevee": {},
+      "viewSettings": {
+        "view_transform": {
+          "value": "AgX",
+          "type": "ENUM",
+          "name": "View Transform",
+          "enumItems": [
+            { "identifier": "Standard", "name": "Standard" },
+            { "identifier": "AgX", "name": "AgX" }
+          ]
+        }
+      },
+      "displaySettings": {
+        "display_device": {
+          "value": "sRGB",
+          "type": "ENUM",
+          "name": "Display Device"
+        }
+      }
+    }
+  ],
+  "missingFiles": [
+    {
+      "path": "/textures/missing.png",
+      "type": "image",
+      "datablock": "Texture_Diffuse"
+    }
+  ],
+  "cyclesDevices": [
+    {
+      "id": "CUDA_NVIDIA_GeForce_RTX_4090",
+      "name": "NVIDIA GeForce RTX 4090",
+      "type": "CUDA",
+      "use": true
+    }
+  ],
+  "engineItems": [
+    { "identifier": "CYCLES", "name": "Cycles" },
+    { "identifier": "BLENDER_EEVEE_NEXT", "name": "EEVEE" }
+  ],
+  "formatItems": [
+    { "identifier": "PNG", "name": "PNG" },
+    { "identifier": "OPEN_EXR", "name": "OpenEXR" }
+  ],
+  "codecItems": [],
+  "viewTransformItems": [
+    { "identifier": "Standard", "name": "Standard" },
+    { "identifier": "AgX", "name": "AgX" }
+  ],
+  "lookItems": [
+    { "identifier": "None", "name": "None" }
+  ],
+  "deviceItems": [
+    { "identifier": "CPU", "name": "CPU" },
+    { "identifier": "GPU", "name": "GPU Compute" }
+  ]
+}
