@@ -15,6 +15,7 @@ import {
   Copy,
   Cpu,
   ExternalLink,
+  Film,
   FolderOpen,
   HardDrive,
   Layers,
@@ -45,6 +46,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
     openInBlender,
     runPreflightCheck,
     setShowPreflightModal,
+    setActiveTab,
   } = useQueueStore();
   const [showConsole, setShowConsole] = useState(false);
   const [showAdvancedDrawer, setShowAdvancedDrawer] = useState(false);
@@ -618,6 +620,21 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
             {job.outputPreview}
           </span>
         </div>
+
+        {/* Stitch to MP4 when finished option (Image formats only) */}
+        {!job.isVideo && (
+          <div className="flex items-center space-x-2 pt-1.5 text-xs">
+            <label className="flex items-center space-x-1.5 cursor-pointer text-rn-muted hover:text-rn-text">
+              <input
+                type="checkbox"
+                checked={job.stitchToMp4 || false}
+                onChange={(e) => updateJob(job.id, { stitchToMp4: e.target.checked })}
+                className="rounded border-rn-border bg-rn-input text-rn-accent focus:ring-0 focus:ring-offset-0"
+              />
+              <span>Stitch to MP4 when finished</span>
+            </label>
+          </div>
+        )}
       </div>
 
       {/* Job Tools Toolbar */}
@@ -677,7 +694,21 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
           </button>
         </div>
 
-        <div>
+        <div className="flex items-center space-x-1.5">
+          {/* View Sequence in Viewer (Completed image jobs) */}
+          {job.status === 'Completed' && !job.isVideo && (
+            <button
+              onClick={() => {
+                setActiveTab('sequences');
+              }}
+              className="flex items-center space-x-1 rounded bg-rn-accent/20 border border-rn-accent/40 px-2 py-0.5 text-[11px] text-rn-accent hover:bg-rn-accent hover:text-white transition"
+              title="Open Sequence Viewer for this job's rendered frames"
+            >
+              <Film className="h-3 w-3" />
+              <span>View Sequence</span>
+            </button>
+          )}
+
           {/* Open in Blender GUI */}
           <button
             onClick={() => openInBlender(job.id)}
