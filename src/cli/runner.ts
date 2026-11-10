@@ -29,6 +29,7 @@ export interface CliRunOptions {
   dryRun?: boolean;
   runnerScriptPath?: string;
   skipCountdownForTesting?: boolean;
+  baseDir?: string;
 }
 
 export interface CliRunResult {
@@ -217,7 +218,7 @@ export async function runCliQueue(options: CliRunOptions): Promise<CliRunResult>
   }
 
   // 8. Prepare Queue Execution
-  const baseDir = path.join(os.homedir(), '.render-night');
+  const baseDir = options.baseDir || path.join(os.homedir(), '.render-night');
   const logsDir = path.join(baseDir, 'logs');
   const runtimeDir = path.join(baseDir, 'runtime');
   const historyDir = path.join(baseDir, 'history');
@@ -277,7 +278,9 @@ export async function runCliQueue(options: CliRunOptions): Promise<CliRunResult>
     );
 
     // Check stitch post-step
-    const jobInput = parsedQueue.jobs.find((_, idx) => `job-${idx + 1}` === ev.jobId);
+    const jobInput = parsedQueue.jobs.find((j, idx) =>
+      j.id ? j.id === ev.jobId : ev.jobId.startsWith(`job-${idx + 1}`),
+    );
     if (jobInput?.stitchToMp4) {
       console.log('Stitching sequence to MP4...');
       executeJobPostStepStitch({
