@@ -11,6 +11,7 @@
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
+    "cli": "tsx src/cli/index.ts",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "test": "vitest run",
@@ -66,6 +67,7 @@
     "jsdom": "^25.0.0",
     "prettier": "^3.3.3",
     "tailwindcss": "^3.4.13",
+    "tsx": "^4.23.15",
     "typescript": "^5.6.3",
     "typescript-eslint": "^8.72.2",
     "vite": "^5.4.10",
