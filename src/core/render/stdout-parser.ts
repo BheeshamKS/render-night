@@ -3,6 +3,7 @@ import { RN_EVENT_PREFIX, runnerEventSchema, type RunnerEvent } from '../schemas
 export interface StdoutProgress {
   frame?: number;
   memory?: string;
+  peakMemory?: string;
   time?: string;
   remaining?: string;
   samples?: {
@@ -34,6 +35,7 @@ export class StdoutParseError extends Error {
 
 const FRA_RE = /Fra:(\d+)/;
 const MEM_RE = /Mem:([0-9.]+[KkMmGgTt]?[Bb]?)/;
+const PEAK_RE = /(?:\(Peak\s*|Peak:)([0-9.]+[KkMmGgTt]?[Bb]?)/i;
 const TIME_RE = /Time:([0-9:.]+)/;
 const REM_RE = /Remaining:([0-9:.]+)/;
 const SAMPLES_RE1 = /Rendered\s*(\d+)\/(\d+)\s*Samples/i;
@@ -81,14 +83,16 @@ export function parseStdoutLine(line: string, _ctx: StdoutContext = {}): ParsedL
   // 3. Native progress line (Fra:, Mem:, Time:, Remaining:, Sample x/y)
   const fraMatch = trimmed.match(FRA_RE);
   const memMatch = trimmed.match(MEM_RE);
+  const peakMatch = trimmed.match(PEAK_RE);
   const timeMatch = trimmed.match(TIME_RE);
   const remMatch = trimmed.match(REM_RE);
   const samplesMatch = trimmed.match(SAMPLES_RE1) || trimmed.match(SAMPLES_RE2);
 
-  if (fraMatch || memMatch || timeMatch || remMatch || samplesMatch) {
+  if (fraMatch || memMatch || peakMatch || timeMatch || remMatch || samplesMatch) {
     const progress: StdoutProgress = {};
     if (fraMatch) progress.frame = Number.parseInt(fraMatch[1], 10);
     if (memMatch) progress.memory = memMatch[1];
+    if (peakMatch) progress.peakMemory = peakMatch[1];
     if (timeMatch) progress.time = timeMatch[1];
     if (remMatch) progress.remaining = remMatch[1];
     if (samplesMatch) {

@@ -18,6 +18,7 @@ describe('Stdout Parser', () => {
     expect(result.progress).toEqual({
       frame: 1,
       memory: '24.50M',
+      peakMemory: '25.10M',
       time: '00:00.52',
       remaining: '00:05.12',
       samples: { current: 32, total: 128 },
@@ -42,6 +43,29 @@ describe('Stdout Parser', () => {
     const result2 = parseStdoutLine(line2);
     expect(result2.kind).toBe('saved');
     expect(result2.savedPath).toBe('/path/to/render_0002.png');
+  });
+
+  it('parses real recorded Blender 4.2 Cycles OptiX output sample', () => {
+    const line =
+      'Fra:10 Mem:312.45M (Peak 450.80M) | Time:00:03.45 | Remaining:00:15.20 | Mem:280.10M, Peak:350.20M | Scene, ViewLayer | Rendered 512/512 Samples';
+    const result = parseStdoutLine(line);
+    expect(result.kind).toBe('progress');
+    expect(result.progress?.frame).toBe(10);
+    expect(result.progress?.memory).toBe('312.45M');
+    expect(result.progress?.peakMemory).toBe('450.80M');
+    expect(result.progress?.time).toBe('00:03.45');
+    expect(result.progress?.remaining).toBe('00:15.20');
+    expect(result.progress?.samples).toEqual({ current: 512, total: 512 });
+  });
+
+  it('parses real recorded Blender 4.2 EEVEE-Next output sample', () => {
+    const line = 'Fra:25 Mem:124.50M (Peak 180.20M) | Time:00:00.35 | Syncing Scene';
+    const result = parseStdoutLine(line);
+    expect(result.kind).toBe('progress');
+    expect(result.progress?.frame).toBe(25);
+    expect(result.progress?.memory).toBe('124.50M');
+    expect(result.progress?.peakMemory).toBe('180.20M');
+    expect(result.progress?.time).toBe('00:00.35');
   });
 
   it('passes regular text as kind text', () => {
