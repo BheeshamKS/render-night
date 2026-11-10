@@ -86,3 +86,18 @@ export const defaultCommandRunner: ActionCommandRunner = (command, args) => {
     });
   });
 };
+
+export async function executeOsPostAction(
+  action: PostAction,
+  platform: NodeJS.Platform = process.platform,
+  runner: ActionCommandRunner = defaultCommandRunner,
+): Promise<{ success: boolean; error?: string }> {
+  const cmd = getOsCommandForAction(action, platform);
+  if (!cmd) return { success: true };
+  try {
+    await runner(cmd.command, cmd.args);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: (err as Error).message };
+  }
+}

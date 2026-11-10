@@ -1,15 +1,34 @@
 import { discoverAllBlenders, validateCustomBlender } from '../core/blender/discovery';
 import { readBlendHeader } from '../core/blender/header-reader';
 import { inspectBlend, type InspectOptions } from '../core/blender/inspector';
+import { HistoryStore, type HistoryFilter } from '../core/history';
+import { QueuePersistence } from '../core/persistence/queue-persistence';
+import { SessionLockManager } from '../core/persistence/session-lock';
+import { executeOsPostAction } from '../core/post-actions/post-action-executor';
 import { type PowerSaveBlockerDriver, SleepBlockerManager } from '../core/power/sleep-blocker';
 import { QueueEngine, type QueueEngineJob } from '../core/queue/queue-engine';
+import type { PersistedQueueState, PostAction } from '../core/schemas/queue-state';
 
 import { app, dialog, ipcMain, powerSaveBlocker, shell, type BrowserWindow } from 'electron';
 
 import * as path from 'node:path';
 
+let globalQueueEngine: QueueEngine | null = null;
+
+export function isQueueActive(): boolean {
+  if (!globalQueueEngine) return false;
+  const state = globalQueueEngine.getState();
+  return state === 'running' || state === 'paused';
+}
+
+export async function stopQueueCleanly(): Promise<void> {
+  if (globalQueueEngine) {
+    await globalQueueEngine.stop();
+  }
+}
+
 export function registerIpcHandlers(mainWindowProvider: () => BrowserWindow | null): void {
-  // 1. Sleep Blocker & Queue Engine initialization
+  // 1. Sleep Blocker, Session Lock, History Store & Persistence
   const electronSleepDriver: PowerSaveBlockerDriver = {
     start: (type) => powerSaveBlocker.start(type),
     stop: (id) => powerSaveBlocker.stop(id),
@@ -17,8 +36,20 @@ export function registerIpcHandlers(mainWindowProvider: () => BrowserWindow | nu
   };
   const sleepBlocker = new SleepBlockerManager(electronSleepDriver);
 
-  const logsDir = path.join(app.getPath('userData'), 'logs');
-  const runtimeDir = path.join(app.getPath('userData'), 'runtime');
+  const userDataDir = app.getPath('userData');
+  const logsDir = path.join(userDataDir, 'logs');
+  const runtimeDir = path.join(userDataDir, 'runtime');
+  const locksDir = path.join(userDataDir, 'locks');
+  const historyDir = path.join(userDataDir, 'history');
+
+  const sessionLock = new SessionLockManager(locksDir);
+
+  const persistence = new QueuePersistence(path.join(userDataDir, 'state'), 'queue-state.json');
+
+  const historyStore = new HistoryStore({
+    historyDir,
+  });
+
   const runnerScriptPath = app.isPackaged
     ? path.join(process.resourcesPath, 'python', 'render_runner.py')
     : path.resolve(__dirname, '../../resources/python/render_runner.py');
@@ -28,7 +59,10 @@ export function registerIpcHandlers(mainWindowProvider: () => BrowserWindow | nu
     runtimeDir,
     runnerScriptPath,
     sleepBlocker,
+    sessionLock,
+    historyStore,
   });
+  globalQueueEngine = queueEngine;
 
   const sendEvent = (eventPayload: unknown) => {
     const win = mainWindowProvider();
@@ -69,6 +103,9 @@ export function registerIpcHandlers(mainWindowProvider: () => BrowserWindow | nu
   });
   queueEngine.on('job:failed', (data) => {
     sendEvent({ type: 'job:failed', ...data });
+  });
+  queueEngine.on('job:history', (entry) => {
+    sendEvent({ type: 'job:history', entry });
   });
 
   // 2. Blender discovery & inspection handlers
@@ -135,7 +172,70 @@ export function registerIpcHandlers(mainWindowProvider: () => BrowserWindow | nu
     await shell.openPath(target);
   });
 
-  // 4. Dialog & shell handlers
+  // 4. Persistence & Crash Restore handlers
+  ipcMain.handle('persistence:checkUncleanShutdown', async () => {
+    const { isUnclean, lockData } = await sessionLock.checkUncleanShutdown();
+    let orphanedPids: number[] = [];
+    if (isUnclean && lockData?.workerPids && lockData.workerPids.length > 0) {
+      orphanedPids = await sessionLock.cleanupOrphanedPids(lockData.workerPids);
+    }
+    await sessionLock.acquireLock();
+    return { isUnclean, orphanedPids };
+  });
+
+  ipcMain.handle('persistence:loadSavedQueue', async () => {
+    return persistence.load();
+  });
+
+  ipcMain.handle('persistence:saveQueue', async (_event, state: PersistedQueueState) => {
+    await persistence.save(state);
+  });
+
+  ipcMain.handle('persistence:clearLock', async () => {
+    await sessionLock.releaseLock();
+  });
+
+  // 5. Post-Action & OS Power execution
+  ipcMain.handle('postAction:execute', async (_event, action: PostAction) => {
+    if (action === 'close_app') {
+      app.quit();
+      return { success: true };
+    }
+    return executeOsPostAction(action, process.platform);
+  });
+
+  // 6. Sound handler
+  ipcMain.handle('sound:getSoundPath', async () => {
+    return app.isPackaged
+      ? path.join(process.resourcesPath, 'sounds', 'todung.wav')
+      : path.resolve(__dirname, '../../resources/sounds/todung.wav');
+  });
+
+  // 7. History handlers
+  ipcMain.handle('history:getEntries', async (_event, filter?: HistoryFilter) => {
+    return historyStore.getEntries(filter);
+  });
+
+  ipcMain.handle('history:deleteEntry', async (_event, id: string) => {
+    return historyStore.deleteEntry(id);
+  });
+
+  ipcMain.handle('history:clear', async () => {
+    await historyStore.clear();
+  });
+
+  // 8. Sleep Blocker for Scheduling
+  ipcMain.handle('power:acquireSleepBlock', async () => {
+    return powerSaveBlocker.start('prevent-app-suspension');
+  });
+
+  ipcMain.handle('power:releaseSleepBlock', async (_event, id: number) => {
+    if (powerSaveBlocker.isStarted(id)) {
+      powerSaveBlocker.stop(id);
+    }
+  });
+
+  // 9. Dialog & shell handlers
   ipcMain.handle('dialog:openBlendFiles', async () => {
     const win = mainWindowProvider();
     const result = win

@@ -129,3 +129,4 @@ export const queueStateSchema = z.object({
 });
 
 export type QueueState = z.infer<typeof queueStateSchema>;
+export type PersistedQueueState = QueueState;

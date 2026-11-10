@@ -1,11 +1,12 @@
-import { registerIpcHandlers } from './ipc';
+import { isQueueActive, registerIpcHandlers, stopQueueCleanly } from './ipc';
 
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, dialog } from 'electron';
 
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 let mainWindow: BrowserWindow | null = null;
+let isQuitting = false;
 
 function getPreloadPath(): string {
   const mjsPath = join(__dirname, '../preload/index.mjs');
@@ -26,11 +27,37 @@ function createWindow(): BrowserWindow {
     webPreferences: {
       preload: getPreloadPath(),
       sandbox: false,
+      backgroundThrottling: false,
     },
   });
 
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show();
+  });
+
+  mainWindow.on('close', async (e) => {
+    if (isQuitting) return;
+
+    if (isQueueActive()) {
+      e.preventDefault();
+      const choice = dialog.showMessageBoxSync(mainWindow!, {
+        type: 'question',
+        buttons: ['Cancel', 'Stop render and quit'],
+        defaultId: 1,
+        cancelId: 0,
+        title: 'Render Night',
+        message: 'Stop render and quit?',
+        detail:
+          'A render is currently in progress. Quitting will cleanly stop Blender and save the queue state so you can resume it later.',
+      });
+
+      if (choice === 1) {
+        isQuitting = true;
+        await stopQueueCleanly();
+        mainWindow?.destroy();
+        app.quit();
+      }
+    }
   });
 
   mainWindow.on('closed', () => {

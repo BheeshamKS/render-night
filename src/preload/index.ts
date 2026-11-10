@@ -80,6 +80,50 @@ const api: RenderNightApi = {
       ipcRenderer.removeListener('queue:event', handler);
     };
   },
+
+  checkUncleanShutdown: () => {
+    return ipcRenderer.invoke('persistence:checkUncleanShutdown');
+  },
+
+  loadSavedQueue: () => {
+    return ipcRenderer.invoke('persistence:loadSavedQueue');
+  },
+
+  saveQueue: (state) => {
+    return ipcRenderer.invoke('persistence:saveQueue', state);
+  },
+
+  clearUncleanShutdownLock: () => {
+    return ipcRenderer.invoke('persistence:clearLock');
+  },
+
+  executePostAction: (action) => {
+    return ipcRenderer.invoke('postAction:execute', action);
+  },
+
+  getSoundPath: () => {
+    return ipcRenderer.invoke('sound:getSoundPath');
+  },
+
+  getHistory: (filter) => {
+    return ipcRenderer.invoke('history:getEntries', filter);
+  },
+
+  deleteHistoryEntry: (id) => {
+    return ipcRenderer.invoke('history:deleteEntry', id);
+  },
+
+  clearHistory: () => {
+    return ipcRenderer.invoke('history:clear');
+  },
+
+  acquireSleepBlock: () => {
+    return ipcRenderer.invoke('power:acquireSleepBlock');
+  },
+
+  releaseSleepBlock: (id) => {
+    return ipcRenderer.invoke('power:releaseSleepBlock', id);
+  },
 };
 
 contextBridge.exposeInMainWorld('rnApi', api);

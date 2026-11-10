@@ -1,10 +1,12 @@
 import type { BlenderInstallation } from '../core/blender/discovery';
 import type { BlendHeaderInfo } from '../core/blender/header-reader';
 import type { InspectOptions } from '../core/blender/inspector';
+import type { HistoryFilter } from '../core/history';
 import type { QueueEngineJob, QueueState } from '../core/queue/queue-engine';
 import type { GpuStatus } from '../core/render/gpu-monitor';
+import type { HistoryEntry } from '../core/schemas/history';
 import type { InspectOutput } from '../core/schemas/inspect';
-import type { FailedFrame } from '../core/schemas/queue-state';
+import type { FailedFrame, PersistedQueueState, PostAction } from '../core/schemas/queue-state';
 import type { DeviceReport, OverridesReport } from '../core/schemas/runner-event';
 
 export type QueueIpcEvent =
@@ -64,6 +66,7 @@ export type QueueIpcEvent =
       failedFrames: number;
       durationSeconds?: number;
       failedFramesList?: FailedFrame[];
+      historyEntry?: HistoryEntry;
     }
   | {
       type: 'job:failed';
@@ -71,6 +74,11 @@ export type QueueIpcEvent =
       error: string;
       stderrTail?: string;
       failedFrames?: FailedFrame[];
+      historyEntry?: HistoryEntry;
+    }
+  | {
+      type: 'job:history';
+      entry: HistoryEntry;
     };
 
 export interface RenderNightApi {
@@ -96,6 +104,27 @@ export interface RenderNightApi {
   sampleGpu(): Promise<GpuStatus>;
   openLogsFolder(jobId?: string): Promise<void>;
   onQueueEvent(listener: (event: QueueIpcEvent) => void): () => void;
+
+  // Persistence & Crash Restore
+  checkUncleanShutdown(): Promise<{ isUnclean: boolean; orphanedPids: number[] }>;
+  loadSavedQueue(): Promise<PersistedQueueState | null>;
+  saveQueue(state: PersistedQueueState): Promise<void>;
+  clearUncleanShutdownLock(): Promise<void>;
+
+  // Post Actions & OS Power
+  executePostAction(action: PostAction): Promise<{ success: boolean; error?: string }>;
+
+  // Sound
+  getSoundPath(): Promise<string>;
+
+  // History
+  getHistory(filter?: HistoryFilter): Promise<HistoryEntry[]>;
+  deleteHistoryEntry(id: string): Promise<boolean>;
+  clearHistory(): Promise<void>;
+
+  // Scheduling & Sleep Blocker
+  acquireSleepBlock(): Promise<number>;
+  releaseSleepBlock(id: number): Promise<void>;
 }
 
 declare global {
