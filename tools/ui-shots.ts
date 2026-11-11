@@ -1,8 +1,92 @@
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
+import * as zlib from 'node:zlib';
 import { _electron as electron } from 'playwright';
 
 const SCREENSHOT_DIR = path.resolve(process.cwd(), 'docs/screenshots');
+
+function crc32(buf: Buffer): number {
+  let c = 0xffffffff;
+  for (let i = 0; i < buf.length; i++) {
+    c ^= buf[i];
+    for (let j = 0; j < 8; j++) {
+      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    }
+  }
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+function makeChunk(type: string, data: Buffer): Buffer {
+  const typeBuf = Buffer.from(type, 'ascii');
+  const lenBuf = Buffer.alloc(4);
+  lenBuf.writeUInt32BE(data.length, 0);
+  const crcInput = Buffer.concat([typeBuf, data]);
+  const crcBuf = Buffer.alloc(4);
+  crcBuf.writeUInt32BE(crc32(crcInput), 0);
+  return Buffer.concat([lenBuf, typeBuf, data, crcBuf]);
+}
+
+function writeSampleRenderPng(outPath: string, frameIndex: number): void {
+  const width = 320;
+  const height = 180;
+  const rowSize = 1 + width * 4;
+  const raw = Buffer.alloc(rowSize * height);
+  const cx = 140 + frameIndex * 6;
+  const cy = 84;
+
+  for (let y = 0; y < height; y++) {
+    const rowOffset = y * rowSize;
+    raw[rowOffset] = 0; // filter none
+    for (let x = 0; x < width; x++) {
+      const px = rowOffset + 1 + x * 4;
+      const dx = x - cx;
+      const dy = y - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const isHorizon = Math.abs(y - 118) < 2;
+      const isGrid = y > 118 && ((x + frameIndex * 4) % 24 === 0 || y % 18 === 0);
+
+      let r = 18 + Math.floor((y / height) * 14);
+      let g = 18 + Math.floor((y / height) * 12);
+      let b = 22 + Math.floor((y / height) * 14);
+
+      if (dist < 42) {
+        const shade = Math.max(0, 1 - dist / 42);
+        r = Math.min(255, Math.floor(40 + shade * 192));
+        g = Math.min(255, Math.floor(24 + shade * 102));
+        b = Math.min(255, Math.floor(14 + shade * 18));
+      } else if (isHorizon) {
+        r = 232;
+        g = 125;
+        b = 13;
+      } else if (isGrid) {
+        r = 46;
+        g = 46;
+        b = 52;
+      }
+
+      raw[px] = r;
+      raw[px + 1] = g;
+      raw[px + 2] = b;
+      raw[px + 3] = 255;
+    }
+  }
+
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8; // bit depth
+  ihdr[9] = 6; // RGBA
+  const compressed = zlib.deflateSync(raw);
+  const sig = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+  const png = Buffer.concat([
+    sig,
+    makeChunk('IHDR', ihdr),
+    makeChunk('IDAT', compressed),
+    makeChunk('IEND', Buffer.alloc(0)),
+  ]);
+  fs.writeFileSync(outPath, png);
+}
 
 const RESOLUTIONS = [
   { width: 1100, height: 700 },
@@ -17,6 +101,33 @@ function loadFixtureInspect() {
 
 async function run() {
   fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
+
+  const fixtureSeqDir = path.join(os.tmpdir(), 'rn-ui-shots-seq');
+  fs.mkdirSync(fixtureSeqDir, { recursive: true });
+  const seqFilePaths: Record<number, string> = {};
+  const seqFrames: number[] = [1, 2, 3, 4, 5, 6];
+  for (const frameNum of seqFrames) {
+    const filePath = path.join(
+      fixtureSeqDir,
+      `Scene_Camera_${String(frameNum).padStart(4, '0')}.png`,
+    );
+    writeSampleRenderPng(filePath, frameNum);
+    seqFilePaths[frameNum] = filePath;
+  }
+  const samplePreviewPath = seqFilePaths[1];
+
+  const idleMonitorStats = {
+    currentFrame: null,
+    totalFrames: null,
+    sampleCurrent: null,
+    sampleTotal: null,
+    elapsedSeconds: 0,
+    etaSeconds: null,
+    peakMemory: null,
+    lastThumbnailPath: null,
+    isExr: false,
+    overallProgress: 0,
+  };
 
   const inspectFixture = loadFixtureInspect();
 
@@ -195,6 +306,19 @@ async function run() {
         ],
         queueState: 'running',
         activeJobId: 'job-1',
+        recentFrameTimes: [4.2, 4.6, 4.1, 3.9, 4.4, 4.0],
+        monitorStats: {
+          currentFrame: 64,
+          totalFrames: 250,
+          sampleCurrent: 128,
+          sampleTotal: 512,
+          elapsedSeconds: 312,
+          etaSeconds: 480,
+          peakMemory: '1420.5M',
+          lastThumbnailPath: samplePreviewPath,
+          isExr: false,
+          overallProgress: 25.6,
+        },
         queueProgress: {
           activeJobId: 'job-1',
           activeJobName: '01_intro_neon.blend',
@@ -214,6 +338,8 @@ async function run() {
         blenders: mockBlenders,
         selectedBlenderId: 'blender-4.2',
         activeTab: 'queue',
+        isDrawerOpen: false,
+        activeSequence: null,
         showPreflightModal: false,
         showPostActionModal: false,
         showCrashRestoreBanner: false,
@@ -263,6 +389,9 @@ async function run() {
           baseJob('job-2', 'light_props.blend', 'Queued'),
         ],
         queueState: 'idle',
+        activeJobId: null,
+        recentFrameTimes: [],
+        monitorStats: idleMonitorStats,
         isMonitorCollapsed: false,
         monitorTab: 'console',
         logs: [
@@ -312,7 +441,7 @@ async function run() {
         selectedJobId: 'job-1',
         isDrawerOpen: true,
         propertiesTab: 'render',
-        propertiesPanelWidth: 440,
+        propertiesPanelWidth: 500,
         showPreflightModal: false,
         showPostActionModal: false,
         showCrashRestoreBanner: false,
@@ -327,6 +456,7 @@ async function run() {
         jobs: [baseJob('job-1', '01_intro_neon.blend', 'Completed')],
         queueState: 'idle',
         activeTab: 'history',
+        isDrawerOpen: false,
         showHistoryModal: false,
         showPreflightModal: false,
         showPostActionModal: false,
@@ -341,11 +471,28 @@ async function run() {
         jobs: [
           {
             ...baseJob('job-1', '01_intro_neon.blend', 'Completed'),
-            outputPreview: '/renders/cyberpunk_city/Scene_Camera_0001.png',
+            completedFrames: 6,
+            totalFrames: 6,
+            outputPreview: samplePreviewPath,
           },
         ],
         queueState: 'idle',
         activeTab: 'sequences',
+        isDrawerOpen: false,
+        activeSequence: {
+          directory: fixtureSeqDir,
+          baseName: 'Scene_Camera_',
+          extension: 'png',
+          pattern: 'Scene_Camera_####.png',
+          padding: 4,
+          startFrame: 1,
+          endFrame: 6,
+          totalFrames: 6,
+          frames: seqFrames,
+          filePaths: seqFilePaths,
+          missingFrames: [],
+          isNativeFormat: true,
+        },
         showPreflightModal: false,
         showPostActionModal: false,
         showCrashRestoreBanner: false,
@@ -362,6 +509,8 @@ async function run() {
         blenders: mockBlenders,
         selectedBlenderId: 'blender-4.2',
         activeTab: 'settings',
+        isDrawerOpen: false,
+        activeSequence: null,
         showSettingsModal: false,
         showPreflightModal: false,
         showPostActionModal: false,
@@ -375,6 +524,8 @@ async function run() {
       getState: () => ({
         jobs: [baseJob('job-1', 'spaceship_exterior.blend', 'Queued')],
         queueState: 'idle',
+        activeTab: 'queue',
+        isDrawerOpen: false,
         showPreflightModal: true,
         showPostActionModal: false,
         showCrashRestoreBanner: false,
@@ -619,7 +770,9 @@ async function run() {
     await app.close();
   }
 
-  console.log('\nAll 36 screenshots captured successfully in docs/screenshots/');
+  console.log(
+    `\nAll ${STATES.length * RESOLUTIONS.length} screenshots captured successfully in docs/screenshots/`,
+  );
 }
 
 run().catch((err) => {

@@ -122,29 +122,29 @@ export const JobEditorDrawer: React.FC<JobEditorDrawerProps> = ({ job, onClose }
   return (
     <div
       ref={drawerRef}
-      style={{ width: `${Math.max(420, propertiesPanelWidth || 440)}px` }}
-      className="absolute top-0 bottom-0 right-0 z-30 flex flex-col border-l border-rn-border bg-[#1c1c1c] shadow-2xl animate-in slide-in-from-right duration-200 select-none"
+      style={{ width: `${Math.max(500, propertiesPanelWidth || 500)}px` }}
+      className="absolute top-0 bottom-0 right-0 z-30 flex flex-col border-l border-rn-border bg-rn-bg shadow-2xl animate-in slide-in-from-right duration-200 select-none"
     >
       {/* ============================================================== */}
       {/* Drawer Header: Filename, Overrides status & Close button       */}
       {/* ============================================================== */}
-      <div className="flex h-12 flex-shrink-0 items-center justify-between border-b border-rn-border bg-[#222222] px-4">
+      <div className="flex h-12 flex-shrink-0 items-center justify-between border-b border-rn-border bg-rn-panel px-4">
         <div className="flex items-center space-x-2.5 min-w-0 pr-2">
           <Sliders className="h-4 w-4 text-rn-accent flex-shrink-0" />
           <div className="flex flex-col min-w-0">
-            <span className="text-xs font-bold text-white truncate" title={job.fileName}>
+            <span className="text-xs font-semibold text-rn-text truncate" title={job.fileName}>
               {job.fileName}
             </span>
             <div className="flex items-center space-x-2 text-[10px]">
               {overrideCount > 0 ? (
                 <>
-                  <span className="font-semibold text-rn-accent">
+                  <span className="font-semibold text-rn-accent tabular-nums">
                     {overrideCount} override{overrideCount === 1 ? '' : 's'} active
                   </span>
                   <button
                     type="button"
                     onClick={() => resetAllJobOverrides(job.id)}
-                    className="flex items-center space-x-1 text-rn-muted hover:text-white transition"
+                    className="flex items-center space-x-1 text-rn-muted hover:text-rn-text transition"
                     title="Reset all settings to original .blend defaults"
                   >
                     <RotateCcw className="h-2.5 w-2.5" />
@@ -152,7 +152,7 @@ export const JobEditorDrawer: React.FC<JobEditorDrawerProps> = ({ job, onClose }
                   </button>
                 </>
               ) : (
-                <span className="text-rn-muted italic">Using file defaults</span>
+                <span className="text-rn-muted">Using file defaults</span>
               )}
             </div>
           </div>
@@ -162,7 +162,7 @@ export const JobEditorDrawer: React.FC<JobEditorDrawerProps> = ({ job, onClose }
         <button
           type="button"
           onClick={onClose}
-          className="flex h-7 w-7 items-center justify-center rounded text-rn-muted hover:bg-rn-subpanel hover:text-white transition"
+          className="flex h-7 w-7 items-center justify-center rounded text-rn-muted hover:bg-rn-subpanel hover:text-rn-text transition"
           title="Close settings drawer (Esc)"
         >
           <X className="h-4 w-4" />
@@ -177,16 +177,16 @@ export const JobEditorDrawer: React.FC<JobEditorDrawerProps> = ({ job, onClose }
       {/* ============================================================== */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
         {job.scenes.length === 0 && (
-          <div className="rounded border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
-            <div className="font-semibold text-amber-300">File not inspected</div>
-            <div className="mt-1 text-[11px] text-amber-300/80">
+          <div className="rounded-lg border border-rn-warning/30 bg-rn-warning/10 p-3 text-xs text-rn-text">
+            <div className="font-semibold text-rn-accent">File not inspected</div>
+            <div className="mt-1 text-[11px] text-rn-muted">
               {job.inspectError ||
                 'Properties could not be loaded because inspection has not completed.'}
             </div>
             <button
               type="button"
               onClick={() => reinspectJob(job.id)}
-              className="mt-2.5 rounded bg-amber-500/20 px-2.5 py-1 text-xs font-medium text-amber-200 hover:bg-amber-500/30 transition flex items-center space-x-1"
+              className="mt-2.5 rounded bg-rn-accent/15 border border-rn-accent/30 px-2.5 py-1 text-xs font-medium text-rn-accent hover:bg-rn-accent hover:text-[#0f0f10] transition flex items-center space-x-1"
             >
               <RefreshCw className="h-3 w-3" />
               <span>Re-inspect File</span>
@@ -291,49 +291,51 @@ export const JobEditorDrawer: React.FC<JobEditorDrawerProps> = ({ job, onClose }
           {/* 4. Resolution */}
           <PanelRow
             label="Resolution"
-            isOverridden={resXProp.isOverridden || resYProp.isOverridden || resPctProp.isOverridden}
+            isOverridden={resXProp.isOverridden || resYProp.isOverridden}
             onReset={() => {
               resXProp.reset();
               resYProp.reset();
-              resPctProp.reset();
             }}
           >
             <div className="flex items-center space-x-1.5">
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <BlenderNumberField
                   value={Number(resXProp.value ?? 1920)}
                   min={1}
                   max={65536}
                   unit="px"
                   isOverridden={resXProp.isOverridden}
-                  onReset={resXProp.reset}
                   onChange={(val) => resXProp.setValue(val)}
                 />
               </div>
-              <span className="text-[11px] text-rn-muted">×</span>
-              <div className="flex-1">
+              <span className="text-[11px] text-rn-muted flex-shrink-0">×</span>
+              <div className="flex-1 min-w-0">
                 <BlenderNumberField
                   value={Number(resYProp.value ?? 1080)}
                   min={1}
                   max={65536}
                   unit="px"
                   isOverridden={resYProp.isOverridden}
-                  onReset={resYProp.reset}
                   onChange={(val) => resYProp.setValue(val)}
                 />
               </div>
-              <div className="w-16">
-                <BlenderNumberField
-                  value={Number(resPctProp.value ?? 100)}
-                  min={1}
-                  max={1000}
-                  unit="%"
-                  isOverridden={resPctProp.isOverridden}
-                  onReset={resPctProp.reset}
-                  onChange={(val) => resPctProp.setValue(val)}
-                />
-              </div>
             </div>
+          </PanelRow>
+
+          {/* 4b. Resolution Scale */}
+          <PanelRow
+            label="Resolution Scale"
+            isOverridden={resPctProp.isOverridden}
+            onReset={resPctProp.reset}
+          >
+            <BlenderNumberField
+              value={Number(resPctProp.value ?? 100)}
+              min={1}
+              max={1000}
+              unit="%"
+              isOverridden={resPctProp.isOverridden}
+              onChange={(val) => resPctProp.setValue(val)}
+            />
           </PanelRow>
 
           {/* 5. Render Engine */}
@@ -346,7 +348,6 @@ export const JobEditorDrawer: React.FC<JobEditorDrawerProps> = ({ job, onClose }
               value={selectedEngineId}
               items={engineItems}
               isOverridden={engineProp.isOverridden}
-              onReset={engineProp.reset}
               onChange={(val) => engineProp.setValue(val)}
             />
           </PanelRow>
@@ -362,7 +363,6 @@ export const JobEditorDrawer: React.FC<JobEditorDrawerProps> = ({ job, onClose }
                 value={String(deviceProp.value ?? 'GPU')}
                 items={deviceItems}
                 isOverridden={deviceProp.isOverridden}
-                onReset={deviceProp.reset}
                 onChange={(val) => deviceProp.setValue(val)}
               />
             </PanelRow>
@@ -381,7 +381,6 @@ export const JobEditorDrawer: React.FC<JobEditorDrawerProps> = ({ job, onClose }
                   min={1}
                   max={65536}
                   isOverridden={cyclesSamplesProp.isOverridden}
-                  onReset={cyclesSamplesProp.reset}
                   onChange={(val) => cyclesSamplesProp.setValue(val)}
                 />
               </PanelRow>
@@ -398,7 +397,6 @@ export const JobEditorDrawer: React.FC<JobEditorDrawerProps> = ({ job, onClose }
                   step={0.005}
                   precision={4}
                   isOverridden={cyclesThresholdProp.isOverridden}
-                  onReset={cyclesThresholdProp.reset}
                   onChange={(val) => cyclesThresholdProp.setValue(val)}
                 />
               </PanelRow>
@@ -414,7 +412,6 @@ export const JobEditorDrawer: React.FC<JobEditorDrawerProps> = ({ job, onClose }
                 min={1}
                 max={4096}
                 isOverridden={eeveeSamplesProp.isOverridden}
-                onReset={eeveeSamplesProp.reset}
                 onChange={(val) => eeveeSamplesProp.setValue(val)}
               />
             </PanelRow>
@@ -430,7 +427,6 @@ export const JobEditorDrawer: React.FC<JobEditorDrawerProps> = ({ job, onClose }
               value={String(fileFormatProp.value ?? 'PNG')}
               items={formatItems}
               isOverridden={fileFormatProp.isOverridden}
-              onReset={fileFormatProp.reset}
               onChange={(val) => fileFormatProp.setValue(val)}
             />
           </PanelRow>
@@ -440,8 +436,8 @@ export const JobEditorDrawer: React.FC<JobEditorDrawerProps> = ({ job, onClose }
         {/* Section 2: ALL SETTINGS (Collapsible, collapsed by default)  */}
         {/* ============================================================ */}
         <div className="pt-2 border-t border-rn-border/60">
-          <span className="text-[11px] font-semibold text-rn-muted uppercase tracking-wider block mb-2 px-1">
-            All Settings & Power-User Controls
+          <span className="text-[11px] font-medium text-rn-muted block mb-2 px-1">
+            All Settings
           </span>
 
           <div className="space-y-2">

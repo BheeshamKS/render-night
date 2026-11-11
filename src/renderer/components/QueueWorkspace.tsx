@@ -5,7 +5,7 @@ import { JobEditorDrawer } from './drawer/JobEditorDrawer';
 
 import React from 'react';
 
-import { CheckCircle2, FolderDown, Plus, Sparkles, UploadCloud } from 'lucide-react';
+import { CheckCircle2, FolderDown, Plus, UploadCloud } from 'lucide-react';
 
 export const QueueWorkspace: React.FC = () => {
   const {
@@ -83,36 +83,36 @@ export const QueueWorkspace: React.FC = () => {
         </div>
       )}
 
-      {/* When Queue is Empty: Rich Blender-Styled Empty State */}
+      {/* When Queue is Empty */}
       {jobs.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center p-8 select-none text-center">
-          <div className="flex max-w-lg flex-col items-center rounded-xl border border-rn-border bg-rn-panel p-8 shadow-2xl">
+          <div className="flex max-w-md w-full flex-col items-center rounded-xl border border-rn-border bg-rn-panel p-8 shadow-xl">
             {/* Drop Target Icon */}
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-rn-subpanel border border-rn-border text-rn-accent mb-4 shadow-inner">
-              <FolderDown className="h-8 w-8 stroke-[1.5]" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rn-subpanel border border-rn-border text-rn-muted mb-4">
+              <FolderDown className="h-6 w-6 stroke-[1.5]" />
             </div>
 
-            <h2 className="text-base font-bold text-white tracking-tight">
+            <h2 className="text-base font-semibold text-rn-text tracking-tight">
               Drop .blend files here
             </h2>
-            <p className="mt-1 text-xs text-rn-muted max-w-sm">
-              Drag and drop Blender files directly into the window, or browse to add shots to the
-              overnight queue.
+            <p className="mt-1.5 text-xs text-rn-muted max-w-sm leading-relaxed">
+              Drag and drop Blender files directly into the window, or browse to add shots to your
+              render queue.
             </p>
 
             {/* Primary Action Button */}
             <button
               type="button"
               onClick={handleBrowseFiles}
-              className="mt-4 flex h-8 items-center space-x-2 rounded bg-rn-accent px-4 text-xs font-semibold text-white shadow transition hover:brightness-110 active:brightness-95"
+              className="mt-5 flex h-8 items-center space-x-2 rounded-lg bg-[#ededed] px-4 text-xs font-semibold text-[#141415] shadow-sm transition hover:bg-white active:opacity-90"
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-4 w-4 stroke-[2]" />
               <span>Browse .blend Files</span>
             </button>
 
             {/* Detected Blender Versions List */}
-            <div className="mt-6 w-full border-t border-rn-border/60 pt-4">
-              <span className="text-[11px] font-semibold text-rn-muted uppercase tracking-wider block mb-2">
+            <div className="mt-6 w-full border-t border-rn-border/70 pt-4">
+              <span className="text-[11px] font-medium text-rn-muted block mb-2.5">
                 Detected Blender Installations
               </span>
 
@@ -125,10 +125,10 @@ export const QueueWorkspace: React.FC = () => {
                         key={b.id}
                         type="button"
                         onClick={() => setSelectedBlenderId(b.id)}
-                        className={`flex items-center space-x-1.5 rounded border px-2.5 py-1 text-xs transition ${
+                        className={`flex items-center space-x-1.5 rounded-md border px-2.5 py-1 text-xs transition ${
                           isSelected
-                            ? 'border-rn-accent bg-rn-accent/20 text-rn-accent font-semibold'
-                            : 'border-rn-border bg-rn-input text-rn-muted hover:border-rn-muted hover:text-rn-text'
+                            ? 'border-rn-accent/60 bg-rn-accent/15 text-rn-accent font-medium'
+                            : 'border-rn-border bg-rn-input text-rn-muted hover:border-rn-muted/70 hover:text-rn-text'
                         }`}
                         title={b.displayPath}
                       >
@@ -149,25 +149,14 @@ export const QueueWorkspace: React.FC = () => {
                 </p>
               )}
             </div>
-
-            {/* Preset Pro-Tip */}
-            <div className="mt-5 flex items-center space-x-2 rounded border border-rn-accent/20 bg-rn-accent/5 px-3 py-1.5 text-left text-[11px] text-rn-muted">
-              <Sparkles className="h-3.5 w-3.5 text-rn-accent flex-shrink-0" />
-              <span>
-                <strong className="text-rn-text font-medium">Pro-Tip:</strong> Configure overrides
-                once on any job and save as a{' '}
-                <strong className="text-rn-text font-medium">Preset</strong> to batch-apply across
-                all shots.
-              </span>
-            </div>
           </div>
         </div>
       ) : (
         /* Full-Width Queue Workspace with Slide-Over Drawer on demand */
         <div className="relative flex flex-1 flex-col overflow-hidden">
           {/* Queue Sub-Header Status Strip */}
-          <div className="flex h-7 flex-shrink-0 items-center justify-between border-b border-rn-border bg-[#1a1a1a] px-3 text-[11px] text-rn-muted select-none">
-            <div className="flex items-center space-x-2">
+          <div className="flex h-7 flex-shrink-0 items-center justify-between border-b border-rn-border bg-rn-panel px-3 text-[11px] text-rn-muted select-none">
+            <div className="flex items-center space-x-2 tabular-nums">
               <span className="font-semibold text-rn-text">
                 {jobs.length} job{jobs.length === 1 ? '' : 's'}
               </span>

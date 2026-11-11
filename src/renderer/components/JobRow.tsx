@@ -9,6 +9,7 @@ import {
   Clock,
   Copy,
   ExternalLink,
+  Film,
   FolderOpen,
   GripVertical,
   Layers,
@@ -47,6 +48,7 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
     copiedOverrides,
     openJobDrawer,
     reinspectJob,
+    loadSequenceFromPath,
   } = useQueueStore();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -91,9 +93,9 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
       case 'Inspecting':
         return {
           label: 'Inspecting',
-          className: 'bg-blue-900/80 text-blue-200 animate-pulse',
+          className: 'bg-rn-subpanel text-rn-muted border border-rn-border font-medium',
           icon: Loader2,
-          iconClass: 'animate-spin',
+          iconClass: 'animate-spin text-rn-accent',
         };
       case 'Rendering': {
         const pct =
@@ -102,7 +104,8 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
             : 0;
         return {
           label: `Rendering ${pct}%`,
-          className: 'bg-[#92400e] text-amber-100 font-bold',
+          className:
+            'bg-rn-accent/15 text-rn-accent border border-rn-accent/30 font-medium tabular-nums',
           icon: Loader2,
           iconClass: 'animate-spin',
         };
@@ -110,21 +113,21 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
       case 'Completed':
         return {
           label: 'Done',
-          className: 'bg-[#14532d] text-emerald-200 font-semibold',
+          className: 'bg-rn-success/15 text-rn-success border border-rn-success/25 font-medium',
           icon: CheckCircle2,
           iconClass: '',
         };
       case 'Failed':
         return {
           label: 'Failed',
-          className: 'bg-[#7f1d1d] text-rose-200 font-bold',
+          className: 'bg-rn-error/15 text-rn-error border border-rn-error/25 font-medium',
           icon: XCircle,
           iconClass: '',
         };
       case 'Skipped':
         return {
           label: 'Skipped',
-          className: 'bg-[#262626] text-neutral-400',
+          className: 'bg-rn-subpanel text-rn-muted font-normal',
           icon: Clock,
           iconClass: '',
         };
@@ -132,7 +135,7 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
       default:
         return {
           label: 'Queued',
-          className: 'bg-[#2d2d2d] text-neutral-300 font-medium',
+          className: 'bg-rn-subpanel text-rn-text/80 border border-rn-border/70 font-medium',
           icon: Clock,
           iconClass: '',
         };
@@ -214,17 +217,28 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
       ? Math.min(100, Math.round((job.completedFrames / job.totalFrames) * 100))
       : 0;
 
+  const canPreview = job.status === 'Completed' || (job.completedFrames ?? 0) > 0;
+
+  const handlePreview = async () => {
+    let target = job.outputPreview || job.outputPathPattern;
+    if (target.startsWith('//') && job.filePath) {
+      const baseDir = job.filePath.replace(/[/\\][^/\\]+$/, '');
+      target = target.replace(/^\/\//, `${baseDir}/`);
+    }
+    await loadSequenceFromPath(target);
+  };
+
   return (
     <div
       onClick={handleRowClick}
       onDoubleClick={handleDoubleClick}
       onContextMenu={handleContextMenu}
-      className={`group relative flex h-14 w-full flex-col justify-center border-b border-rn-border/80 px-3 py-1.5 transition-colors select-none ${
+      className={`group relative flex h-14 w-full flex-col justify-center border-b border-rn-border/70 px-3 py-1.5 transition-colors select-none ${
         isPrimarySelected
-          ? 'bg-rn-panel ring-1 ring-inset ring-rn-accent/60'
+          ? 'bg-rn-subpanel ring-1 ring-inset ring-rn-accent/70'
           : isSelected
-            ? 'bg-rn-panel/70'
-            : 'hover:bg-rn-subpanel/50 bg-[#1e1e1e]'
+            ? 'bg-rn-panel'
+            : 'hover:bg-rn-panel/80 bg-rn-bg'
       } ${!job.enabled ? 'opacity-50' : ''}`}
     >
       {/* ============================================================== */}
@@ -245,13 +259,13 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
             type="checkbox"
             checked={job.enabled}
             onChange={(e) => updateJob(job.id, { enabled: e.target.checked })}
-            className="h-3.5 w-3.5 rounded border-rn-border bg-rn-input text-rn-accent focus:ring-0 cursor-pointer flex-shrink-0"
+            className="h-3.5 w-3.5 rounded border-rn-border bg-rn-input accent-rn-accent focus:ring-0 cursor-pointer flex-shrink-0"
             title={job.enabled ? 'Job enabled for render' : 'Job skipped'}
           />
 
           {/* Filename in Bold (takes all remaining width) */}
           <span
-            className="text-xs font-bold text-white truncate min-w-0 flex-1 hover:text-rn-accent transition-colors cursor-pointer"
+            className="text-xs font-semibold text-rn-text truncate min-w-0 flex-1 hover:text-rn-accent transition-colors cursor-pointer"
             onClick={() => openJobDrawer(job.id)}
             title={`${job.fileName}\n${job.filePath}`}
           >
@@ -261,6 +275,22 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
 
         {/* Right side of Line 1: Quick Hover Actions, Status Chip, More Menu */}
         <div className="flex items-center space-x-1.5 flex-shrink-0">
+          {/* Quick Action: 1-click Preview for completed / rendering jobs */}
+          {canPreview && (
+            <button
+              type="button"
+              onClick={async (e) => {
+                e.stopPropagation();
+                await handlePreview();
+              }}
+              className="flex items-center space-x-1 rounded bg-rn-accent/15 border border-rn-accent/35 px-2 py-0.5 text-[11px] font-medium text-rn-accent hover:bg-rn-accent hover:text-[#0f0f10] transition"
+              title="1-click playable preview of image sequence / render output"
+            >
+              <Film className="h-3 w-3" />
+              <span>Preview</span>
+            </button>
+          )}
+
           {/* Quick Hover Action Buttons */}
           <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
             {/* Edit / Drawer Button */}
@@ -282,8 +312,13 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
               onClick={async (e) => {
                 e.stopPropagation();
                 if (window.rnApi) {
-                  const dir = job.outputPathPattern.split('/')[0] || '';
-                  await window.rnApi.openPath(dir);
+                  let target = job.outputPathPattern;
+                  if (target.startsWith('//') && job.filePath) {
+                    const baseDir = job.filePath.replace(/[/\\][^/\\]+$/, '');
+                    target = target.replace(/^\/\//, `${baseDir}/`);
+                  }
+                  const dir = target.replace(/[/\\][^/\\]+$/, '');
+                  await window.rnApi.openPath(dir || target);
                 }
               }}
               className="flex h-6 w-6 items-center justify-center rounded text-rn-muted hover:bg-rn-subpanel hover:text-white transition"
@@ -308,9 +343,9 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
 
           {/* Solid Status Chip */}
           <div
-            className={`flex h-5 items-center space-x-1 rounded px-2 text-[10px] uppercase tracking-wider ${statusConfig.className}`}
+            className={`flex h-5 items-center space-x-1 rounded px-2 text-[11px] ${statusConfig.className}`}
           >
-            <statusConfig.icon className={`h-2.5 w-2.5 ${statusConfig.iconClass}`} />
+            <statusConfig.icon className={`h-3 w-3 ${statusConfig.iconClass}`} />
             <span>{statusConfig.label}</span>
           </div>
 
@@ -321,7 +356,7 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
                 e.stopPropagation();
                 reinspectJob(job.id);
               }}
-              className="flex h-5 items-center space-x-1 rounded bg-rn-accent/20 px-2 text-[10px] font-medium text-rn-accent hover:bg-rn-accent/30 transition"
+              className="flex h-5 items-center space-x-1 rounded bg-rn-accent/15 border border-rn-accent/30 px-2 text-[11px] font-medium text-rn-accent hover:bg-rn-accent/25 transition"
               title="Re-inspect file"
             >
               <RefreshCw className="h-2.5 w-2.5" />
@@ -355,8 +390,22 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
                 />
                 <div
                   onClick={(e) => e.stopPropagation()}
-                  className="absolute right-0 top-full z-50 mt-1 w-48 rounded border border-rn-border bg-[#222222] py-1 shadow-2xl animate-in fade-in zoom-in-95 text-xs select-none"
+                  className="absolute right-0 top-full z-50 mt-1 w-48 rounded-lg border border-rn-border bg-rn-subpanel py-1 shadow-2xl animate-in fade-in zoom-in-95 text-xs select-none"
                 >
+                  {canPreview && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setMenuOpen(false);
+                        await handlePreview();
+                      }}
+                      className="flex w-full items-center space-x-2 px-3 py-1.5 text-left text-rn-accent font-medium hover:bg-rn-panel"
+                    >
+                      <Film className="h-3.5 w-3.5 text-rn-accent" />
+                      <span>Preview Sequence</span>
+                    </button>
+                  )}
+
                   <button
                     type="button"
                     onClick={() => {
@@ -496,7 +545,7 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
       <div className="flex items-center justify-between min-w-0 w-full mt-0.5 text-[11px] text-rn-muted">
         {/* Effective Settings Summary String */}
         <span
-          className="font-mono text-rn-muted truncate flex-1 min-w-0 pr-3 hover:text-neutral-300 transition-colors"
+          className="font-mono tabular-nums text-rn-muted truncate flex-1 min-w-0 pr-3 hover:text-rn-text transition-colors"
           title={`${summaryString}\nOutput: ${job.outputPathPattern}`}
         >
           {summaryString}
@@ -507,7 +556,7 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
           {/* Active Device Badge (ONLY shown when rendering) */}
           {activeDeviceText && (
             <span
-              className="rounded bg-rn-subpanel px-1.5 py-0.2 text-[10px] font-mono text-rn-muted"
+              className="rounded bg-rn-subpanel px-1.5 py-0.5 text-[10px] font-mono tabular-nums text-rn-muted"
               title="Active hardware device"
             >
               {activeDeviceText}
@@ -521,13 +570,13 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
                 e.stopPropagation();
                 openJobDrawer(job.id);
               }}
-              className="rounded bg-rn-accent/20 border border-rn-accent/40 px-1.5 py-0.2 text-[10px] font-mono text-rn-accent font-medium cursor-pointer hover:bg-rn-accent/30"
+              className="rounded bg-rn-accent/15 border border-rn-accent/35 px-1.5 py-0.5 text-[10px] font-mono tabular-nums text-rn-accent font-medium cursor-pointer hover:bg-rn-accent/25"
               title={`${overrideCount} settings overridden from file defaults. Click to edit.`}
             >
               {overrideCount} modified
             </span>
           ) : (
-            <span className="text-[10px] text-rn-muted/70 italic">File defaults</span>
+            <span className="text-[10px] text-rn-muted/70">File defaults</span>
           )}
         </div>
       </div>
@@ -538,9 +587,21 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
           <div className="fixed inset-0 z-40" onClick={() => setContextMenuPos(null)} />
           <div
             style={{ top: `${contextMenuPos.y}px`, left: `${contextMenuPos.x}px` }}
-            className="fixed z-50 w-48 rounded border border-rn-border bg-[#222222] py-1 shadow-2xl text-xs select-none"
+            className="fixed z-50 w-48 rounded-lg border border-rn-border bg-rn-subpanel py-1 shadow-2xl text-xs select-none"
             onClick={() => setContextMenuPos(null)}
           >
+            {canPreview && (
+              <button
+                type="button"
+                onClick={async () => {
+                  await handlePreview();
+                }}
+                className="flex w-full items-center space-x-2 px-3 py-1.5 text-rn-accent font-medium hover:bg-rn-panel"
+              >
+                <Film className="h-3.5 w-3.5 text-rn-accent" />
+                <span>Preview Sequence</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={() => openJobDrawer(job.id)}

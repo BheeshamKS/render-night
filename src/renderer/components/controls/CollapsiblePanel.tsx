@@ -64,7 +64,7 @@ export const CollapsiblePanel: React.FC<CollapsiblePanelProps> = ({
               e.stopPropagation();
               onResetAll();
             }}
-            className="flex items-center space-x-1 text-[11px] text-rn-accent hover:text-white px-1.5 py-0.5 rounded hover:bg-rn-panel transition"
+            className="flex items-center space-x-1 text-[11px] text-rn-accent hover:text-rn-text px-1.5 py-0.5 rounded hover:bg-rn-panel transition"
             title="Reset this section to file defaults"
           >
             <RotateCcw className="w-2.5 h-2.5" />
@@ -126,7 +126,7 @@ export const PanelRow: React.FC<PanelRowProps> = ({
               e.stopPropagation();
               onReset();
             }}
-            className="p-1 rounded text-rn-accent hover:bg-rn-subpanel hover:text-white transition flex-shrink-0"
+            className="p-1 rounded text-rn-accent hover:bg-rn-subpanel hover:text-rn-text transition flex-shrink-0"
             title="Reset to file default"
           >
             <RotateCcw className="w-3 h-3" />

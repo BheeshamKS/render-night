@@ -76,7 +76,7 @@ export const Toolbar: React.FC = () => {
   ];
 
   return (
-    <header className="flex h-12 flex-shrink-0 items-center justify-between border-b border-rn-border bg-[#202020] px-3 select-none z-20">
+    <header className="flex h-12 flex-shrink-0 items-center justify-between border-b border-rn-border bg-[#0f0f10] px-3 select-none z-20">
       {/* ============================================================== */}
       {/* 1. Left Group: Primary "+ Add .blend" & Conditional Blender    */}
       {/* ============================================================== */}
@@ -85,10 +85,10 @@ export const Toolbar: React.FC = () => {
           type="button"
           onClick={handleAddFiles}
           disabled={isBusy}
-          className="flex h-8 items-center space-x-1.5 rounded bg-rn-accent px-3.5 text-xs font-semibold text-white shadow-sm transition hover:brightness-110 active:brightness-95 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex h-8 items-center space-x-1.5 rounded-lg bg-[#ededed] px-3.5 text-xs font-semibold text-[#141415] shadow-sm transition hover:bg-white active:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
           title="Add .blend files to the queue (Ctrl+O)"
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-4 w-4 stroke-[2]" />
           <span>Add .blend</span>
         </button>
 
@@ -118,19 +118,19 @@ export const Toolbar: React.FC = () => {
             type="button"
             onClick={startQueueWithPreflight}
             disabled={!hasEligibleJobs}
-            className="flex h-8 items-center space-x-2 rounded bg-rn-accent px-6 text-xs font-bold text-white shadow transition hover:brightness-110 active:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex h-8 items-center space-x-2 rounded-lg bg-rn-accent px-5 text-xs font-semibold text-[#0f0f10] shadow-sm transition hover:brightness-110 active:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed"
             title="Start batch render queue (Ctrl+Enter)"
           >
             <Play className="h-3.5 w-3.5 fill-current" />
             <span>Start Queue</span>
           </button>
         ) : (
-          <div className="flex h-8 items-center rounded border border-rn-border bg-rn-input p-0.5 shadow-sm">
+          <div className="flex h-8 items-center rounded-lg border border-rn-border bg-rn-panel p-0.5 shadow-sm">
             {isRunning ? (
               <button
                 type="button"
                 onClick={pauseQueue}
-                className="flex h-7 items-center space-x-1.5 rounded px-3 text-xs font-semibold text-amber-300 transition hover:bg-amber-500/20 active:bg-amber-500/30"
+                className="flex h-7 items-center space-x-1.5 rounded-md px-3 text-xs font-semibold text-rn-accent transition hover:bg-rn-accent/15 active:bg-rn-accent/25"
                 title={pauseTooltip}
               >
                 <Pause className="h-3.5 w-3.5" />
@@ -140,7 +140,7 @@ export const Toolbar: React.FC = () => {
               <button
                 type="button"
                 onClick={resumeQueue}
-                className="flex h-7 items-center space-x-1.5 rounded px-3 text-xs font-semibold text-emerald-400 transition hover:bg-emerald-500/20 active:bg-emerald-500/30"
+                className="flex h-7 items-center space-x-1.5 rounded-md px-3 text-xs font-semibold text-rn-success transition hover:bg-rn-success/15 active:bg-rn-success/25"
                 title="Resume queue execution"
               >
                 <Play className="h-3.5 w-3.5 fill-current" />
@@ -153,7 +153,7 @@ export const Toolbar: React.FC = () => {
             <button
               type="button"
               onClick={stopQueue}
-              className="flex h-7 items-center space-x-1.5 rounded px-3 text-xs font-semibold text-rose-400 transition hover:bg-rose-500/20 active:bg-rose-500/30"
+              className="flex h-7 items-center space-x-1.5 rounded-md px-3 text-xs font-semibold text-rn-error transition hover:bg-rn-error/15 active:bg-rn-error/25"
               title="Stop queue cleanly (kills current Blender process and saves progress)"
             >
               <Square className="h-3.5 w-3.5 fill-current" />
@@ -169,7 +169,7 @@ export const Toolbar: React.FC = () => {
             value={postAction}
             options={postActionOptions}
             onChange={(val) => setPostAction(val as PostAction)}
-            className="w-38"
+            className="w-40"
             title="Action to execute after all queue jobs complete gracefully"
           />
         </div>
@@ -182,9 +182,9 @@ export const Toolbar: React.FC = () => {
         <button
           type="button"
           onClick={() => setOverflowOpen(!overflowOpen)}
-          className={`flex h-8 w-8 items-center justify-center rounded border transition ${
+          className={`flex h-8 w-8 items-center justify-center rounded-lg border transition ${
             overflowOpen
-              ? 'border-rn-accent bg-rn-subpanel text-white'
+              ? 'border-rn-accent bg-rn-subpanel text-rn-text'
               : 'border-rn-border bg-rn-panel text-rn-muted hover:border-rn-muted hover:text-rn-text'
           }`}
           title="More tools & settings"
@@ -196,14 +196,14 @@ export const Toolbar: React.FC = () => {
         {overflowOpen && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setOverflowOpen(false)} />
-            <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded border border-rn-border bg-[#222222] py-1 shadow-2xl animate-in fade-in zoom-in-95 text-xs select-none">
+            <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded-lg border border-rn-border bg-rn-subpanel py-1 shadow-2xl animate-in fade-in zoom-in-95 text-xs select-none">
               <button
                 type="button"
                 onClick={() => {
                   setOverflowOpen(false);
                   setShowScheduleModal(true);
                 }}
-                className="flex w-full items-center space-x-2 px-3 py-2 text-left text-rn-text hover:bg-rn-subpanel transition"
+                className="flex w-full items-center space-x-2 px-3 py-2 text-left text-rn-text hover:bg-rn-panel transition"
               >
                 <Calendar className="h-3.5 w-3.5 text-rn-accent" />
                 <span>Schedule Queue...</span>
@@ -215,12 +215,12 @@ export const Toolbar: React.FC = () => {
                   setOverflowOpen(false);
                   setShowSoundModal(true);
                 }}
-                className="flex w-full items-center space-x-2 px-3 py-2 text-left text-rn-text hover:bg-rn-subpanel transition"
+                className="flex w-full items-center space-x-2 px-3 py-2 text-left text-rn-text hover:bg-rn-panel transition"
               >
                 {soundSettings.isMuted ? (
                   <VolumeX className="h-3.5 w-3.5 text-rn-muted" />
                 ) : (
-                  <Volume2 className="h-3.5 w-3.5 text-emerald-400" />
+                  <Volume2 className="h-3.5 w-3.5 text-rn-success" />
                 )}
                 <span>Finish Sound Settings...</span>
               </button>
@@ -233,7 +233,7 @@ export const Toolbar: React.FC = () => {
                   setOverflowOpen(false);
                   setShowShortcutsModal(true);
                 }}
-                className="flex w-full items-center space-x-2 px-3 py-2 text-left text-rn-text hover:bg-rn-subpanel transition"
+                className="flex w-full items-center space-x-2 px-3 py-2 text-left text-rn-text hover:bg-rn-panel transition"
               >
                 <HelpCircle className="h-3.5 w-3.5 text-rn-muted" />
                 <span>Keyboard Shortcuts (?)</span>

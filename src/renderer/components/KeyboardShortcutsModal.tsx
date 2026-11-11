@@ -49,13 +49,13 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
         <div className="flex h-12 items-center justify-between border-b border-rn-border px-5 bg-rn-subpanel">
           <div className="flex items-center space-x-2">
             <Keyboard className="h-4 w-4 text-rn-accent" />
-            <span className="font-bold text-white text-sm">Keyboard Shortcuts</span>
+            <span className="font-semibold text-rn-text text-sm">Keyboard Shortcuts</span>
           </div>
 
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1 text-rn-muted hover:text-white transition"
+            className="rounded p-1 text-rn-muted hover:text-rn-text transition"
           >
             <X className="h-4 w-4" />
           </button>

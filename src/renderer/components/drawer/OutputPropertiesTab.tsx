@@ -87,7 +87,6 @@ export const OutputPropertiesTab: React.FC<OutputPropertiesTabProps> = ({ job })
             step={16}
             unit="px"
             isOverridden={resXProp.isOverridden}
-            onReset={resXProp.reset}
             onChange={(val) => resXProp.setValue(val)}
           />
         </PanelRow>
@@ -104,7 +103,6 @@ export const OutputPropertiesTab: React.FC<OutputPropertiesTabProps> = ({ job })
             step={16}
             unit="px"
             isOverridden={resYProp.isOverridden}
-            onReset={resYProp.reset}
             onChange={(val) => resYProp.setValue(val)}
           />
         </PanelRow>
@@ -121,7 +119,6 @@ export const OutputPropertiesTab: React.FC<OutputPropertiesTabProps> = ({ job })
             step={5}
             unit="%"
             isOverridden={resPctProp.isOverridden}
-            onReset={resPctProp.reset}
             onChange={(val) => resPctProp.setValue(val)}
           />
         </PanelRow>
@@ -134,7 +131,6 @@ export const OutputPropertiesTab: React.FC<OutputPropertiesTabProps> = ({ job })
             step={1}
             unit="fps"
             isOverridden={fpsProp.isOverridden}
-            onReset={fpsProp.reset}
             onChange={(val) => fpsProp.setValue(val)}
           />
         </PanelRow>
@@ -180,7 +176,6 @@ export const OutputPropertiesTab: React.FC<OutputPropertiesTabProps> = ({ job })
               { identifier: 'FFMPEG', name: 'FFmpeg Video' },
             ])}
             isOverridden={fileFormatProp.isOverridden}
-            onReset={fileFormatProp.reset}
             onChange={(val) => fileFormatProp.setValue(val)}
           />
         </PanelRow>
@@ -201,7 +196,6 @@ export const OutputPropertiesTab: React.FC<OutputPropertiesTabProps> = ({ job })
                   { identifier: 'RGBA', name: 'RGBA' },
                 ])}
                 isOverridden={colorModeProp.isOverridden}
-                onReset={colorModeProp.reset}
                 onChange={(val) => colorModeProp.setValue(val)}
               />
             </PanelRow>
@@ -220,7 +214,6 @@ export const OutputPropertiesTab: React.FC<OutputPropertiesTabProps> = ({ job })
                     { identifier: '32', name: '32-bit Float' },
                   ])}
                   isOverridden={colorDepthProp.isOverridden}
-                  onReset={colorDepthProp.reset}
                   onChange={(val) => colorDepthProp.setValue(val)}
                 />
               </PanelRow>
@@ -239,7 +232,6 @@ export const OutputPropertiesTab: React.FC<OutputPropertiesTabProps> = ({ job })
                   step={5}
                   unit="%"
                   isOverridden={compressionProp.isOverridden}
-                  onReset={compressionProp.reset}
                   onChange={(val) => compressionProp.setValue(val)}
                 />
               </PanelRow>
@@ -258,7 +250,6 @@ export const OutputPropertiesTab: React.FC<OutputPropertiesTabProps> = ({ job })
                   step={5}
                   unit="%"
                   isOverridden={qualityProp.isOverridden}
-                  onReset={qualityProp.reset}
                   onChange={(val) => qualityProp.setValue(val)}
                 />
               </PanelRow>
@@ -279,7 +270,6 @@ export const OutputPropertiesTab: React.FC<OutputPropertiesTabProps> = ({ job })
                     { identifier: 'DWAA', name: 'DWAA' },
                   ])}
                   isOverridden={exrCodecProp.isOverridden}
-                  onReset={exrCodecProp.reset}
                   onChange={(val) => exrCodecProp.setValue(val)}
                 />
               </PanelRow>
@@ -302,7 +292,6 @@ export const OutputPropertiesTab: React.FC<OutputPropertiesTabProps> = ({ job })
                   { identifier: 'WEBM', name: 'WebM' },
                 ])}
                 isOverridden={ffmpegFormatProp.isOverridden}
-                onReset={ffmpegFormatProp.reset}
                 onChange={(val) => ffmpegFormatProp.setValue(val)}
               />
             </PanelRow>
@@ -321,7 +310,6 @@ export const OutputPropertiesTab: React.FC<OutputPropertiesTabProps> = ({ job })
                   { identifier: 'AV1', name: 'AV1' },
                 ])}
                 isOverridden={ffmpegCodecProp.isOverridden}
-                onReset={ffmpegCodecProp.reset}
                 onChange={(val) => ffmpegCodecProp.setValue(val)}
               />
             </PanelRow>
@@ -341,7 +329,6 @@ export const OutputPropertiesTab: React.FC<OutputPropertiesTabProps> = ({ job })
                   { identifier: 'LOW', name: 'Low' },
                 ])}
                 isOverridden={ffmpegCrfProp.isOverridden}
-                onReset={ffmpegCrfProp.reset}
                 onChange={(val) => ffmpegCrfProp.setValue(val)}
               />
             </PanelRow>
@@ -359,7 +346,6 @@ export const OutputPropertiesTab: React.FC<OutputPropertiesTabProps> = ({ job })
                   { identifier: 'REALTIME', name: 'Realtime' },
                 ])}
                 isOverridden={ffmpegSpeedProp.isOverridden}
-                onReset={ffmpegSpeedProp.reset}
                 onChange={(val) => ffmpegSpeedProp.setValue(val)}
               />
             </PanelRow>
@@ -375,7 +361,6 @@ export const OutputPropertiesTab: React.FC<OutputPropertiesTabProps> = ({ job })
                 max={500}
                 step={1}
                 isOverridden={ffmpegGopProp.isOverridden}
-                onReset={ffmpegGopProp.reset}
                 onChange={(val) => ffmpegGopProp.setValue(val)}
               />
             </PanelRow>
@@ -394,7 +379,6 @@ export const OutputPropertiesTab: React.FC<OutputPropertiesTabProps> = ({ job })
                   { identifier: 'FLAC', name: 'FLAC' },
                 ])}
                 isOverridden={ffmpegAudioProp.isOverridden}
-                onReset={ffmpegAudioProp.reset}
                 onChange={(val) => ffmpegAudioProp.setValue(val)}
               />
             </PanelRow>

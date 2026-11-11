@@ -1,71 +1,144 @@
-import type { ImageSequenceInfo } from '../../../core/schemas/sequence';
 import { useQueueStore } from '../../store/queueStore';
 import { SequenceConverter } from './SequenceConverter';
 import { SequenceViewer } from './SequenceViewer';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
-import { Film } from 'lucide-react';
+import { ChevronDown, Film, FolderOpen, Video } from 'lucide-react';
 
 export const ImageSequenceTab: React.FC = () => {
-  const { jobs } = useQueueStore();
-  const [currentSequence, setCurrentSequence] = useState<ImageSequenceInfo | null>(null);
+  const { jobs, activeSequence, setActiveSequence, loadSequenceFromPath, monitorStats } =
+    useQueueStore();
+
+  const [showConverter, setShowConverter] = useState<boolean>(false);
 
   const completedImageJobs = jobs.filter(
-    (j) => j.status === 'Completed' && !j.isVideo && (j.outputPreview || j.outputPathPattern),
+    (j) =>
+      (j.status === 'Completed' || (j.completedFrames && j.completedFrames > 0)) &&
+      !j.isVideo &&
+      (j.outputPreview || j.outputPathPattern),
   );
 
-  const handleSelectJobOutput = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const jobId = e.target.value;
-    if (!jobId) return;
+  // Auto-load most recent render output on mount if none loaded yet
+  useEffect(() => {
+    if (!activeSequence) {
+      if (monitorStats.lastThumbnailPath) {
+        loadSequenceFromPath(monitorStats.lastThumbnailPath);
+      } else if (completedImageJobs.length > 0) {
+        const first = completedImageJobs[0];
+        let target = first.outputPreview || first.outputPathPattern;
+        if (target.startsWith('//') && first.filePath) {
+          const baseDir = first.filePath.replace(/[/\\][^/\\]+$/, '');
+          target = target.replace(/^\/\//, `${baseDir}/`);
+        }
+        loadSequenceFromPath(target);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-    const job = jobs.find((j) => j.id === jobId);
-    if (!job) return;
-
+  const handleOpenFolder = async () => {
     if (typeof window !== 'undefined' && window.rnApi) {
-      const detected = await window.rnApi.detectSequence(
-        job.outputPreview || job.outputPathPattern,
-      );
-      if (detected) {
-        setCurrentSequence(detected);
+      const selected = await window.rnApi.selectDirectory();
+      if (selected) {
+        await loadSequenceFromPath(selected);
       }
     }
   };
 
   return (
-    <div className="flex-1 flex flex-col p-4 bg-rn-bg overflow-y-auto space-y-4">
-      {/* Top Banner with Quick Load from Queue */}
+    <div className="flex-1 flex flex-col p-3 bg-rn-bg overflow-y-auto space-y-3 min-h-0">
+      {/* Top Banner with Quick Select Chips */}
       {completedImageJobs.length > 0 && (
-        <div className="flex items-center justify-between px-3 py-2 bg-rn-panel border border-rn-border rounded-lg text-xs">
-          <div className="flex items-center space-x-2 text-rn-text">
-            <Film className="w-4 h-4 text-rn-accent" />
-            <span className="font-medium">Finished Render Jobs:</span>
+        <div className="flex items-center justify-between px-3 py-2 bg-rn-panel border border-rn-border rounded-xl text-xs flex-shrink-0">
+          <div className="flex items-center space-x-2 min-w-0 flex-1 overflow-x-auto py-0.5">
+            <span className="font-medium text-rn-text text-xs flex-shrink-0 flex items-center space-x-1.5">
+              <Film className="w-3.5 h-3.5 text-rn-accent" />
+              <span>Finished Renders</span>
+            </span>
+
+            <div className="flex items-center space-x-1.5 min-w-0">
+              {completedImageJobs.map((j) => {
+                let target = j.outputPreview || j.outputPathPattern;
+                if (target.startsWith('//') && j.filePath) {
+                  const baseDir = j.filePath.replace(/[/\\][^/\\]+$/, '');
+                  target = target.replace(/^\/\//, `${baseDir}/`);
+                }
+                const isActive =
+                  activeSequence &&
+                  ((j.outputPreview &&
+                    activeSequence.directory.includes(
+                      j.outputPreview.replace(/[/\\][^/\\]+$/, ''),
+                    )) ||
+                    (j.fileName &&
+                      activeSequence.baseName.includes(j.fileName.replace(/\.blend$/, ''))));
+
+                return (
+                  <button
+                    key={j.id}
+                    type="button"
+                    onClick={() => loadSequenceFromPath(target)}
+                    className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-md text-xs transition border flex-shrink-0 ${
+                      isActive
+                        ? 'bg-rn-accent/15 border-rn-accent/50 text-rn-accent font-semibold'
+                        : 'bg-rn-subpanel border-rn-border text-rn-text hover:border-rn-muted'
+                    }`}
+                    title={`Load output from ${j.fileName} (${j.selectedScene})`}
+                  >
+                    <span>{j.fileName}</span>
+                    <span className="text-[10px] text-rn-muted font-mono">({j.selectedScene})</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <select
-            onChange={handleSelectJobOutput}
-            defaultValue=""
-            className="rounded border border-rn-border bg-rn-input px-2.5 py-1 text-xs text-rn-text focus:border-rn-accent focus:outline-none"
+
+          <button
+            type="button"
+            onClick={handleOpenFolder}
+            className="flex items-center space-x-1 px-2.5 py-1 rounded-md bg-rn-subpanel hover:border-rn-muted border border-rn-border text-rn-text text-xs transition flex-shrink-0 ml-2"
+            title="Browse any folder on disk"
           >
-            <option value="" disabled>
-              Load output from completed job...
-            </option>
-            {completedImageJobs.map((j) => (
-              <option key={j.id} value={j.id}>
-                {j.fileName} ({j.selectedScene})
-              </option>
-            ))}
-          </select>
+            <FolderOpen className="w-3.5 h-3.5 text-rn-muted" />
+            <span>Browse...</span>
+          </button>
         </div>
       )}
 
-      {/* Grid Layout: Top Viewer, Bottom Converter */}
-      <div className="flex-1 flex flex-col space-y-4 min-h-0">
-        <div className="h-[420px] flex-shrink-0">
-          <SequenceViewer sequence={currentSequence} onSelectSequence={setCurrentSequence} />
-        </div>
-        <div className="flex-1 min-h-[300px]">
-          <SequenceConverter sequence={currentSequence} />
-        </div>
+      {/* Main Player Viewport: Full Height & Focus */}
+      <div className="flex-1 flex flex-col min-h-[380px]">
+        <SequenceViewer
+          sequence={activeSequence}
+          onSelectSequence={(seq) => setActiveSequence(seq)}
+        />
+      </div>
+
+      {/* Collapsible Export to Video Tool */}
+      <div className="flex-shrink-0 bg-rn-panel border border-rn-border rounded-xl overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowConverter((s) => !s)}
+          className="w-full flex items-center justify-between px-3.5 py-2.5 bg-rn-panel hover:bg-rn-subpanel/70 transition text-xs font-medium text-rn-text select-none"
+        >
+          <div className="flex items-center space-x-2">
+            <Video className="w-4 h-4 text-rn-accent" />
+            <span>Export / Stitch Sequence to Video (MP4 / ProRes)</span>
+          </div>
+          <div className="flex items-center space-x-1 text-rn-muted text-[11px]">
+            <span>{showConverter ? 'Hide Options' : 'Export Options'}</span>
+            <ChevronDown
+              className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                showConverter ? 'rotate-180' : ''
+              }`}
+            />
+          </div>
+        </button>
+
+        {showConverter && (
+          <div className="p-3 border-t border-rn-border">
+            <SequenceConverter sequence={activeSequence} />
+          </div>
+        )}
       </div>
     </div>
   );

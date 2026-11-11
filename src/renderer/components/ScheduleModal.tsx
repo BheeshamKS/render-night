@@ -54,13 +54,13 @@ export const ScheduleModal: React.FC = () => {
         {scheduleConfig.enabled ? (
           <div className="space-y-4">
             <div className="rounded-lg bg-rn-subpanel p-4 border border-rn-accent/40 text-center">
-              <Timer className="h-6 w-6 text-rn-accent mx-auto mb-2 animate-pulse" />
+              <Timer className="h-6 w-6 text-rn-accent mx-auto mb-2" />
               <div className="text-xs text-rn-muted">Queue scheduled to start at:</div>
-              <div className="text-2xl font-mono font-bold text-rn-accent mt-1">
+              <div className="text-2xl font-mono font-bold tabular-nums text-rn-accent mt-1">
                 {scheduleConfig.time}
               </div>
               {scheduleConfig.blockSleep && (
-                <div className="mt-2 flex items-center justify-center space-x-1 text-[11px] text-green-400">
+                <div className="mt-2 flex items-center justify-center space-x-1 text-[11px] text-rn-success">
                   <Moon className="h-3 w-3" />
                   <span>Sleep blocker active</span>
                 </div>
@@ -70,14 +70,14 @@ export const ScheduleModal: React.FC = () => {
             <div className="flex space-x-2 pt-2">
               <button
                 onClick={handleStartNow}
-                className="flex-1 flex items-center justify-center space-x-1.5 rounded bg-rn-accent px-3 py-2 text-xs font-medium text-white hover:brightness-110 transition"
+                className="flex-1 flex items-center justify-center space-x-1.5 rounded-md bg-rn-accent px-3 py-2 text-xs font-semibold text-[#0f0f10] hover:brightness-110 transition"
               >
                 <Play className="h-3 w-3 fill-current" />
                 <span>Start Now</span>
               </button>
               <button
                 onClick={cancelSchedule}
-                className="flex items-center justify-center space-x-1 rounded border border-rn-border bg-rn-subpanel px-3 py-2 text-xs font-medium text-rn-text hover:bg-red-500/20 hover:text-red-400 hover:border-red-400/40 transition"
+                className="flex items-center justify-center space-x-1 rounded-md border border-rn-border bg-rn-subpanel px-3 py-2 text-xs font-medium text-rn-text hover:bg-rn-error/15 hover:text-rn-error hover:border-rn-error/40 transition"
               >
                 <span>Cancel</span>
               </button>
@@ -124,7 +124,7 @@ export const ScheduleModal: React.FC = () => {
               </button>
               <button
                 onClick={handleApplySchedule}
-                className="rounded bg-rn-accent px-3 py-1.5 text-xs font-medium text-white hover:brightness-110 transition"
+                className="rounded-md bg-rn-accent px-3 py-1.5 text-xs font-semibold text-[#0f0f10] hover:brightness-110 transition"
               >
                 Schedule Queue
               </button>

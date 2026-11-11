@@ -22,6 +22,7 @@ export interface SegmentedEnumToggleProps {
 }
 
 const SHORT_LABELS: Record<string, string> = {
+  'File Default': 'Default',
   'GPU Compute': 'GPU',
   CPU: 'CPU',
   'Auto-detect': 'Auto',
@@ -32,6 +33,9 @@ const SHORT_LABELS: Record<string, string> = {
   EEVEE: 'EEVEE',
   'EEVEE Next': 'EEVEE',
   WorkBench: 'Workbench',
+  Workbench: 'Workbench',
+  'FFmpeg Video': 'Video',
+  OpenEXR: 'EXR',
   Supported: 'Supported',
   Experimental: 'Experimental',
   Enabled: 'On',
@@ -87,10 +91,10 @@ export const SegmentedEnumToggle: React.FC<SegmentedEnumToggleProps> = ({
                 aria-label={item.name}
                 onClick={() => onChange(item.identifier)}
                 title={item.description || item.name}
-                className={`flex-1 py-1 px-1.5 text-center font-medium truncate transition ${
+                className={`flex-1 py-1 px-1.5 text-center truncate transition ${
                   isSelected
-                    ? 'bg-rn-accent text-white shadow-sm'
-                    : 'text-rn-muted hover:text-rn-text hover:bg-rn-subpanel/80'
+                    ? 'bg-rn-accent text-[#0f0f10] font-semibold shadow-sm'
+                    : 'font-medium text-rn-muted hover:text-rn-text hover:bg-rn-subpanel/80'
                 } ${idx > 0 ? 'border-l border-rn-border/80' : ''}`}
               >
                 {shortName}
@@ -122,7 +126,7 @@ export const SegmentedEnumToggle: React.FC<SegmentedEnumToggleProps> = ({
             e.stopPropagation();
             onReset();
           }}
-          className="ml-1.5 p-1 rounded text-rn-accent hover:bg-rn-subpanel hover:text-white transition flex-shrink-0"
+          className="ml-1.5 p-1 rounded text-rn-accent hover:bg-rn-subpanel hover:text-rn-text transition flex-shrink-0"
           title="Reset to file default"
         >
           <RotateCcw className="w-3 h-3" />

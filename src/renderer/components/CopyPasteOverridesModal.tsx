@@ -34,7 +34,7 @@ export const CopyPasteOverridesModal: React.FC = () => {
           <button
             type="button"
             onClick={closePasteReportModal}
-            className="p-1 rounded text-rn-muted hover:bg-rn-panel hover:text-white transition"
+            className="p-1 rounded text-rn-muted hover:bg-rn-panel hover:text-rn-text transition"
           >
             <X className="w-4 h-4" />
           </button>
@@ -111,7 +111,7 @@ export const CopyPasteOverridesModal: React.FC = () => {
           <button
             type="button"
             onClick={closePasteReportModal}
-            className="px-4 py-1.5 rounded bg-rn-accent text-xs font-medium text-white hover:bg-rn-accent/90"
+            className="px-4 py-1.5 rounded-md bg-rn-accent text-xs font-semibold text-[#0f0f10] hover:brightness-110 transition"
           >
             OK
           </button>

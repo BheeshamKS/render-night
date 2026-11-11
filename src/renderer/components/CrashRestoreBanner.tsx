@@ -10,13 +10,11 @@ export const CrashRestoreBanner: React.FC = () => {
   if (!showCrashRestoreBanner) return null;
 
   return (
-    <div className="flex items-center justify-between border-b border-rn-rendering/40 bg-rn-rendering/10 px-4 py-2.5 text-xs text-rn-text animate-in fade-in select-none">
+    <div className="flex items-center justify-between border-b border-rn-accent/35 bg-rn-accent/10 px-4 py-2.5 text-xs text-rn-text animate-in fade-in select-none">
       <div className="flex items-center space-x-2.5">
-        <AlertTriangle className="h-4 w-4 text-rn-rendering flex-shrink-0 animate-pulse" />
+        <AlertTriangle className="h-4 w-4 text-rn-accent flex-shrink-0" />
         <div>
-          <span className="font-semibold text-rn-rendering">
-            Previous session ended unexpectedly.
-          </span>{' '}
+          <span className="font-semibold text-rn-accent">Previous session ended unexpectedly.</span>{' '}
           <span className="text-rn-muted">
             Resume queue where it left off from the first unfinished frame?
           </span>
@@ -26,7 +24,7 @@ export const CrashRestoreBanner: React.FC = () => {
       <div className="flex items-center space-x-2">
         <button
           onClick={resumeFromCrash}
-          className="flex items-center space-x-1 rounded bg-rn-rendering px-3 py-1 font-medium text-white transition hover:brightness-110 active:brightness-95 shadow-sm"
+          className="flex items-center space-x-1.5 rounded-md bg-rn-accent px-3 py-1 font-semibold text-[#0f0f10] transition hover:brightness-110 active:brightness-95 shadow-sm"
         >
           <RefreshCw className="h-3 w-3" />
           <span>Resume Queue</span>

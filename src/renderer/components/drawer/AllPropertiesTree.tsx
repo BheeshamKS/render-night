@@ -140,7 +140,6 @@ export const AllPropertiesTree: React.FC<AllPropertiesTreeProps> = ({ job }) => 
             step={meta.type === 'FLOAT' ? 0.05 : 1}
             precision={meta.type === 'FLOAT' ? 2 : 0}
             isOverridden={isOverridden}
-            onReset={handleReset}
             onChange={(val) => setJobOverride(job.id, rnaPath, val)}
           />
         </PanelRow>
@@ -160,7 +159,6 @@ export const AllPropertiesTree: React.FC<AllPropertiesTreeProps> = ({ job }) => 
             value={String(value ?? meta.value ?? '')}
             items={meta.enumItems}
             isOverridden={isOverridden}
-            onReset={handleReset}
             onChange={(val) => setJobOverride(job.id, rnaPath, val)}
           />
         </PanelRow>
@@ -180,7 +178,6 @@ export const AllPropertiesTree: React.FC<AllPropertiesTreeProps> = ({ job }) => 
             value={String(value ?? meta.value ?? 'false')}
             items={boolItems}
             isOverridden={isOverridden}
-            onReset={handleReset}
             onChange={(val) => setJobOverride(job.id, rnaPath, val === 'true')}
           />
         </PanelRow>
@@ -193,9 +190,7 @@ export const AllPropertiesTree: React.FC<AllPropertiesTreeProps> = ({ job }) => 
 
   return (
     <div className="mt-4 pt-3 border-t border-rn-border/70">
-      <div className="text-[11px] font-semibold text-rn-muted uppercase tracking-wider mb-2 px-1">
-        All Properties (Introspected RNA Schema)
-      </div>
+      <div className="text-[11px] font-medium text-rn-muted mb-2 px-1">All Properties</div>
 
       <div className="space-y-2">
         {groups.map((group) => {

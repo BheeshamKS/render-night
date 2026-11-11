@@ -119,7 +119,6 @@ export const RenderPropertiesTab: React.FC<RenderPropertiesTabProps> = ({ job })
               { identifier: 'BLENDER_WORKBENCH', name: 'Workbench' },
             ])}
             isOverridden={engineProp.isOverridden}
-            onReset={engineProp.reset}
             onChange={(val) => engineProp.setValue(val)}
           />
         </PanelRow>
@@ -137,7 +136,6 @@ export const RenderPropertiesTab: React.FC<RenderPropertiesTabProps> = ({ job })
                 { identifier: 'GPU', name: 'GPU Compute' },
               ])}
               isOverridden={deviceProp.isOverridden}
-              onReset={deviceProp.reset}
               onChange={(val) => deviceProp.setValue(val)}
             />
           </PanelRow>
@@ -155,7 +153,6 @@ export const RenderPropertiesTab: React.FC<RenderPropertiesTabProps> = ({ job })
               { identifier: 'FIXED', name: 'Fixed' },
             ]}
             isOverridden={threadsModeProp.isOverridden}
-            onReset={threadsModeProp.reset}
             onChange={(val) => threadsModeProp.setValue(val)}
           />
         </PanelRow>
@@ -173,7 +170,6 @@ export const RenderPropertiesTab: React.FC<RenderPropertiesTabProps> = ({ job })
             unit="threads"
             description="0 for Auto-detect threads, or specific thread count"
             isOverridden={threadsProp.isOverridden}
-            onReset={threadsProp.reset}
             onChange={(val) => threadsProp.setValue(val)}
           />
         </PanelRow>
@@ -219,7 +215,6 @@ export const RenderPropertiesTab: React.FC<RenderPropertiesTabProps> = ({ job })
                 step={16}
                 unit="samples"
                 isOverridden={cyclesSamplesProp.isOverridden}
-                onReset={cyclesSamplesProp.reset}
                 onChange={(val) => cyclesSamplesProp.setValue(val)}
               />
             </PanelRow>
@@ -236,7 +231,6 @@ export const RenderPropertiesTab: React.FC<RenderPropertiesTabProps> = ({ job })
                 step={8}
                 unit="samples"
                 isOverridden={cyclesMinSamplesProp.isOverridden}
-                onReset={cyclesMinSamplesProp.reset}
                 onChange={(val) => cyclesMinSamplesProp.setValue(val)}
               />
             </PanelRow>
@@ -253,7 +247,6 @@ export const RenderPropertiesTab: React.FC<RenderPropertiesTabProps> = ({ job })
                 step={0.005}
                 precision={3}
                 isOverridden={cyclesThresholdProp.isOverridden}
-                onReset={cyclesThresholdProp.reset}
                 onChange={(val) => cyclesThresholdProp.setValue(val)}
               />
             </PanelRow>
@@ -267,7 +260,6 @@ export const RenderPropertiesTab: React.FC<RenderPropertiesTabProps> = ({ job })
                 value={String(cyclesDenoiseProp.value ?? 'true')}
                 items={boolItems}
                 isOverridden={cyclesDenoiseProp.isOverridden}
-                onReset={cyclesDenoiseProp.reset}
                 onChange={(val) => cyclesDenoiseProp.setValue(val === 'true')}
               />
             </PanelRow>
@@ -284,7 +276,6 @@ export const RenderPropertiesTab: React.FC<RenderPropertiesTabProps> = ({ job })
                   { identifier: 'OPTIX', name: 'OptiX' },
                 ])}
                 isOverridden={cyclesDenoiserProp.isOverridden}
-                onReset={cyclesDenoiserProp.reset}
                 onChange={(val) => cyclesDenoiserProp.setValue(val)}
               />
             </PanelRow>
@@ -302,7 +293,6 @@ export const RenderPropertiesTab: React.FC<RenderPropertiesTabProps> = ({ job })
               step={16}
               unit="samples"
               isOverridden={eeveeSamplesProp.isOverridden}
-              onReset={eeveeSamplesProp.reset}
               onChange={(val) => eeveeSamplesProp.setValue(val)}
             />
           </PanelRow>
@@ -340,7 +330,6 @@ export const RenderPropertiesTab: React.FC<RenderPropertiesTabProps> = ({ job })
             value={String(filmTransparentProp.value ?? 'false')}
             items={boolItems}
             isOverridden={filmTransparentProp.isOverridden}
-            onReset={filmTransparentProp.reset}
             onChange={(val) => filmTransparentProp.setValue(val === 'true')}
           />
         </PanelRow>
@@ -354,7 +343,6 @@ export const RenderPropertiesTab: React.FC<RenderPropertiesTabProps> = ({ job })
             value={String(motionBlurProp.value ?? 'false')}
             items={boolItems}
             isOverridden={motionBlurProp.isOverridden}
-            onReset={motionBlurProp.reset}
             onChange={(val) => motionBlurProp.setValue(val === 'true')}
           />
         </PanelRow>
@@ -368,7 +356,6 @@ export const RenderPropertiesTab: React.FC<RenderPropertiesTabProps> = ({ job })
             value={String(persistentDataProp.value ?? 'false')}
             items={boolItems}
             isOverridden={persistentDataProp.isOverridden}
-            onReset={persistentDataProp.reset}
             onChange={(val) => persistentDataProp.setValue(val === 'true')}
           />
         </PanelRow>
@@ -384,7 +371,6 @@ export const RenderPropertiesTab: React.FC<RenderPropertiesTabProps> = ({ job })
                 value={String(useTilingProp.value ?? 'false')}
                 items={boolItems}
                 isOverridden={useTilingProp.isOverridden}
-                onReset={useTilingProp.reset}
                 onChange={(val) => useTilingProp.setValue(val === 'true')}
               />
             </PanelRow>
@@ -401,7 +387,6 @@ export const RenderPropertiesTab: React.FC<RenderPropertiesTabProps> = ({ job })
                 step={64}
                 unit="px"
                 isOverridden={tileSizeProp.isOverridden}
-                onReset={tileSizeProp.reset}
                 onChange={(val) => tileSizeProp.setValue(val)}
               />
             </PanelRow>
@@ -417,7 +402,6 @@ export const RenderPropertiesTab: React.FC<RenderPropertiesTabProps> = ({ job })
             value={String(compositingProp.value ?? 'true')}
             items={boolItems}
             isOverridden={compositingProp.isOverridden}
-            onReset={compositingProp.reset}
             onChange={(val) => compositingProp.setValue(val === 'true')}
           />
         </PanelRow>
@@ -431,7 +415,6 @@ export const RenderPropertiesTab: React.FC<RenderPropertiesTabProps> = ({ job })
             value={String(sequencerProp.value ?? 'true')}
             items={boolItems}
             isOverridden={sequencerProp.isOverridden}
-            onReset={sequencerProp.reset}
             onChange={(val) => sequencerProp.setValue(val === 'true')}
           />
         </PanelRow>
@@ -467,7 +450,6 @@ export const RenderPropertiesTab: React.FC<RenderPropertiesTabProps> = ({ job })
               { identifier: 'Raw', name: 'Raw' },
             ])}
             isOverridden={viewTransformProp.isOverridden}
-            onReset={viewTransformProp.reset}
             onChange={(val) => viewTransformProp.setValue(val)}
           />
         </PanelRow>
@@ -483,7 +465,6 @@ export const RenderPropertiesTab: React.FC<RenderPropertiesTabProps> = ({ job })
               { identifier: 'Low Contrast', name: 'Low Contrast' },
             ])}
             isOverridden={lookProp.isOverridden}
-            onReset={lookProp.reset}
             onChange={(val) => lookProp.setValue(val)}
           />
         </PanelRow>
@@ -500,7 +481,6 @@ export const RenderPropertiesTab: React.FC<RenderPropertiesTabProps> = ({ job })
             step={0.1}
             precision={2}
             isOverridden={exposureProp.isOverridden}
-            onReset={exposureProp.reset}
             onChange={(val) => exposureProp.setValue(val)}
           />
         </PanelRow>
@@ -513,7 +493,6 @@ export const RenderPropertiesTab: React.FC<RenderPropertiesTabProps> = ({ job })
             step={0.05}
             precision={2}
             isOverridden={gammaProp.isOverridden}
-            onReset={gammaProp.reset}
             onChange={(val) => gammaProp.setValue(val)}
           />
         </PanelRow>

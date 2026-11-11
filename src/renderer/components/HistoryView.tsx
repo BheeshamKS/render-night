@@ -8,6 +8,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
+  Film,
   FolderOpen,
   PlusCircle,
   Search,
@@ -39,7 +40,7 @@ function formatDate(timestamp: number | string): string {
 }
 
 export const HistoryView: React.FC = () => {
-  const { addFiles } = useQueueStore();
+  const { addFiles, loadSequenceFromPath } = useQueueStore();
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -83,9 +84,14 @@ export const HistoryView: React.FC = () => {
     await addFiles([filePath]);
   };
 
-  const handleOpenFolder = async (outputPath: string) => {
+  const handleOpenFolder = async (outputPath: string, filePath?: string) => {
     if (typeof window !== 'undefined' && window.rnApi) {
-      await window.rnApi.openPath(outputPath);
+      let target = outputPath;
+      if (target.startsWith('//') && filePath) {
+        const baseDir = filePath.replace(/[/\\][^/\\]+$/, '');
+        target = target.replace(/^\/\//, `${baseDir}/`);
+      }
+      await window.rnApi.openPath(target);
     }
   };
 
@@ -93,11 +99,11 @@ export const HistoryView: React.FC = () => {
     <div className="flex flex-1 flex-col overflow-hidden bg-rn-bg p-6 text-rn-text select-none">
       <div className="flex h-full flex-col rounded-xl border border-rn-border bg-rn-panel shadow-xl overflow-hidden">
         {/* Header & Filter Bar */}
-        <div className="flex h-14 flex-shrink-0 items-center justify-between border-b border-rn-border px-5 bg-rn-subpanel">
+        <div className="flex h-14 flex-shrink-0 items-center justify-between border-b border-rn-border px-5 bg-rn-subpanel/60">
           <div className="flex items-center space-x-2">
             <Clock className="h-5 w-5 text-rn-accent" />
-            <h2 className="text-sm font-bold text-white">Render History</h2>
-            <span className="rounded bg-rn-input px-2 py-0.5 text-xs text-rn-muted font-mono">
+            <h2 className="text-sm font-semibold text-rn-text">Render History</h2>
+            <span className="rounded bg-rn-input border border-rn-border/60 px-2 py-0.5 text-xs text-rn-muted font-mono tabular-nums">
               {entries.length} record{entries.length === 1 ? '' : 's'}
             </span>
           </div>
@@ -111,19 +117,19 @@ export const HistoryView: React.FC = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search history..."
-                className="h-8 rounded border border-rn-border bg-rn-input pl-8 pr-3 text-xs text-rn-text placeholder-rn-muted focus:border-rn-accent focus:outline-none w-48"
+                className="h-8 rounded-md border border-rn-border bg-rn-input pl-8 pr-3 text-xs text-rn-text placeholder-rn-muted focus:border-rn-accent focus:outline-none w-48"
               />
             </div>
 
             {/* Filter Buttons */}
-            <div className="flex rounded border border-rn-border bg-rn-input p-0.5 text-xs">
+            <div className="flex rounded-md border border-rn-border bg-rn-input p-0.5 text-xs">
               {(['all', 'completed', 'failed', 'canceled'] as const).map((res) => (
                 <button
                   key={res}
                   onClick={() => setFilterResult(res)}
                   className={`px-2.5 py-1 rounded capitalize font-medium transition ${
                     filterResult === res
-                      ? 'bg-rn-panel text-white shadow-sm'
+                      ? 'bg-rn-subpanel text-rn-text shadow-sm'
                       : 'text-rn-muted hover:text-rn-text'
                   }`}
                 >
@@ -137,7 +143,7 @@ export const HistoryView: React.FC = () => {
               <button
                 type="button"
                 onClick={handleClearHistory}
-                className="flex h-8 items-center space-x-1 rounded border border-rn-border px-2.5 text-xs text-rn-muted hover:border-rose-500 hover:text-rose-400 transition"
+                className="flex h-8 items-center space-x-1 rounded-md border border-rn-border px-2.5 text-xs text-rn-muted hover:border-rn-error hover:text-rn-error transition"
                 title="Clear all past render history"
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -170,28 +176,28 @@ export const HistoryView: React.FC = () => {
                 return (
                   <div
                     key={entry.id}
-                    className="flex items-center justify-between rounded-lg border border-rn-border bg-[#222222] p-3 text-xs hover:border-rn-muted/70 transition"
+                    className="flex items-center justify-between rounded-lg border border-rn-border bg-rn-subpanel/50 p-3 text-xs hover:border-rn-muted/70 transition"
                   >
                     <div className="flex items-center space-x-3 min-w-0 flex-1">
                       {isSuccess ? (
-                        <CheckCircle2 className="h-4 w-4 text-emerald-400 flex-shrink-0" />
+                        <CheckCircle2 className="h-4 w-4 text-rn-success flex-shrink-0" />
                       ) : isFail ? (
-                        <XCircle className="h-4 w-4 text-rose-400 flex-shrink-0" />
+                        <XCircle className="h-4 w-4 text-rn-error flex-shrink-0" />
                       ) : (
-                        <AlertCircle className="h-4 w-4 text-amber-400 flex-shrink-0" />
+                        <AlertCircle className="h-4 w-4 text-rn-warning flex-shrink-0" />
                       )}
 
                       <div className="flex flex-col min-w-0 pr-3">
                         <div className="flex items-center space-x-2">
-                          <span className="font-semibold text-white truncate">
+                          <span className="font-semibold text-rn-text truncate">
                             {entry.fileName}
                           </span>
-                          <span className="text-[10px] text-rn-muted font-mono">
+                          <span className="text-[10px] text-rn-muted font-mono tabular-nums">
                             {formatDate(entry.timestamp)}
                           </span>
                         </div>
 
-                        <div className="flex items-center space-x-2 text-[10px] text-rn-muted mt-0.5">
+                        <div className="flex items-center space-x-2 text-[10px] text-rn-muted tabular-nums mt-0.5">
                           <span>Scene: {entry.scene}</span>
                           <span>·</span>
                           <span>Camera: {entry.camera}</span>
@@ -205,10 +211,29 @@ export const HistoryView: React.FC = () => {
 
                     {/* Actions */}
                     <div className="flex items-center space-x-2 flex-shrink-0">
+                      {isSuccess && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            let target = entry.outputPath;
+                            if (target.startsWith('//') && entry.filePath) {
+                              const baseDir = entry.filePath.replace(/[/\\][^/\\]+$/, '');
+                              target = target.replace(/^\/\//, `${baseDir}/`);
+                            }
+                            loadSequenceFromPath(target);
+                          }}
+                          className="flex items-center space-x-1 rounded-md bg-rn-accent/15 border border-rn-accent/35 px-2.5 py-1 text-xs font-medium text-rn-accent hover:bg-rn-accent hover:text-[#0f0f10] transition"
+                          title="Preview sequence in player"
+                        >
+                          <Film className="h-3 w-3" />
+                          <span>Preview</span>
+                        </button>
+                      )}
+
                       <button
                         type="button"
-                        onClick={() => handleOpenFolder(entry.outputPath)}
-                        className="flex items-center space-x-1 rounded border border-rn-border bg-rn-input px-2.5 py-1 text-xs text-rn-muted hover:text-white transition"
+                        onClick={() => handleOpenFolder(entry.outputPath, entry.filePath)}
+                        className="flex items-center space-x-1 rounded-md border border-rn-border bg-rn-input px-2.5 py-1 text-xs text-rn-muted hover:text-rn-text transition"
                         title="Open output folder"
                       >
                         <FolderOpen className="h-3 w-3" />
@@ -218,7 +243,7 @@ export const HistoryView: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleRequeue(entry.filePath)}
-                        className="flex items-center space-x-1 rounded bg-rn-accent/20 border border-rn-accent/40 px-2.5 py-1 text-xs text-rn-accent hover:bg-rn-accent hover:text-white transition"
+                        className="flex items-center space-x-1 rounded-md bg-rn-subpanel border border-rn-border px-2.5 py-1 text-xs text-rn-text hover:border-rn-muted transition"
                         title="Requeue this .blend file"
                       >
                         <PlusCircle className="h-3 w-3" />

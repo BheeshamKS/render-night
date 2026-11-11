@@ -209,11 +209,11 @@ export const BlenderNumberField: React.FC<BlenderNumberFieldProps> = ({
             onChange={(e) => setTextValue(e.target.value)}
             onBlur={() => handleCommit(textValue)}
             onKeyDown={handleKeyDown}
-            className="w-full h-full bg-transparent px-2 text-xs font-mono text-rn-text outline-none z-10"
+            className="w-full h-full bg-transparent px-2 text-xs font-mono tabular-nums text-rn-text outline-none z-10"
             autoFocus
           />
         ) : (
-          <div className="flex items-center justify-between w-full h-full px-2 text-xs font-mono text-rn-text z-0">
+          <div className="flex items-center justify-between w-full h-full px-2 text-xs font-mono tabular-nums text-rn-text z-0">
             <span className="truncate text-rn-muted">{label ? `${label}: ` : ''}</span>
             <span className="font-medium truncate">
               {precision > 0 ? value.toFixed(precision) : value}
@@ -229,7 +229,7 @@ export const BlenderNumberField: React.FC<BlenderNumberFieldProps> = ({
               type="button"
               tabIndex={-1}
               onClick={(e) => handleStep(1, e)}
-              className="text-rn-muted hover:text-white p-0.5"
+              className="text-rn-muted hover:text-rn-text p-0.5"
             >
               <ChevronUp className="w-2.5 h-2.5" />
             </button>
@@ -237,7 +237,7 @@ export const BlenderNumberField: React.FC<BlenderNumberFieldProps> = ({
               type="button"
               tabIndex={-1}
               onClick={(e) => handleStep(-1, e)}
-              className="text-rn-muted hover:text-white p-0.5"
+              className="text-rn-muted hover:text-rn-text p-0.5"
             >
               <ChevronDown className="w-2.5 h-2.5" />
             </button>
@@ -253,7 +253,7 @@ export const BlenderNumberField: React.FC<BlenderNumberFieldProps> = ({
             e.stopPropagation();
             onReset();
           }}
-          className="ml-1.5 p-1 rounded text-rn-accent hover:bg-rn-subpanel hover:text-white transition flex-shrink-0"
+          className="ml-1.5 p-1 rounded text-rn-accent hover:bg-rn-subpanel hover:text-rn-text transition flex-shrink-0"
           title="Reset to file default"
         >
           <RotateCcw className="w-3 h-3" />

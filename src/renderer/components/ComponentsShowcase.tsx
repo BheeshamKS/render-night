@@ -29,7 +29,7 @@ export const ComponentsShowcase: React.FC = () => {
     <div className="flex-1 overflow-y-auto p-6 bg-rn-bg text-rn-text select-none">
       <div className="max-w-4xl mx-auto space-y-6">
         <div>
-          <h1 className="text-lg font-bold text-white tracking-tight">
+          <h1 className="text-lg font-semibold text-rn-text tracking-tight">
             Blender-Native Controls Showcase (/components)
           </h1>
           <p className="text-xs text-rn-muted mt-1">
@@ -59,7 +59,7 @@ export const ComponentsShowcase: React.FC = () => {
 
             <div>
               <span className="text-[11px] text-rn-muted block mb-1">
-                Modified / Overridden (Blue accent + Reset)
+                Modified / Overridden (Ember accent + Reset)
               </span>
               <BlenderNumberField
                 label="Resolution %"
@@ -179,22 +179,22 @@ export const ComponentsShowcase: React.FC = () => {
         {/* 4. Status Chips & Badges */}
         <CollapsiblePanel title="4. Status Chips & Badges" defaultOpen={true}>
           <div className="flex flex-wrap gap-2 py-2">
-            <span className="rounded-full border border-neutral-700 bg-neutral-800 px-2.5 py-0.5 text-xs font-semibold uppercase text-neutral-300">
+            <span className="rounded-md border border-rn-border bg-rn-subpanel px-2.5 py-0.5 text-xs font-medium text-rn-text/80">
               Queued
             </span>
-            <span className="rounded-full border border-blue-800 bg-blue-950/70 px-2.5 py-0.5 text-xs font-semibold uppercase text-blue-400 animate-pulse">
+            <span className="rounded-md border border-rn-border bg-rn-subpanel px-2.5 py-0.5 text-xs font-medium text-rn-muted">
               Inspecting
             </span>
-            <span className="rounded-full border border-amber-800 bg-amber-950/70 px-2.5 py-0.5 text-xs font-semibold uppercase text-amber-400">
+            <span className="rounded-md border border-rn-accent/30 bg-rn-accent/15 px-2.5 py-0.5 text-xs font-medium text-rn-accent">
               Rendering
             </span>
-            <span className="rounded-full border border-emerald-800 bg-emerald-950/70 px-2.5 py-0.5 text-xs font-semibold uppercase text-emerald-400">
-              Completed
+            <span className="rounded-md border border-rn-success/30 bg-rn-success/15 px-2.5 py-0.5 text-xs font-medium text-rn-success">
+              Done
             </span>
-            <span className="rounded-full border border-rose-800 bg-rose-950/70 px-2.5 py-0.5 text-xs font-semibold uppercase text-rose-400">
+            <span className="rounded-md border border-rn-error/30 bg-rn-error/15 px-2.5 py-0.5 text-xs font-medium text-rn-error">
               Failed
             </span>
-            <span className="rounded-full border border-neutral-800 bg-neutral-900 px-2.5 py-0.5 text-xs font-semibold uppercase text-neutral-500">
+            <span className="rounded-md border border-rn-border/60 bg-rn-panel px-2.5 py-0.5 text-xs text-rn-muted">
               Skipped
             </span>
           </div>

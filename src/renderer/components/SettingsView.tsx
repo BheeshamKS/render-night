@@ -55,10 +55,8 @@ export const SettingsView: React.FC = () => {
     <div className="flex flex-1 flex-col overflow-hidden bg-rn-bg p-6 text-rn-text select-none">
       <div className="flex h-full rounded-xl border border-rn-border bg-rn-panel shadow-xl overflow-hidden">
         {/* Left Section Nav */}
-        <div className="w-56 flex-shrink-0 border-r border-rn-border bg-rn-subpanel/40 p-3 space-y-1">
-          <div className="px-3 py-2 text-xs font-bold text-white uppercase tracking-wider">
-            Settings
-          </div>
+        <div className="w-56 flex-shrink-0 border-r border-rn-border bg-[#121213] p-3 space-y-1">
+          <div className="px-3 py-2 text-xs font-semibold text-rn-muted">Settings</div>
 
           {sections.map((sec) => {
             const Icon = sec.icon;
@@ -68,13 +66,16 @@ export const SettingsView: React.FC = () => {
                 key={sec.id}
                 type="button"
                 onClick={() => setActiveSection(sec.id)}
-                className={`flex w-full items-center space-x-2.5 rounded-lg px-3 py-2 text-xs font-medium transition ${
+                className={`relative flex w-full items-center space-x-2.5 rounded-lg px-3 py-2 text-xs font-medium transition ${
                   isActive
-                    ? 'bg-rn-accent text-white font-semibold shadow-sm'
-                    : 'text-rn-muted hover:bg-rn-subpanel hover:text-white'
+                    ? 'bg-rn-subpanel text-rn-text border border-rn-border font-semibold'
+                    : 'text-rn-muted hover:bg-rn-subpanel/50 hover:text-rn-text border border-transparent'
                 }`}
               >
-                <Icon className="h-4 w-4" />
+                {isActive && (
+                  <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-r bg-rn-accent" />
+                )}
+                <Icon className={`h-4 w-4 ${isActive ? 'text-rn-accent' : 'text-rn-muted'}`} />
                 <span>{sec.label}</span>
               </button>
             );
@@ -87,7 +88,7 @@ export const SettingsView: React.FC = () => {
           {activeSection === 'blender' && (
             <div className="space-y-4 max-w-xl">
               <div>
-                <h3 className="text-sm font-bold text-white">Blender Installations</h3>
+                <h3 className="text-sm font-semibold text-rn-text">Blender Installations</h3>
                 <p className="text-xs text-rn-muted mt-0.5">
                   Render Night automatically discovers system, Steam, Flatpak and Snap Blender
                   installations.
@@ -100,13 +101,15 @@ export const SettingsView: React.FC = () => {
                     key={b.id}
                     className={`flex items-center justify-between rounded-lg border p-3 text-xs transition ${
                       selectedBlenderId === b.id
-                        ? 'border-rn-accent bg-rn-accent/10'
-                        : 'border-rn-border bg-[#222222]'
+                        ? 'border-rn-accent/60 bg-rn-accent/10'
+                        : 'border-rn-border bg-rn-subpanel/50'
                     }`}
                   >
                     <div>
                       <div className="flex items-center space-x-2">
-                        <span className="font-bold text-white">Blender {b.version}</span>
+                        <span className="font-semibold text-rn-text tabular-nums">
+                          Blender {b.version}
+                        </span>
                         <span className="rounded bg-rn-input px-1.5 py-0.5 text-[10px] font-mono text-rn-muted">
                           {b.isPortable ? 'Portable' : b.source}
                         </span>
@@ -119,9 +122,9 @@ export const SettingsView: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setSelectedBlenderId(b.id)}
-                      className={`rounded px-3 py-1 text-xs font-medium transition ${
+                      className={`rounded-md px-3 py-1 text-xs font-medium transition ${
                         selectedBlenderId === b.id
-                          ? 'bg-rn-accent text-white'
+                          ? 'bg-rn-accent text-[#0f0f10] font-semibold'
                           : 'border border-rn-border bg-rn-input text-rn-text hover:border-rn-muted'
                       }`}
                     >
@@ -135,7 +138,7 @@ export const SettingsView: React.FC = () => {
                 type="button"
                 onClick={handleRescanBlenders}
                 disabled={isRescanning}
-                className="flex items-center space-x-1.5 rounded border border-rn-border bg-rn-input px-3 py-1.5 text-xs text-rn-text hover:border-rn-muted transition"
+                className="flex items-center space-x-1.5 rounded-md border border-rn-border bg-rn-input px-3 py-1.5 text-xs text-rn-text hover:border-rn-muted transition"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${isRescanning ? 'animate-spin' : ''}`} />
                 <span>{isRescanning ? 'Scanning...' : 'Rescan Installations'}</span>
@@ -147,22 +150,22 @@ export const SettingsView: React.FC = () => {
           {activeSection === 'rendering' && (
             <div className="space-y-4 max-w-xl">
               <div>
-                <h3 className="text-sm font-bold text-white">Rendering Defaults</h3>
+                <h3 className="text-sm font-semibold text-rn-text">Rendering Defaults</h3>
                 <p className="text-xs text-rn-muted mt-0.5">
                   Launch parameters passed to every Blender subprocess during batch execution.
                 </p>
               </div>
 
-              <div className="rounded-lg border border-rn-border bg-[#222222] p-4 space-y-3">
+              <div className="rounded-lg border border-rn-border bg-rn-subpanel/50 p-4 space-y-3">
                 <label className="flex items-start space-x-3 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={isolatedMode}
                     onChange={(e) => setIsolatedMode(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-rn-border bg-rn-input text-rn-accent focus:ring-0"
+                    className="mt-0.5 h-4 w-4 rounded border-rn-border bg-rn-input accent-rn-accent focus:ring-0"
                   />
                   <div>
-                    <span className="text-xs font-bold text-white">
+                    <span className="text-xs font-semibold text-rn-text">
                       Isolated Factory Startup (--factory-startup)
                     </span>
                     <p className="text-[11px] text-rn-muted mt-0.5">
@@ -172,17 +175,17 @@ export const SettingsView: React.FC = () => {
                   </div>
                 </label>
 
-                <div className="h-px bg-rn-border/50" />
+                <div className="h-px bg-rn-border/60" />
 
                 <label className="flex items-start space-x-3 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={autoExec}
                     onChange={(e) => setAutoExec(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-rn-border bg-rn-input text-rn-accent focus:ring-0"
+                    className="mt-0.5 h-4 w-4 rounded border-rn-border bg-rn-input accent-rn-accent focus:ring-0"
                   />
                   <div>
-                    <span className="text-xs font-bold text-white">
+                    <span className="text-xs font-semibold text-rn-text">
                       Enable Python Script Auto-execution (-y)
                     </span>
                     <p className="text-[11px] text-rn-muted mt-0.5">
@@ -199,15 +202,19 @@ export const SettingsView: React.FC = () => {
           {activeSection === 'performance' && (
             <div className="space-y-4 max-w-xl">
               <div>
-                <h3 className="text-sm font-bold text-white">Performance & Process Priority</h3>
+                <h3 className="text-sm font-semibold text-rn-text">
+                  Performance & Process Priority
+                </h3>
                 <p className="text-xs text-rn-muted mt-0.5">
                   Tune CPU allocation and background OS scheduling.
                 </p>
               </div>
 
-              <div className="rounded-lg border border-rn-border bg-[#222222] p-4 space-y-4">
+              <div className="rounded-lg border border-rn-border bg-rn-subpanel/50 p-4 space-y-4">
                 <div>
-                  <span className="text-xs font-bold text-white block mb-1">Process Priority</span>
+                  <span className="text-xs font-semibold text-rn-text block mb-1.5">
+                    Process Priority
+                  </span>
                   <SegmentedEnumToggle
                     value={globalSettings.defaultPriority || 'normal'}
                     options={[
@@ -224,7 +231,9 @@ export const SettingsView: React.FC = () => {
                 </div>
 
                 <div>
-                  <span className="text-xs font-bold text-white block mb-1">CPU Thread Limit</span>
+                  <span className="text-xs font-semibold text-rn-text block mb-1.5">
+                    CPU Thread Limit
+                  </span>
                   <div className="w-48">
                     <BlenderNumberField
                       value={globalSettings.defaultThreads || 0}
@@ -244,27 +253,27 @@ export const SettingsView: React.FC = () => {
           {activeSection === 'sound' && (
             <div className="space-y-4 max-w-xl">
               <div>
-                <h3 className="text-sm font-bold text-white">Finish Sound Notification</h3>
+                <h3 className="text-sm font-semibold text-rn-text">Finish Sound Notification</h3>
                 <p className="text-xs text-rn-muted mt-0.5">
-                  Plays the satisfying "to-DUNG" chime when the overnight queue finishes.
+                  Plays a chime when the overnight render queue finishes.
                 </p>
               </div>
 
-              <div className="rounded-lg border border-rn-border bg-[#222222] p-4 space-y-4">
+              <div className="rounded-lg border border-rn-border bg-rn-subpanel/50 p-4 space-y-4">
                 <label className="flex items-center space-x-3 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={!soundSettings.isMuted}
                     onChange={(e) => setSoundSettings({ isMuted: !e.target.checked })}
-                    className="h-4 w-4 rounded border-rn-border bg-rn-input text-rn-accent focus:ring-0"
+                    className="h-4 w-4 rounded border-rn-border bg-rn-input accent-rn-accent focus:ring-0"
                   />
-                  <span className="text-xs font-bold text-white">
+                  <span className="text-xs font-semibold text-rn-text">
                     Play finish sound on queue completion
                   </span>
                 </label>
 
                 <div>
-                  <span className="text-xs font-bold text-white block mb-1">
+                  <span className="text-xs font-semibold text-rn-text tabular-nums block mb-1.5">
                     Notification Volume: {soundSettings.volume}%
                   </span>
                   <input
@@ -280,9 +289,9 @@ export const SettingsView: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleTestSound}
-                  className="flex items-center space-x-1.5 rounded border border-rn-border bg-rn-input px-3 py-1.5 text-xs text-white hover:border-rn-muted transition"
+                  className="flex items-center space-x-1.5 rounded-md border border-rn-border bg-rn-input px-3 py-1.5 text-xs text-rn-text hover:border-rn-muted transition"
                 >
-                  <Volume2 className="h-3.5 w-3.5 text-green-400" />
+                  <Volume2 className="h-3.5 w-3.5 text-rn-success" />
                   <span>Preview Finish Chime</span>
                 </button>
               </div>
@@ -293,13 +302,13 @@ export const SettingsView: React.FC = () => {
           {activeSection === 'power' && (
             <div className="space-y-4 max-w-xl">
               <div>
-                <h3 className="text-sm font-bold text-white">Power & Sleep Management</h3>
+                <h3 className="text-sm font-semibold text-rn-text">Power & Sleep Management</h3>
                 <p className="text-xs text-rn-muted mt-0.5">
                   Controls OS-level power assertions to prevent machines from sleeping unattended.
                 </p>
               </div>
 
-              <div className="rounded-lg border border-rn-border bg-[#222222] p-4 space-y-3">
+              <div className="rounded-lg border border-rn-border bg-rn-subpanel/50 p-4 space-y-3">
                 <label className="flex items-start space-x-3 cursor-pointer">
                   <input
                     type="checkbox"
@@ -307,10 +316,10 @@ export const SettingsView: React.FC = () => {
                     onChange={(e) =>
                       setGlobalSettings({ blockSleepDuringRender: e.target.checked })
                     }
-                    className="mt-0.5 h-4 w-4 rounded border-rn-border bg-rn-input text-rn-accent focus:ring-0"
+                    className="mt-0.5 h-4 w-4 rounded border-rn-border bg-rn-input accent-rn-accent focus:ring-0"
                   />
                   <div>
-                    <span className="text-xs font-bold text-white">
+                    <span className="text-xs font-semibold text-rn-text">
                       Prevent sleep while rendering
                     </span>
                     <p className="text-[11px] text-rn-muted mt-0.5">
@@ -319,7 +328,7 @@ export const SettingsView: React.FC = () => {
                   </div>
                 </label>
 
-                <div className="h-px bg-rn-border/50" />
+                <div className="h-px bg-rn-border/60" />
 
                 <label className="flex items-start space-x-3 cursor-pointer">
                   <input
@@ -328,10 +337,10 @@ export const SettingsView: React.FC = () => {
                     onChange={(e) =>
                       setGlobalSettings({ blockSleepWhileScheduled: e.target.checked })
                     }
-                    className="mt-0.5 h-4 w-4 rounded border-rn-border bg-rn-input text-rn-accent focus:ring-0"
+                    className="mt-0.5 h-4 w-4 rounded border-rn-border bg-rn-input accent-rn-accent focus:ring-0"
                   />
                   <div>
-                    <span className="text-xs font-bold text-white">
+                    <span className="text-xs font-semibold text-rn-text">
                       Prevent sleep while waiting for schedule
                     </span>
                     <p className="text-[11px] text-rn-muted mt-0.5">
@@ -347,16 +356,18 @@ export const SettingsView: React.FC = () => {
           {activeSection === 'safety' && (
             <div className="space-y-4 max-w-xl">
               <div>
-                <h3 className="text-sm font-bold text-white">Safety & Disk Space Threshold</h3>
+                <h3 className="text-sm font-semibold text-rn-text">
+                  Safety & Disk Space Threshold
+                </h3>
                 <p className="text-xs text-rn-muted mt-0.5">
                   Preflight guardrails to protect against disk exhaustion during large image
                   sequence renders.
                 </p>
               </div>
 
-              <div className="rounded-lg border border-rn-border bg-[#222222] p-4 space-y-3">
+              <div className="rounded-lg border border-rn-border bg-rn-subpanel/50 p-4 space-y-3">
                 <div>
-                  <span className="text-xs font-bold text-white block mb-1">
+                  <span className="text-xs font-semibold text-rn-text block mb-1.5">
                     Minimum Free Disk Space Threshold
                   </span>
                   <div className="w-48">
@@ -382,16 +393,16 @@ export const SettingsView: React.FC = () => {
           {activeSection === 'retries' && (
             <div className="space-y-4 max-w-xl">
               <div>
-                <h3 className="text-sm font-bold text-white">Global Crash Recovery Policy</h3>
+                <h3 className="text-sm font-semibold text-rn-text">Global Crash Recovery Policy</h3>
                 <p className="text-xs text-rn-muted mt-0.5">
                   Default retry behavior when a Blender worker process crashes or exits
                   unexpectedly.
                 </p>
               </div>
 
-              <div className="rounded-lg border border-rn-border bg-[#222222] p-4 space-y-3">
+              <div className="rounded-lg border border-rn-border bg-rn-subpanel/50 p-4 space-y-3">
                 <div>
-                  <span className="text-xs font-bold text-white block mb-1">
+                  <span className="text-xs font-semibold text-rn-text block mb-1.5">
                     Default Frame Retries
                   </span>
                   <div className="w-48">
@@ -414,7 +425,7 @@ export const SettingsView: React.FC = () => {
                 </div>
 
                 <div>
-                  <span className="text-xs font-bold text-white block mb-1">
+                  <span className="text-xs font-semibold text-rn-text block mb-1.5">
                     Consecutive Crash Limit
                   </span>
                   <div className="w-48">
@@ -436,7 +447,7 @@ export const SettingsView: React.FC = () => {
                   </div>
                 </div>
 
-                <label className="flex items-center space-x-3 cursor-pointer pt-2 border-t border-rn-border/50">
+                <label className="flex items-center space-x-3 cursor-pointer pt-2 border-t border-rn-border/60">
                   <input
                     type="checkbox"
                     checked={globalSettings.defaultCrashPolicy?.fallbackToCpu ?? true}
@@ -448,9 +459,9 @@ export const SettingsView: React.FC = () => {
                         },
                       })
                     }
-                    className="h-4 w-4 rounded border-rn-border bg-rn-input text-rn-accent focus:ring-0"
+                    className="h-4 w-4 rounded border-rn-border bg-rn-input accent-rn-accent focus:ring-0"
                   />
-                  <span className="text-xs font-bold text-white">
+                  <span className="text-xs font-semibold text-rn-text">
                     Automatically fallback to CPU rendering after GPU crashes
                   </span>
                 </label>

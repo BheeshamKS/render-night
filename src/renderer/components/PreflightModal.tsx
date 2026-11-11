@@ -147,14 +147,14 @@ export const PreflightModal: React.FC = () => {
                         className="rounded border border-red-500/20 bg-red-950/20 p-2 space-y-1.5"
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-start space-x-1.5 text-red-300">
-                            <AlertCircle className="h-3.5 w-3.5 text-red-400 flex-shrink-0 mt-0.5" />
+                          <div className="flex items-start space-x-1.5 text-rn-error">
+                            <AlertCircle className="h-3.5 w-3.5 text-rn-error flex-shrink-0 mt-0.5" />
                             <span>{err.message}</span>
                           </div>
                           {err.quickFix && (
                             <button
                               onClick={() => applyQuickFix(err)}
-                              className="flex items-center space-x-1 rounded bg-rn-accent px-2 py-0.5 text-[11px] font-medium text-white hover:brightness-110 active:brightness-95 flex-shrink-0"
+                              className="flex items-center space-x-1 rounded-md bg-rn-accent px-2.5 py-0.5 text-[11px] font-semibold text-[#0f0f10] hover:brightness-110 active:brightness-95 flex-shrink-0"
                               title="Apply automatic fix"
                             >
                               <Wrench className="h-3 w-3" />
@@ -163,7 +163,7 @@ export const PreflightModal: React.FC = () => {
                           )}
                         </div>
                         {err.details && (
-                          <pre className="rounded bg-black/40 p-1.5 text-[10px] text-rn-muted font-mono overflow-x-auto whitespace-pre-wrap">
+                          <pre className="rounded bg-rn-input p-1.5 text-[10px] text-rn-muted font-mono overflow-x-auto whitespace-pre-wrap">
                             {err.details}
                           </pre>
                         )}
@@ -178,17 +178,17 @@ export const PreflightModal: React.FC = () => {
                     {jobWarnings.map((warn) => (
                       <div
                         key={warn.id}
-                        className="rounded border border-yellow-500/20 bg-yellow-950/20 p-2 space-y-1.5"
+                        className="rounded-lg border border-rn-warning/30 bg-rn-warning/10 p-2.5 space-y-1.5"
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-start space-x-1.5 text-yellow-300">
-                            <AlertTriangle className="h-3.5 w-3.5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                          <div className="flex items-start space-x-1.5 text-rn-warning">
+                            <AlertTriangle className="h-3.5 w-3.5 text-rn-warning flex-shrink-0 mt-0.5" />
                             <span>{warn.message}</span>
                           </div>
                           {warn.quickFix && (
                             <button
                               onClick={() => applyQuickFix(warn)}
-                              className="flex items-center space-x-1 rounded bg-yellow-600/80 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-yellow-600 flex-shrink-0"
+                              className="flex items-center space-x-1 rounded-md bg-rn-accent px-2.5 py-0.5 text-[11px] font-semibold text-[#0f0f10] hover:brightness-110 flex-shrink-0"
                               title="Apply automatic fix"
                             >
                               <Wrench className="h-3 w-3" />
@@ -197,7 +197,7 @@ export const PreflightModal: React.FC = () => {
                           )}
                         </div>
                         {warn.details && (
-                          <pre className="rounded bg-black/40 p-1.5 text-[10px] text-rn-muted font-mono overflow-x-auto whitespace-pre-wrap">
+                          <pre className="rounded bg-rn-input p-1.5 text-[10px] text-rn-muted font-mono overflow-x-auto whitespace-pre-wrap">
                             {warn.details}
                           </pre>
                         )}
@@ -214,7 +214,7 @@ export const PreflightModal: React.FC = () => {
         <div className="flex items-center justify-between border-t border-rn-border bg-rn-subpanel/40 px-5 py-3">
           <button
             onClick={closePreflightModal}
-            className="rounded border border-rn-border bg-rn-subpanel px-3 py-1.5 text-xs text-rn-text hover:bg-rn-subpanel/80 transition"
+            className="rounded-md border border-rn-border bg-rn-subpanel px-3 py-1.5 text-xs text-rn-text hover:border-rn-muted transition"
           >
             Close
           </button>
@@ -223,7 +223,7 @@ export const PreflightModal: React.FC = () => {
             {hasWarnings && !hasErrors && (
               <button
                 onClick={handleStartAnyway}
-                className="flex items-center space-x-1.5 rounded bg-yellow-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-yellow-500 transition"
+                className="flex items-center space-x-1.5 rounded-md bg-rn-accent px-3 py-1.5 text-xs font-semibold text-[#0f0f10] hover:brightness-110 transition"
                 title="Ignore pre-flight warnings and start render queue"
               >
                 <Play className="h-3 w-3 fill-current" />
@@ -234,7 +234,7 @@ export const PreflightModal: React.FC = () => {
             {passed && (
               <button
                 onClick={handleStartAnyway}
-                className="flex items-center space-x-1.5 rounded bg-rn-accent px-3 py-1.5 text-xs font-medium text-white hover:brightness-110 transition"
+                className="flex items-center space-x-1.5 rounded-md bg-rn-accent px-3 py-1.5 text-xs font-semibold text-[#0f0f10] hover:brightness-110 transition"
                 title="Start render queue"
               >
                 <Play className="h-3 w-3 fill-current" />

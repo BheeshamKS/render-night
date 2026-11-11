@@ -22,9 +22,9 @@ export const LeftNavRail: React.FC = () => {
     },
     {
       id: 'sequences' as const,
-      label: 'Tools',
+      label: 'Sequences',
       icon: Film,
-      tooltip: 'Sequence Tools & MP4 Converter (Ctrl+3)',
+      tooltip: 'Image Sequences & MP4 Converter (Ctrl+3)',
     },
     {
       id: 'settings' as const,
@@ -35,17 +35,17 @@ export const LeftNavRail: React.FC = () => {
   ];
 
   return (
-    <aside className="flex w-14 flex-shrink-0 flex-col items-center border-r border-rn-border bg-[#181818] py-2.5 select-none z-30">
-      {/* Brand Icon */}
+    <aside className="flex w-16 flex-shrink-0 flex-col items-center border-r border-rn-border bg-[#0f0f10] py-2.5 select-none z-30">
+      {/* Brand Glyph */}
       <div
-        className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg bg-rn-accent/20 text-rn-accent"
-        title="Render Night - Local Blender Batch Queue"
+        className="mb-3 flex h-8 w-8 items-center justify-center text-rn-muted"
+        title="Render Night — Local Blender Batch Queue"
       >
-        <Layers className="h-4 w-4 text-rn-accent" />
+        <Layers className="h-4 w-4 text-rn-accent stroke-[1.75]" />
       </div>
 
       {/* Navigation Items: Icon + Label Only */}
-      <div className="flex flex-col items-center space-y-1 w-full">
+      <div className="flex flex-col items-center space-y-1 w-full px-1">
         {navItems.map((item) => {
           const isActive =
             activeTab === item.id ||
@@ -57,15 +57,15 @@ export const LeftNavRail: React.FC = () => {
               key={item.id}
               type="button"
               onClick={() => setActiveTab(item.id)}
-              className={`group relative flex w-12 flex-col items-center justify-center rounded-md py-2 transition-all duration-100 ${
+              className={`group relative flex w-full flex-col items-center justify-center rounded-md py-2 transition-colors ${
                 isActive
-                  ? 'bg-rn-panel text-white shadow-sm'
-                  : 'text-rn-muted hover:bg-rn-subpanel hover:text-rn-text'
+                  ? 'bg-rn-panel text-rn-text'
+                  : 'text-rn-muted hover:bg-rn-subpanel/70 hover:text-rn-text'
               }`}
               title={item.tooltip}
             >
               {isActive && (
-                <span className="absolute -left-1 top-2 bottom-2 w-1 rounded-r bg-rn-accent" />
+                <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-r bg-rn-accent" />
               )}
 
               <Icon
@@ -73,7 +73,7 @@ export const LeftNavRail: React.FC = () => {
               />
 
               <span
-                className={`mt-1 text-[10px] font-medium tracking-tight ${isActive ? 'text-white' : 'text-rn-muted'}`}
+                className={`mt-1 text-[10px] font-medium tracking-tight ${isActive ? 'text-rn-text' : 'text-rn-muted'}`}
               >
                 {item.label}
               </span>

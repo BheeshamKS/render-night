@@ -4,13 +4,16 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   Check,
+  CheckCircle2,
   ChevronDown,
   ChevronUp,
   Copy,
   FileText,
   Film,
+  FolderOpen,
   Gauge,
   Moon,
+  Play,
   Search,
   Terminal,
   Trash2,
@@ -40,12 +43,18 @@ export const MonitorDock: React.FC = () => {
     recentFrameTimes,
     setActiveTab,
     queueState,
+    loadSequenceFromPath,
   } = useQueueStore();
 
   const [filterText, setFilterText] = useState('');
   const [autoScroll, setAutoScroll] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [thumbFailed, setThumbFailed] = useState(false);
   const consoleBottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setThumbFailed(false);
+  }, [monitorStats.lastThumbnailPath]);
 
   const activeJob = jobs.find((j) => j.id === activeJobId);
   const isRunning = queueState === 'running';
@@ -131,11 +140,11 @@ export const MonitorDock: React.FC = () => {
   // ==================================================================
   if (!isBusy && isMonitorCollapsed) {
     return (
-      <footer className="flex h-6 flex-shrink-0 items-center justify-between border-t border-rn-border bg-[#181818] px-3 text-xs select-none z-20">
-        <div className="flex items-center space-x-2 text-[11px] text-rn-muted">
+      <footer className="flex h-6 flex-shrink-0 items-center justify-between border-t border-rn-border bg-[#0f0f10] px-3 text-xs select-none z-20">
+        <div className="flex items-center space-x-2 text-[11px] text-rn-muted tabular-nums">
           {jobs.length > 0 ? (
             <>
-              <span className="font-semibold text-neutral-300">Ready</span>
+              <span className="font-semibold text-rn-text">Ready</span>
               <span>·</span>
               <span>
                 {jobs.length} job{jobs.length === 1 ? '' : 's'} ({enabledCount} enabled)
@@ -164,18 +173,18 @@ export const MonitorDock: React.FC = () => {
   // ==================================================================
   if (isBusy && isMonitorCollapsed) {
     return (
-      <footer className="flex h-7 flex-shrink-0 items-center justify-between border-t border-rn-border bg-[#181818] px-3 text-xs select-none z-20">
-        <div className="flex items-center space-x-3 text-rn-muted">
-          <span className="font-mono text-white font-semibold truncate max-w-xs">
+      <footer className="flex h-7 flex-shrink-0 items-center justify-between border-t border-rn-border bg-[#0f0f10] px-3 text-xs select-none z-20">
+        <div className="flex items-center space-x-3 text-rn-muted tabular-nums">
+          <span className="font-mono text-rn-text font-semibold truncate max-w-xs">
             {activeJob ? activeJob.fileName : 'Rendering...'}
           </span>
           {currentFrame !== null && totalFrames !== null && (
-            <span className="font-mono text-[11px] text-neutral-300">
+            <span className="font-mono text-[11px] text-rn-text/80">
               Frame {currentFrame}/{totalFrames}
             </span>
           )}
           {eta !== null && (
-            <span className="font-mono text-[11px] text-neutral-400">ETA: {formatTime(eta)}</span>
+            <span className="font-mono text-[11px] text-rn-muted">ETA: {formatTime(eta)}</span>
           )}
         </div>
 
@@ -183,11 +192,10 @@ export const MonitorDock: React.FC = () => {
           {/* Sleep Blocked Indicator */}
           {isRunning && (
             <div
-              className="flex h-5 items-center space-x-1 rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 text-[10px] font-medium text-emerald-400"
+              className="flex h-5 items-center space-x-1.5 rounded border border-rn-success/30 bg-rn-success/10 px-2 text-[10px] font-medium text-rn-success"
               title="System sleep is actively prevented while rendering is in progress"
             >
               <Moon className="h-2.5 w-2.5" />
-              <span className="inline-block h-1 w-1 rounded-full bg-emerald-400 animate-pulse" />
               <span>Sleep Blocked</span>
             </div>
           )}
@@ -195,11 +203,13 @@ export const MonitorDock: React.FC = () => {
           <div className="flex items-center space-x-2">
             <div className="h-1.5 w-24 rounded-full bg-rn-input overflow-hidden">
               <div
-                className="h-full bg-rn-rendering transition-all duration-200"
+                className="h-full bg-rn-accent transition-all duration-200"
                 style={{ width: `${Math.max(0, Math.min(100, overallPct))}%` }}
               />
             </div>
-            <span className="font-mono font-bold text-[11px] text-rn-text">{overallPct}%</span>
+            <span className="font-mono font-semibold tabular-nums text-[11px] text-rn-text">
+              {overallPct}%
+            </span>
           </div>
 
           <button
@@ -219,16 +229,16 @@ export const MonitorDock: React.FC = () => {
   // 3. Expanded Full Dock (Header Tabs + Dock Body)
   // ==================================================================
   return (
-    <footer className="flex h-48 flex-shrink-0 flex-col border-t border-rn-border bg-[#181818] select-none z-20">
+    <footer className="flex h-48 flex-shrink-0 flex-col border-t border-rn-border bg-rn-bg select-none z-20">
       {/* Dock Tabs Header */}
-      <div className="flex h-7 items-center justify-between border-b border-rn-border bg-[#222222] px-2">
+      <div className="flex h-8 items-center justify-between border-b border-rn-border bg-[#0f0f10] px-2">
         <div className="flex items-center space-x-1">
           <button
             type="button"
             onClick={() => setMonitorTab('monitor')}
-            className={`flex items-center space-x-1.5 px-2.5 py-1 text-xs font-semibold rounded transition ${
+            className={`flex items-center space-x-1.5 px-2.5 py-1 text-xs font-medium rounded-md transition ${
               monitorTab === 'monitor'
-                ? 'bg-rn-panel text-white shadow-sm'
+                ? 'bg-rn-panel text-rn-text border border-rn-border/70'
                 : 'text-rn-muted hover:text-rn-text'
             }`}
           >
@@ -239,29 +249,29 @@ export const MonitorDock: React.FC = () => {
           <button
             type="button"
             onClick={() => setMonitorTab('console')}
-            className={`flex items-center space-x-1.5 px-2.5 py-1 text-xs font-semibold rounded transition ${
+            className={`flex items-center space-x-1.5 px-2.5 py-1 text-xs font-medium rounded-md transition ${
               monitorTab === 'console'
-                ? 'bg-rn-panel text-white shadow-sm'
+                ? 'bg-rn-panel text-rn-text border border-rn-border/70'
                 : 'text-rn-muted hover:text-rn-text'
             }`}
           >
-            <Terminal className="h-3.5 w-3.5 text-amber-400" />
+            <Terminal className="h-3.5 w-3.5 text-rn-accent" />
             <span>Console</span>
             {logs.some((l) => l.toLowerCase().includes('error')) && (
-              <span className="flex h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
+              <span className="flex h-1.5 w-1.5 rounded-full bg-rn-error" title="Errors logged" />
             )}
           </button>
 
           <button
             type="button"
             onClick={() => setMonitorTab('log')}
-            className={`flex items-center space-x-1.5 px-2.5 py-1 text-xs font-semibold rounded transition ${
+            className={`flex items-center space-x-1.5 px-2.5 py-1 text-xs font-medium rounded-md transition ${
               monitorTab === 'log'
-                ? 'bg-rn-panel text-white shadow-sm'
+                ? 'bg-rn-panel text-rn-text border border-rn-border/70'
                 : 'text-rn-muted hover:text-rn-text'
             }`}
           >
-            <FileText className="h-3.5 w-3.5 text-blue-400" />
+            <FileText className="h-3.5 w-3.5 text-rn-muted" />
             <span>Overrides & Events</span>
           </button>
         </div>
@@ -271,11 +281,10 @@ export const MonitorDock: React.FC = () => {
           {/* Sleep Blocked Status */}
           {isRunning && (
             <div
-              className="flex h-5 items-center space-x-1 rounded border border-emerald-500/30 bg-emerald-500/10 px-2 text-[10px] font-medium text-emerald-400"
+              className="flex h-5 items-center space-x-1.5 rounded border border-rn-success/30 bg-rn-success/10 px-2 text-[10px] font-medium text-rn-success"
               title="System sleep is actively prevented while rendering is in progress"
             >
               <Moon className="h-2.5 w-2.5" />
-              <span className="inline-block h-1 w-1 rounded-full bg-emerald-400 animate-pulse" />
               <span>Sleep Blocked</span>
             </div>
           )}
@@ -303,7 +312,7 @@ export const MonitorDock: React.FC = () => {
                 <div>
                   <div className="flex items-center justify-between text-xs text-rn-text mb-1.5">
                     <div className="flex items-center space-x-2 truncate">
-                      <span className="font-bold text-white truncate">
+                      <span className="font-semibold text-rn-text truncate">
                         {activeJob ? activeJob.fileName : 'Rendering...'}
                       </span>
                       <span className="rounded bg-rn-subpanel px-2 py-0.5 text-[10px] font-mono text-rn-muted">
@@ -311,25 +320,25 @@ export const MonitorDock: React.FC = () => {
                       </span>
                     </div>
 
-                    <span className="font-mono font-bold text-sm text-rn-rendering">
+                    <span className="font-mono font-bold tabular-nums text-sm text-rn-accent">
                       {overallPct}%
                     </span>
                   </div>
 
                   {/* Progress Bar */}
-                  <div className="h-2 w-full rounded-full bg-rn-input overflow-hidden shadow-inner">
+                  <div className="h-2 w-full rounded-full bg-rn-input overflow-hidden">
                     <div
-                      className="h-full bg-rn-rendering transition-all duration-300 ease-out"
+                      className="h-full bg-rn-accent transition-all duration-300 ease-out"
                       style={{ width: `${Math.max(0, Math.min(100, overallPct))}%` }}
                     />
                   </div>
                 </div>
 
                 {/* Metrics Grid */}
-                <div className="grid grid-cols-4 gap-2 border-t border-rn-border/50 pt-2 text-[11px] font-mono">
+                <div className="grid grid-cols-4 gap-2 border-t border-rn-border/60 pt-2 text-[11px] font-mono tabular-nums">
                   <div className="flex flex-col">
-                    <span className="text-[10px] text-rn-muted uppercase">Frame</span>
-                    <span className="text-white font-semibold">
+                    <span className="text-[10px] font-sans text-rn-muted">Frame</span>
+                    <span className="text-rn-text font-semibold">
                       {currentFrame !== null && totalFrames !== null
                         ? `${currentFrame} / ${totalFrames}`
                         : '--'}
@@ -337,8 +346,8 @@ export const MonitorDock: React.FC = () => {
                   </div>
 
                   <div className="flex flex-col">
-                    <span className="text-[10px] text-rn-muted uppercase">Sample</span>
-                    <span className="text-white font-semibold">
+                    <span className="text-[10px] font-sans text-rn-muted">Samples</span>
+                    <span className="text-rn-text font-semibold">
                       {sampleCurrent !== null && sampleTotal !== null
                         ? `${sampleCurrent} / ${sampleTotal}`
                         : '--'}
@@ -346,14 +355,14 @@ export const MonitorDock: React.FC = () => {
                   </div>
 
                   <div className="flex flex-col">
-                    <span className="text-[10px] text-rn-muted uppercase">Elapsed / ETA</span>
-                    <span className="text-white font-semibold">
+                    <span className="text-[10px] font-sans text-rn-muted">Elapsed / ETA</span>
+                    <span className="text-rn-text font-semibold">
                       {formatTime(elapsed)} / {eta !== null ? formatTime(eta) : '--'}
                     </span>
                   </div>
 
                   <div className="flex flex-col">
-                    <span className="text-[10px] text-rn-muted uppercase">Peak Memory</span>
+                    <span className="text-[10px] font-sans text-rn-muted">Peak Memory</span>
                     <span className="text-rn-accent font-semibold">{peakMem || '--'}</span>
                   </div>
                 </div>
@@ -361,37 +370,43 @@ export const MonitorDock: React.FC = () => {
 
               {/* Centre: Larger Preview of Last Finished Frame */}
               <div
-                onClick={() => setActiveTab('sequences')}
-                className="group relative flex h-full w-48 flex-shrink-0 cursor-pointer flex-col items-center justify-center rounded-lg border border-rn-border bg-rn-panel overflow-hidden shadow-md hover:border-rn-accent transition-all"
+                onClick={async () => {
+                  if (monitorStats.lastThumbnailPath) {
+                    await loadSequenceFromPath(monitorStats.lastThumbnailPath);
+                  } else {
+                    setActiveTab('sequences');
+                  }
+                }}
+                className="group relative flex h-full w-48 flex-shrink-0 cursor-pointer flex-col items-center justify-center rounded-lg border border-rn-border bg-rn-panel overflow-hidden hover:border-rn-accent transition-colors"
                 title="Click to open Sequence Viewer"
               >
-                {monitorStats.lastThumbnailPath ? (
+                {monitorStats.lastThumbnailPath && !thumbFailed ? (
                   <img
                     src={`file://${monitorStats.lastThumbnailPath}`}
                     alt="Last Rendered Frame"
                     className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
-                    onError={(e) => {
-                      (e.target as HTMLElement).style.display = 'none';
-                    }}
+                    onError={() => setThumbFailed(true)}
                   />
                 ) : (
-                  <div className="flex flex-col items-center text-rn-muted/60 p-2 text-center">
-                    <Film className="h-8 w-8 stroke-[1.2] mb-1 text-rn-accent" />
-                    <span className="text-[10px] font-medium">Last Rendered Frame</span>
-                    <span className="text-[9px] text-rn-muted/60">Click to view sequence</span>
+                  <div className="flex flex-col items-center text-rn-muted p-2 text-center">
+                    <Film className="h-7 w-7 stroke-[1.3] mb-1 text-rn-accent" />
+                    <span className="text-[10px] font-medium text-rn-text/80">
+                      Last Rendered Frame
+                    </span>
+                    <span className="text-[9px] text-rn-muted">Click to view sequence</span>
                   </div>
                 )}
 
-                <div className="absolute inset-x-0 bottom-0 bg-black/70 px-2 py-0.5 text-center text-[9px] font-mono text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="absolute inset-x-0 bottom-0 bg-black/75 px-2 py-0.5 text-center text-[9px] font-mono text-rn-text opacity-0 group-hover:opacity-100 transition-opacity">
                   Open Sequence Viewer
                 </div>
               </div>
 
               {/* Right: Sparkline of Recent Frame Times (NO fake numbers) */}
               <div className="flex h-full w-40 flex-shrink-0 flex-col justify-between rounded-lg border border-rn-border bg-rn-panel p-2.5">
-                <div className="flex items-center justify-between text-[10px] font-mono text-rn-muted">
+                <div className="flex items-center justify-between text-[10px] font-mono tabular-nums text-rn-muted">
                   <span>Frame Times</span>
-                  <span className="font-bold text-rn-accent">{sparklineData.lastVal}</span>
+                  <span className="font-semibold text-rn-accent">{sparklineData.lastVal}</span>
                 </div>
 
                 {hasRealTimes ? (
@@ -399,7 +414,7 @@ export const MonitorDock: React.FC = () => {
                     <svg className="h-full w-full overflow-visible" viewBox="0 0 120 36">
                       <polyline
                         fill="none"
-                        stroke="#4772b3"
+                        stroke="#e87d0d"
                         strokeWidth="2"
                         strokeLinecap="round"
                         strokeLinejoin="round"
@@ -408,21 +423,177 @@ export const MonitorDock: React.FC = () => {
                     </svg>
                   </div>
                 ) : (
-                  <div className="flex h-10 w-full items-center justify-center text-[10px] text-rn-muted/50 italic text-center">
+                  <div className="flex h-10 w-full items-center justify-center text-[10px] text-rn-muted/60 text-center">
                     No timings yet
                   </div>
                 )}
 
-                <div className="flex items-center justify-between text-[9px] font-mono text-rn-muted/70 border-t border-rn-border/40 pt-1">
+                <div className="flex items-center justify-between text-[9px] font-mono tabular-nums text-rn-muted/80 border-t border-rn-border/50 pt-1">
+                  <span>Min: {sparklineData.min}</span>
+                  <span>Max: {sparklineData.max}</span>
+                </div>
+              </div>
+            </>
+          ) : monitorStats.lastThumbnailPath ||
+            (monitorStats.totalFrames !== null &&
+              monitorStats.totalFrames > 0 &&
+              monitorStats.currentFrame !== null) ? (
+            /* Idle but with Completed Render Output: Persistent preview and 1-click actions */
+            <>
+              {/* Left: Completed Render Summary & Actions */}
+              <div className="flex flex-1 flex-col justify-between min-w-0 pr-2">
+                <div>
+                  <div className="flex items-center space-x-2 mb-1">
+                    <span className="flex items-center space-x-1 rounded bg-rn-success/15 border border-rn-success/30 px-2 py-0.5 text-[11px] font-medium text-rn-success">
+                      <CheckCircle2 className="h-3 w-3" />
+                      <span>Render Complete</span>
+                    </span>
+                    <span className="font-mono text-xs font-semibold text-rn-text truncate">
+                      {(jobs.find((j) => j.status === 'Completed') ?? jobs[0])?.fileName ??
+                        'Output ready'}
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-rn-muted truncate">
+                    Output saved and verified. Open the player to scrub or play the full sequence.
+                  </p>
+                </div>
+
+                {/* Metrics Grid */}
+                <div className="grid grid-cols-4 gap-2 border-t border-rn-border/60 pt-2 text-[11px] font-mono tabular-nums">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-sans text-rn-muted">Frame</span>
+                    <span className="text-rn-text font-semibold">
+                      {currentFrame ?? totalFrames ?? 1} / {totalFrames ?? 1}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-sans text-rn-muted">Samples</span>
+                    <span className="text-rn-text font-semibold">
+                      {sampleCurrent !== null
+                        ? `${sampleCurrent}/${sampleTotal ?? sampleCurrent}`
+                        : 'Done'}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-sans text-rn-muted">Duration</span>
+                    <span className="text-rn-text font-semibold">{formatTime(elapsed)}</span>
+                  </div>
+
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-sans text-rn-muted">Peak Memory</span>
+                    <span className="text-rn-accent font-semibold">{peakMem || '--'}</span>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center space-x-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (monitorStats.lastThumbnailPath) {
+                        await loadSequenceFromPath(monitorStats.lastThumbnailPath);
+                      } else {
+                        setActiveTab('sequences');
+                      }
+                    }}
+                    className="flex items-center space-x-1.5 rounded-md bg-rn-accent px-3 py-1 text-xs font-semibold text-[#0f0f10] hover:brightness-110 active:brightness-95 transition shadow-sm"
+                    title="Open sequence player"
+                  >
+                    <Play className="h-3.5 w-3.5 fill-current" />
+                    <span>Play Sequence</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (window.rnApi && monitorStats.lastThumbnailPath) {
+                        const dir = monitorStats.lastThumbnailPath.replace(/[/\\][^/\\]+$/, '');
+                        await window.rnApi.openPath(dir);
+                      }
+                    }}
+                    className="flex items-center space-x-1.5 rounded-md border border-rn-border bg-rn-panel px-3 py-1 text-xs text-rn-text hover:bg-rn-subpanel transition"
+                    title="Open rendered output folder"
+                  >
+                    <FolderOpen className="h-3.5 w-3.5 text-rn-muted" />
+                    <span>Open Folder</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Centre: Rendered Frame Thumbnail */}
+              <div
+                onClick={async () => {
+                  if (monitorStats.lastThumbnailPath) {
+                    await loadSequenceFromPath(monitorStats.lastThumbnailPath);
+                  } else {
+                    setActiveTab('sequences');
+                  }
+                }}
+                className="group relative flex h-full w-48 flex-shrink-0 cursor-pointer flex-col items-center justify-center rounded-lg border border-rn-border bg-rn-panel overflow-hidden hover:border-rn-accent transition-colors"
+                title="Click to open Sequence Viewer"
+              >
+                {monitorStats.lastThumbnailPath && !thumbFailed ? (
+                  <img
+                    src={`file://${monitorStats.lastThumbnailPath}`}
+                    alt="Last Rendered Frame"
+                    className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                    onError={() => setThumbFailed(true)}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center text-rn-muted p-2 text-center">
+                    <Film className="h-7 w-7 stroke-[1.3] mb-1 text-rn-accent" />
+                    <span className="text-[10px] font-medium text-rn-text/80">
+                      Last Rendered Frame
+                    </span>
+                  </div>
+                )}
+
+                <div className="absolute inset-x-0 bottom-0 bg-black/75 px-2 py-0.5 text-center text-[9px] font-mono text-rn-text opacity-0 group-hover:opacity-100 transition-opacity">
+                  Click to Play
+                </div>
+              </div>
+
+              {/* Right: Timing Summary */}
+              <div className="flex h-full w-40 flex-shrink-0 flex-col justify-between rounded-lg border border-rn-border bg-rn-panel p-2.5">
+                <div className="flex items-center justify-between text-[10px] font-mono tabular-nums text-rn-muted">
+                  <span>Frame Times</span>
+                  <span className="font-semibold text-rn-accent">{sparklineData.lastVal}</span>
+                </div>
+
+                {hasRealTimes ? (
+                  <div className="flex h-10 w-full items-center justify-center overflow-hidden">
+                    <svg className="h-full w-full overflow-visible" viewBox="0 0 120 36">
+                      <polyline
+                        fill="none"
+                        stroke="#e87d0d"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        points={sparklineData.points}
+                      />
+                    </svg>
+                  </div>
+                ) : (
+                  <div className="flex h-10 w-full items-center justify-center text-[10px] text-rn-muted/60 text-center">
+                    {sparklineData.lastVal !== '--'
+                      ? `Last: ${sparklineData.lastVal}`
+                      : 'Single frame'}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between text-[9px] font-mono tabular-nums text-rn-muted/80 border-t border-rn-border/50 pt-1">
                   <span>Min: {sparklineData.min}</span>
                   <span>Max: {sparklineData.max}</span>
                 </div>
               </div>
             </>
           ) : (
-            /* Clean Idle State in Monitor Tab (No fake graphs) */
+            /* Clean Idle State in Monitor Tab (Initial launch, zero renders yet) */
             <div className="flex flex-1 flex-col items-center justify-center text-center text-rn-muted space-y-1">
-              <p className="text-xs font-medium text-neutral-300">
+              <p className="text-xs font-medium text-rn-text/90">
                 Queue is idle · Press{' '}
                 <strong className="text-rn-accent font-semibold">Start Queue</strong> to begin batch
                 rendering
@@ -440,9 +611,9 @@ export const MonitorDock: React.FC = () => {
       {/* Tab 2: Console Tab                                             */}
       {/* ============================================================== */}
       {monitorTab === 'console' && (
-        <div className="flex flex-1 flex-col overflow-hidden bg-[#141414]">
+        <div className="flex flex-1 flex-col overflow-hidden bg-rn-input">
           {/* Console Toolbar */}
-          <div className="flex h-7 items-center justify-between border-b border-rn-border bg-[#1d1d1d] px-3 text-xs">
+          <div className="flex h-7 items-center justify-between border-b border-rn-border bg-rn-panel px-3 text-xs">
             <div className="flex items-center space-x-2">
               <div className="flex items-center space-x-1 rounded bg-rn-bg px-2 py-0.5 border border-rn-border">
                 <Search className="h-3 w-3 text-rn-muted" />
@@ -513,12 +684,12 @@ export const MonitorDock: React.FC = () => {
                     key={idx}
                     className={`whitespace-pre-wrap break-all ${
                       isError
-                        ? 'text-rose-400 font-semibold bg-rose-950/20 px-1 rounded'
+                        ? 'text-rn-error font-semibold bg-rn-error/10 px-1 rounded'
                         : isWarn
-                          ? 'text-amber-300'
+                          ? 'text-rn-warning'
                           : isInfo
-                            ? 'text-blue-400'
-                            : 'text-neutral-300'
+                            ? 'text-rn-accent/90'
+                            : 'text-rn-text/85'
                     }`}
                   >
                     {line}
@@ -526,7 +697,7 @@ export const MonitorDock: React.FC = () => {
                 );
               })
             ) : (
-              <div className="text-rn-muted italic p-2">
+              <div className="text-rn-muted p-2">
                 {filterText ? 'No log lines matching filter.' : 'Console buffer empty.'}
               </div>
             )}
@@ -539,17 +710,17 @@ export const MonitorDock: React.FC = () => {
       {/* Tab 3: Overrides & Events Log Tab                              */}
       {/* ============================================================== */}
       {monitorTab === 'log' && (
-        <div className="flex flex-1 flex-col overflow-y-auto p-3 font-mono text-xs bg-[#161616] space-y-2 select-text">
-          <div className="text-[11px] font-semibold text-rn-muted uppercase tracking-wider mb-1">
+        <div className="flex flex-1 flex-col overflow-y-auto p-3 font-mono text-xs bg-rn-input space-y-2 select-text">
+          <div className="text-[11px] font-sans font-medium text-rn-muted mb-1">
             Active Job Override Audit & Device Telemetry
           </div>
 
           {activeJob ? (
             <div className="space-y-2">
-              <div className="rounded border border-rn-border bg-rn-panel p-2">
-                <span className="font-bold text-white block mb-1">Applied RNA Overrides</span>
+              <div className="rounded-lg border border-rn-border bg-rn-panel p-2.5">
+                <span className="font-semibold text-rn-text block mb-1">Applied RNA Overrides</span>
                 {activeJob.overridesReport && activeJob.overridesReport.applied.length > 0 ? (
-                  <ul className="list-disc pl-4 space-y-0.5 text-emerald-400 text-[11px]">
+                  <ul className="list-disc pl-4 space-y-0.5 text-rn-success text-[11px]">
                     {activeJob.overridesReport.applied.map((p, i) => {
                       const rnaPath =
                         typeof p === 'object' && p !== null && 'rnaPath' in p
@@ -559,16 +730,18 @@ export const MonitorDock: React.FC = () => {
                     })}
                   </ul>
                 ) : (
-                  <span className="text-rn-muted italic text-[11px]">
+                  <span className="text-rn-muted text-[11px]">
                     No custom overrides applied (rendering with file defaults).
                   </span>
                 )}
               </div>
 
               {activeJob.overridesReport && activeJob.overridesReport.skipped.length > 0 && (
-                <div className="rounded border border-amber-800/60 bg-amber-950/20 p-2">
-                  <span className="font-bold text-amber-300 block mb-1">Skipped Overrides</span>
-                  <ul className="list-disc pl-4 space-y-0.5 text-amber-400 text-[11px]">
+                <div className="rounded-lg border border-rn-warning/30 bg-rn-warning/10 p-2.5">
+                  <span className="font-semibold text-rn-warning block mb-1">
+                    Skipped Overrides
+                  </span>
+                  <ul className="list-disc pl-4 space-y-0.5 text-rn-accent text-[11px]">
                     {activeJob.overridesReport.skipped.map((s, i) => (
                       <li key={i}>
                         <strong>{s.rnaPath}</strong>: {s.reason}

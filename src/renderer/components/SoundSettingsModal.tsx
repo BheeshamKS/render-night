@@ -92,14 +92,14 @@ export const SoundSettingsModal: React.FC = () => {
             <button
               onClick={handleTestSound}
               disabled={soundSettings.isMuted}
-              className="flex items-center space-x-1.5 rounded border border-rn-border bg-rn-subpanel px-3 py-1.5 text-xs font-medium text-rn-text hover:bg-rn-accent hover:text-white transition disabled:opacity-40"
+              className="flex items-center space-x-1.5 rounded-md border border-rn-border bg-rn-subpanel px-3 py-1.5 text-xs font-medium text-rn-text hover:border-rn-accent hover:text-rn-accent transition disabled:opacity-40"
             >
               <Volume2 className="h-3.5 w-3.5" />
               <span>Test Sound</span>
             </button>
             <button
               onClick={() => setShowSoundModal(false)}
-              className="rounded bg-rn-accent px-3 py-1.5 text-xs font-medium text-white hover:brightness-110 transition"
+              className="rounded-md bg-rn-accent px-3 py-1.5 text-xs font-semibold text-[#0f0f10] hover:brightness-110 transition"
             >
               Done
             </button>

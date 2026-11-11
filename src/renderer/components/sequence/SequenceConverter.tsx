@@ -140,9 +140,7 @@ export const SequenceConverter: React.FC<SequenceConverterProps> = ({ sequence }
       <div className="flex items-center justify-between pb-3 border-b border-rn-border mb-4">
         <div className="flex items-center space-x-2">
           <Film className="w-4 h-4 text-rn-accent" />
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-rn-text">
-            Convert / Stitch Sequence to Video
-          </h3>
+          <h3 className="text-xs font-semibold text-rn-text">Convert / Stitch Sequence to Video</h3>
         </div>
         {sequence && (
           <span className="text-[11px] font-mono text-rn-muted">
@@ -358,14 +356,14 @@ export const SequenceConverter: React.FC<SequenceConverterProps> = ({ sequence }
 
       {/* Error / Success Messages */}
       {error && (
-        <div className="mt-3 p-2.5 bg-red-500/10 border border-red-500/30 rounded text-xs text-red-400 flex items-start space-x-2">
+        <div className="mt-3 p-2.5 bg-rn-error/10 border border-rn-error/30 rounded-lg text-xs text-rn-error flex items-start space-x-2">
           <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
           <span className="font-mono whitespace-pre-wrap">{error}</span>
         </div>
       )}
 
       {successPath && (
-        <div className="mt-3 p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded text-xs text-emerald-400 flex items-center space-x-2">
+        <div className="mt-3 p-2.5 bg-rn-success/10 border border-rn-success/30 rounded-lg text-xs text-rn-success flex items-center space-x-2">
           <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
           <span>Stitched video created successfully: {successPath}</span>
         </div>
@@ -385,7 +383,7 @@ export const SequenceConverter: React.FC<SequenceConverterProps> = ({ sequence }
           {isConverting ? (
             <button
               onClick={handleCancel}
-              className="flex items-center space-x-1.5 px-4 py-1.5 bg-red-600 text-white text-xs font-medium rounded hover:bg-red-700 transition"
+              className="flex items-center space-x-1.5 px-4 py-1.5 bg-rn-error text-white text-xs font-semibold rounded-md hover:brightness-110 transition"
             >
               <Square className="w-3.5 h-3.5 fill-current" />
               <span>Cancel Stitching</span>
@@ -394,7 +392,7 @@ export const SequenceConverter: React.FC<SequenceConverterProps> = ({ sequence }
             <button
               onClick={handleStartStitch}
               disabled={!sequence}
-              className="flex items-center space-x-1.5 px-5 py-1.5 bg-rn-accent text-white text-xs font-medium rounded hover:brightness-110 active:brightness-95 transition disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex items-center space-x-1.5 px-5 py-1.5 bg-rn-accent text-[#0f0f10] text-xs font-semibold rounded-md hover:brightness-110 active:brightness-95 transition disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Play className="w-3.5 h-3.5 fill-current" />
               <span>Stitch to Video</span>

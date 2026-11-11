@@ -177,7 +177,7 @@ export const BlenderDropdown: React.FC<BlenderDropdownProps> = ({
                       opt.disabled
                         ? 'opacity-40 cursor-not-allowed'
                         : isSelected
-                          ? 'bg-rn-accent text-white font-medium'
+                          ? 'bg-rn-accent text-[#0f0f10] font-semibold'
                           : isHighlighted
                             ? 'bg-rn-subpanel text-rn-text'
                             : 'text-rn-text hover:bg-rn-subpanel'
@@ -188,7 +188,7 @@ export const BlenderDropdown: React.FC<BlenderDropdownProps> = ({
                       {opt.sublabel && (
                         <span
                           className={`ml-1.5 text-[10px] font-mono ${
-                            isSelected ? 'text-white/80' : 'text-rn-muted'
+                            isSelected ? 'text-[#0f0f10]/75' : 'text-rn-muted'
                           }`}
                         >
                           {opt.sublabel}
