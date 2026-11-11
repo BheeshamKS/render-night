@@ -65,7 +65,7 @@ export const SettingsModal: React.FC = () => {
           <div className="flex items-center space-x-2">
             <span className="font-semibold text-rn-text text-sm">Application Settings & Audit</span>
             <span className="rounded bg-rn-input px-2 py-0.5 text-[11px] font-mono text-rn-muted">
-              v0.1.0-alpha.1
+              v0.1.0-alpha.2
             </span>
           </div>
           <button
@@ -173,8 +173,8 @@ export const SettingsModal: React.FC = () => {
                     >
                       <div className="space-y-0.5">
                         <div className="flex items-center space-x-2">
-                          <span className="font-bold text-rn-text">Blender {b.version}</span>
-                          <span className="rounded bg-rn-subpanel px-1.5 py-0.5 text-[10px] font-mono text-rn-muted uppercase">
+                          <span className="font-semibold text-rn-text">Blender {b.version}</span>
+                          <span className="rounded bg-rn-subpanel px-1.5 py-0.5 text-[10px] font-mono text-rn-muted">
                             {b.source}
                           </span>
                           {selectedBlenderId === b.id && (

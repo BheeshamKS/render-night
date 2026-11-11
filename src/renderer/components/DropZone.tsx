@@ -52,7 +52,7 @@ export const DropZone: React.FC = () => {
       {/* Full-window drop overlay when dragging */}
       {isDraggingOver && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-rn-bg/85 backdrop-blur-sm pointer-events-none border-2 border-dashed border-rn-accent m-2 rounded-lg">
-          <UploadCloud className="h-16 w-16 text-rn-accent animate-bounce" />
+          <UploadCloud className="h-16 w-16 text-rn-accent scale-105 transition-transform duration-150 ease-out" />
           <p className="mt-2 text-base font-semibold text-rn-text">
             Drop .blend files to add to queue
           </p>

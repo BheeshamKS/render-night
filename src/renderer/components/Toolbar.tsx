@@ -118,7 +118,7 @@ export const Toolbar: React.FC = () => {
             type="button"
             onClick={startQueueWithPreflight}
             disabled={!hasEligibleJobs}
-            className="flex h-8 items-center space-x-2 rounded-lg bg-rn-accent px-5 text-xs font-semibold text-[#0f0f10] shadow-sm transition hover:brightness-110 active:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex h-8 items-center space-x-2 rounded-lg bg-rn-accent px-5 text-xs font-semibold text-[#0f0f10] shadow-sm transition-colors hover:brightness-110 active:brightness-95 disabled:bg-rn-input disabled:text-rn-muted disabled:border disabled:border-rn-border disabled:shadow-none disabled:hover:brightness-100 disabled:cursor-not-allowed"
             title="Start batch render queue (Ctrl+Enter)"
           >
             <Play className="h-3.5 w-3.5 fill-current" />

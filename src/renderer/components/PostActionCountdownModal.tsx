@@ -41,7 +41,7 @@ export const PostActionCountdownModal: React.FC = () => {
         </div>
 
         <div className="my-6 flex flex-col items-center justify-center rounded-lg bg-rn-input p-6 border border-rn-border">
-          <span className="text-5xl font-mono font-bold text-rn-accent tabular-nums">
+          <span className="text-5xl font-mono font-semibold text-rn-accent tabular-nums">
             {postActionCountdown}s
           </span>
           <span className="mt-2 text-xs text-rn-muted text-center">

@@ -111,7 +111,7 @@ export const HistoryView: React.FC = () => {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search history..."
+                placeholder="Search history"
                 className="h-8 rounded-md border border-rn-border bg-rn-input pl-8 pr-3 text-xs text-rn-text placeholder-rn-muted focus:border-rn-accent focus:outline-none w-48"
               />
             </div>

@@ -203,8 +203,8 @@ export const MonitorDock: React.FC = () => {
           <div className="flex items-center space-x-2">
             <div className="h-1.5 w-24 rounded-full bg-rn-input overflow-hidden">
               <div
-                className="h-full bg-rn-accent transition-all duration-200"
-                style={{ width: `${Math.max(0, Math.min(100, overallPct))}%` }}
+                className="h-full w-full bg-rn-accent origin-left transition-transform duration-200 ease-out"
+                style={{ transform: `scaleX(${Math.max(0, Math.min(100, overallPct)) / 100})` }}
               />
             </div>
             <span className="font-mono font-semibold tabular-nums text-[11px] text-rn-text">
@@ -320,7 +320,7 @@ export const MonitorDock: React.FC = () => {
                       </span>
                     </div>
 
-                    <span className="font-mono font-bold tabular-nums text-sm text-rn-accent">
+                    <span className="font-mono font-semibold tabular-nums text-sm text-rn-accent">
                       {overallPct}%
                     </span>
                   </div>
@@ -328,8 +328,10 @@ export const MonitorDock: React.FC = () => {
                   {/* Progress Bar */}
                   <div className="h-2 w-full rounded-full bg-rn-input overflow-hidden">
                     <div
-                      className="h-full bg-rn-accent transition-all duration-300 ease-out"
-                      style={{ width: `${Math.max(0, Math.min(100, overallPct))}%` }}
+                      className="h-full w-full bg-rn-accent origin-left transition-transform duration-300 ease-out"
+                      style={{
+                        transform: `scaleX(${Math.max(0, Math.min(100, overallPct)) / 100})`,
+                      }}
                     />
                   </div>
                 </div>
@@ -640,7 +642,7 @@ export const MonitorDock: React.FC = () => {
                   type="text"
                   value={filterText}
                   onChange={(e) => setFilterText(e.target.value)}
-                  placeholder="Filter console..."
+                  placeholder="Filter console"
                   className="bg-transparent text-xs text-rn-text placeholder-rn-muted focus:outline-none w-36"
                 />
               </div>
@@ -771,7 +773,7 @@ export const MonitorDock: React.FC = () => {
               )}
             </div>
           ) : (
-            <div className="text-rn-muted italic text-xs py-4 text-center">
+            <div className="text-rn-muted text-xs py-4 text-center">
               No active job running. Telemetry reports appear during render execution.
             </div>
           )}

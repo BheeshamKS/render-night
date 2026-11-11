@@ -89,7 +89,7 @@ export const HistoryModal: React.FC = () => {
         <div className="flex items-center justify-between border-b border-rn-border px-5 py-3">
           <div className="flex items-center space-x-2.5">
             <Clock className="h-4 w-4 text-rn-accent" />
-            <h2 className="text-sm font-bold text-rn-text">Render History</h2>
+            <h2 className="text-sm font-semibold text-rn-text">Render History</h2>
             <span className="rounded bg-rn-subpanel px-2 py-0.5 text-xs text-rn-muted font-mono">
               {entries.length} {entries.length === 1 ? 'entry' : 'entries'}
             </span>
@@ -120,7 +120,7 @@ export const HistoryModal: React.FC = () => {
             <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-rn-muted" />
             <input
               type="text"
-              placeholder="Search by file name, scene, camera, device, or output..."
+              placeholder="Search history"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full rounded border border-rn-border bg-rn-input pl-8 pr-3 py-1 text-xs text-rn-text placeholder-rn-muted focus:border-rn-accent focus:outline-none"

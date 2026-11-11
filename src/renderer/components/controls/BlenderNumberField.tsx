@@ -196,8 +196,8 @@ export const BlenderNumberField: React.FC<BlenderNumberFieldProps> = ({
         {/* Range Fill Indicator */}
         {hasRange && (
           <div
-            className="absolute left-0 top-0 bottom-0 bg-rn-accent/20 pointer-events-none transition-all duration-75"
-            style={{ width: `${progressPct}%` }}
+            className="absolute inset-0 bg-rn-accent/20 pointer-events-none origin-left transition-transform duration-75"
+            style={{ transform: `scaleX(${Math.max(0, Math.min(1, progressPct / 100))})` }}
           />
         )}
 

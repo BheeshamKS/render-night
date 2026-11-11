@@ -60,7 +60,7 @@ export const AdvancedJobDrawer: React.FC<AdvancedJobDrawerProps> = ({ job }) => 
               {modifiedCount} override{modifiedCount === 1 ? '' : 's'} active
             </span>
           ) : (
-            <span className="text-[11px] text-rn-muted italic">File defaults active</span>
+            <span className="text-[11px] text-rn-muted">File defaults active</span>
           )}
         </div>
       </div>

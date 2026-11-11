@@ -6,6 +6,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.0-alpha.2] - 2026-11-12
+
+### Added
+- **UI Redesign & Navigation Polish:**
+  - Applied Graphite Dark + Ember design system across workspace, monitor dock, modals, and drawers.
+  - Simplified Queue layout with 2-line job rows, multi-select bulk action bar, slide-over job settings drawer, and clean 4-item navigation rail without decorative filler or disabled accent clutter.
+  - Replaced bouncy drag animations, `transition-all` layout transitions, italic placeholders, and heavy weights across renderer components.
+- **1-Click Preview & Cross-OS Sequence Resolution:**
+  - Added 1-click Preview support for completed and canceled renders with existing frames, single-frame stills, `//` relative paths, and Windows/Flatpak output paths (`D:/...`, `/app/blender/D:/...`) mapped onto mounted Linux drives.
+  - Added explicit missing-sequence feedback in Sequence Viewer and safe `#` percent-encoding for `file://` URLs.
+
+### Fixed
+- **Blender Inspection & Pre-flight Compatibility:**
+  - Fixed Blender 5.x `SceneRenderView` JSON serialization errors during headless `.blend` inspection.
+  - Fixed Flatpak executable resolution, EEVEE/EEVEE-Next sample reading, and `.blend` header build-version alignment checks.
+- **Linux Folder Opening Freeze:**
+  - Replaced blocking `shell.openPath` directory calls with detached `xdg-open` spawning using sanitized desktop environment variables to prevent KDE Plasma/X11 "Not Responding" hangs.
+- **Packaging & Release Automation:**
+  - Added `node_modules/ffmpeg-static/**` to `asarUnpack` and resolved unpacked binary paths in packaged builds.
+  - Updated GitHub Actions release workflow with pre-release verification (`lint`, `typecheck`, `build`, `test`) and clean multi-platform installer publishing.
+
+---
+
 ## [0.1.0-alpha.1] - 2026-11-11
 
 Initial Alpha Release of Render Night: a fast local render queue for Blender.

@@ -342,8 +342,10 @@ export const SequenceConverter: React.FC<SequenceConverterProps> = ({ sequence }
           </div>
           <div className="w-full bg-rn-input h-2 rounded-full overflow-hidden">
             <div
-              className="bg-rn-accent h-full transition-all duration-200"
-              style={{ width: `${progress.progressPercent || 0}%` }}
+              className="bg-rn-accent h-full w-full origin-left transition-transform duration-200 ease-out"
+              style={{
+                transform: `scaleX(${Math.max(0, Math.min(100, progress.progressPercent || 0)) / 100})`,
+              }}
             />
           </div>
           <div className="flex items-center justify-between text-[11px] text-rn-muted font-mono">

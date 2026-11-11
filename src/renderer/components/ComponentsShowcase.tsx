@@ -29,7 +29,7 @@ export const ComponentsShowcase: React.FC = () => {
     <div className="flex-1 overflow-y-auto p-6 bg-rn-bg text-rn-text select-none">
       <div className="max-w-4xl mx-auto space-y-6">
         <div>
-          <h1 className="text-lg font-semibold text-rn-text tracking-tight">
+          <h1 className="text-lg font-semibold text-rn-text">
             Blender-Native Controls Showcase (/components)
           </h1>
           <p className="text-xs text-rn-muted mt-1">

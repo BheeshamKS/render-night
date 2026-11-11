@@ -143,7 +143,7 @@ export const BlenderDropdown: React.FC<BlenderDropdownProps> = ({
                     setSearch(e.target.value);
                     setHighlightedIndex(0);
                   }}
-                  placeholder="Filter..."
+                  placeholder="Filter"
                   className="w-full bg-transparent text-xs text-rn-text placeholder-rn-muted focus:outline-none"
                 />
               </div>
@@ -152,9 +152,7 @@ export const BlenderDropdown: React.FC<BlenderDropdownProps> = ({
 
           <div ref={listRef} className="max-h-48 overflow-y-auto py-0.5">
             {filteredOptions.length === 0 ? (
-              <div className="px-3 py-2 text-center text-xs text-rn-muted italic">
-                No matching options
-              </div>
+              <div className="px-3 py-2 text-center text-xs text-rn-muted">No matching options</div>
             ) : (
               filteredOptions.map((opt, idx) => {
                 const isSelected = opt.value === value;

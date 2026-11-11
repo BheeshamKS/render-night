@@ -41,7 +41,7 @@ export const ScheduleModal: React.FC = () => {
         <div className="flex items-center justify-between border-b border-rn-border pb-3 mb-4">
           <div className="flex items-center space-x-2">
             <Calendar className="h-4 w-4 text-rn-accent" />
-            <h2 className="text-sm font-bold text-rn-text">One-Shot Queue Scheduler</h2>
+            <h2 className="text-sm font-semibold text-rn-text">One-Shot Queue Scheduler</h2>
           </div>
           <button
             onClick={() => setShowScheduleModal(false)}
@@ -56,7 +56,7 @@ export const ScheduleModal: React.FC = () => {
             <div className="rounded-lg bg-rn-subpanel p-4 border border-rn-accent/40 text-center">
               <Timer className="h-6 w-6 text-rn-accent mx-auto mb-2" />
               <div className="text-xs text-rn-muted">Queue scheduled to start at:</div>
-              <div className="text-2xl font-mono font-bold tabular-nums text-rn-accent mt-1">
+              <div className="text-2xl font-mono font-semibold tabular-nums text-rn-accent mt-1">
                 {scheduleConfig.time}
               </div>
               {scheduleConfig.blockSleep && (

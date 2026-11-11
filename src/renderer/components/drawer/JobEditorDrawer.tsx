@@ -232,7 +232,7 @@ export const JobEditorDrawer: React.FC<JobEditorDrawerProps> = ({ job, onClose }
                 className="w-full"
               />
             ) : (
-              <span className="text-xs text-rn-muted italic">No cameras in scene</span>
+              <span className="text-xs text-rn-muted">No cameras in scene</span>
             )}
           </PanelRow>
 

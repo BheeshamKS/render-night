@@ -87,11 +87,16 @@ export async function getFfmpegPath(customPath?: string): Promise<FfmpegInfo | n
     }
   }
 
-  // 2. Check bundled ffmpeg-static
+  // 2. Check bundled ffmpeg-static (resolve unpacked binary path when packaged in asar)
   if (ffmpegStatic && typeof ffmpegStatic === 'string') {
-    const version = await checkFfmpegBinary(ffmpegStatic);
-    if (version) {
-      return { path: ffmpegStatic, source: 'bundled', version };
+    const candidates = ffmpegStatic.includes('app.asar')
+      ? [ffmpegStatic.replace('app.asar', 'app.asar.unpacked'), ffmpegStatic]
+      : [ffmpegStatic];
+    for (const candidate of candidates) {
+      const version = await checkFfmpegBinary(candidate);
+      if (version) {
+        return { path: candidate, source: 'bundled', version };
+      }
     }
   }
 

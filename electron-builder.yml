@@ -16,7 +16,11 @@ files:
   - "!**/*.spec.*"
 
 asar: true
-asarUnpack: ["**/*.node", "**/*.so", "**/*.dylib"]
+asarUnpack:
+  - "**/*.node"
+  - "**/*.so"
+  - "**/*.dylib"
+  - "node_modules/ffmpeg-static/**"
 
 # ── Windows ──────────────────────────────────────────────────────────────────
 win:

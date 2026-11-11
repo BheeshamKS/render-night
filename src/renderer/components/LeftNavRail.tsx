@@ -65,7 +65,7 @@ export const LeftNavRail: React.FC = () => {
               />
 
               <span
-                className={`mt-1 text-[10px] font-medium tracking-tight ${isActive ? 'text-rn-text' : 'text-rn-muted'}`}
+                className={`mt-1 text-[10px] font-medium ${isActive ? 'text-rn-text' : 'text-rn-muted'}`}
               >
                 {item.label}
               </span>

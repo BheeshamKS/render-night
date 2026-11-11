@@ -20,7 +20,7 @@ export const SoundSettingsModal: React.FC = () => {
         <div className="flex items-center justify-between border-b border-rn-border pb-3 mb-4">
           <div className="flex items-center space-x-2">
             <Bell className="h-4 w-4 text-rn-accent" />
-            <h2 className="text-sm font-bold text-rn-text">Finish Sound ("to-DUNG")</h2>
+            <h2 className="text-sm font-semibold text-rn-text">Finish Sound ("to-DUNG")</h2>
           </div>
           <button
             onClick={() => setShowSoundModal(false)}

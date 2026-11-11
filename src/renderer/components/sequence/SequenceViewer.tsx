@@ -326,7 +326,7 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
                   fitActual
                     ? 'max-h-none max-w-none object-none'
                     : 'max-h-full max-w-full object-contain'
-                } pointer-events-none select-none drop-shadow-md`}
+                } pointer-events-none select-none`}
               />
             </div>
           ) : isLoadingProxy ? (

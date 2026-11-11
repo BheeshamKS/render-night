@@ -645,8 +645,8 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
       {job.status === 'Rendering' && (
         <div className="absolute left-0 bottom-0 right-0 h-0.5 bg-rn-border overflow-hidden pointer-events-none">
           <div
-            className="h-full bg-rn-rendering transition-all duration-150 ease-out"
-            style={{ width: `${progressPct}%` }}
+            className="h-full w-full bg-rn-rendering origin-left transition-transform duration-150 ease-out"
+            style={{ transform: `scaleX(${Math.max(0, Math.min(1, progressPct / 100))})` }}
           />
         </div>
       )}

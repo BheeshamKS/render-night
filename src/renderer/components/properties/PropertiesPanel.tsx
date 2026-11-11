@@ -101,7 +101,7 @@ export const PropertiesPanel: React.FC = () => {
                 {overrideCount} override{overrideCount === 1 ? '' : 's'}
               </span>
             ) : (
-              <span className="text-[10px] text-rn-muted italic">Defaults</span>
+              <span className="text-[10px] text-rn-muted">Defaults</span>
             )}
           </div>
         )}

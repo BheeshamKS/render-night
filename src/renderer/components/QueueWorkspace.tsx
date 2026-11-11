@@ -76,8 +76,8 @@ export const QueueWorkspace: React.FC = () => {
       {/* Full-Window Drag Drop Overlay */}
       {isDraggingOver && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-rn-bg/90 backdrop-blur-sm pointer-events-none border-2 border-dashed border-rn-accent m-3 rounded-xl animate-in fade-in">
-          <UploadCloud className="h-16 w-16 text-rn-accent animate-bounce" />
-          <p className="mt-3 text-base font-bold text-rn-text">
+          <UploadCloud className="h-16 w-16 text-rn-accent scale-105 transition-transform duration-150 ease-out" />
+          <p className="mt-3 text-base font-semibold text-rn-text">
             Drop .blend files to add to render queue
           </p>
         </div>
@@ -92,9 +92,7 @@ export const QueueWorkspace: React.FC = () => {
               <FolderDown className="h-6 w-6 stroke-[1.5]" />
             </div>
 
-            <h2 className="text-base font-semibold text-rn-text tracking-tight">
-              Drop .blend files here
-            </h2>
+            <h2 className="text-base font-semibold text-rn-text">Drop .blend files here</h2>
             <p className="mt-1.5 text-xs text-rn-muted max-w-sm leading-relaxed">
               Drag and drop Blender files directly into the window, or browse to add shots to your
               render queue.
