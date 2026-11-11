@@ -18,6 +18,37 @@ except ImportError:
     sys.exit(1)
 
 
+def make_json_safe(val):
+    """
+    Recursively convert Blender RNA objects, collections, and structs
+    into JSON-serializable primitives (dicts, lists, strings, numbers, booleans, None).
+    """
+    if val is None or isinstance(val, (int, float, bool, str)):
+        return val
+
+    # If it's a dictionary / mapping
+    if isinstance(val, dict):
+        return {str(k): make_json_safe(v) for k, v in val.items()}
+
+    # If it's an iterable sequence / collection (but not string or bytes)
+    if hasattr(val, "__iter__") and not isinstance(val, (str, bytes)):
+        safe_list = []
+        try:
+            for item in val:
+                safe_list.append(make_json_safe(item))
+        except Exception:
+            return str(val)
+        return safe_list
+
+    # If it's a bpy_struct or complex object with a name or identifier
+    if hasattr(val, "name"):
+        return str(val.name)
+    if hasattr(val, "identifier"):
+        return str(val.identifier)
+
+    return str(val)
+
+
 def introspect_struct(obj):
     """
     Generic RNA introspection over a Blender struct.
@@ -37,35 +68,32 @@ def introspect_struct(obj):
 
         try:
             val = getattr(obj, prop_id)
-
-            # Convert non-serializable sequences to lists
-            if hasattr(val, "__iter__") and not isinstance(val, (str, bytes, dict)):
-                try:
-                    val = list(val)
-                except Exception:
-                    val = str(val)
-            elif isinstance(val, (int, float, bool, str)) or val is None:
-                pass
-            else:
-                val = str(val)
+            safe_val = make_json_safe(val)
 
             meta = {
-                "value": val,
+                "value": safe_val,
                 "type": prop.type,
                 "name": prop.name,
                 "description": prop.description or "",
             }
 
             if hasattr(prop, "default"):
-                def_val = prop.default
-                if hasattr(def_val, "__iter__") and not isinstance(def_val, (str, bytes, dict)):
-                    def_val = list(def_val)
-                meta["default"] = def_val
+                try:
+                    def_val = make_json_safe(prop.default)
+                    meta["default"] = def_val
+                except Exception:
+                    pass
 
             if hasattr(prop, "hard_min"):
-                meta["min"] = float(prop.hard_min)
+                try:
+                    meta["min"] = float(prop.hard_min)
+                except Exception:
+                    pass
             if hasattr(prop, "hard_max"):
-                meta["max"] = float(prop.hard_max)
+                try:
+                    meta["max"] = float(prop.hard_max)
+                except Exception:
+                    pass
 
             if prop.type == "ENUM" and hasattr(prop, "enum_items"):
                 meta["enumItems"] = [
@@ -278,7 +306,7 @@ def main():
     }
 
     with open(out_file, "w", encoding="utf-8") as f:
-        json.dump(output, f, indent=2)
+        json.dump(output, f, indent=2, default=make_json_safe)
 
     print(f"RN_INSPECT_SUCCESS: {out_file}")
 

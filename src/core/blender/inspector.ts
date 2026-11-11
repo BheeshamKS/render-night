@@ -4,7 +4,7 @@ import { readBlendHeader } from './header-reader';
 import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { existsSync, promises as fs } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 export interface InspectOptions {
@@ -60,7 +60,21 @@ export async function inspectBlend(
   }
 
   const script = resolveScriptPath();
-  const tempOutputFile = join(tmpdir(), `rn-inspect-${randomUUID()}.json`);
+
+  // Use user cache dir on Linux/Unix so flatpak/sandboxed Blender with host permissions can access the temp file
+  const baseTmpDir =
+    process.platform === 'win32'
+      ? tmpdir()
+      : join(process.env.XDG_CACHE_HOME || join(homedir(), '.cache'), 'render-night', 'tmp');
+
+  try {
+    await fs.mkdir(baseTmpDir, { recursive: true });
+  } catch {
+    // ignore
+  }
+
+  const effectiveTmpDir = existsSync(baseTmpDir) ? baseTmpDir : tmpdir();
+  const tempOutputFile = join(effectiveTmpDir, `rn-inspect-${randomUUID()}.json`);
 
   const argv = Array.isArray(blenderExecutable) ? [...blenderExecutable] : [blenderExecutable];
   const [cmd, ...baseArgs] = argv;

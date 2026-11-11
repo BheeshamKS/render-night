@@ -23,7 +23,7 @@ except ImportError:
 
 def emit_event(event_dict):
     """Emit a structured event line with RN_EVENT prefix."""
-    print(f"RN_EVENT {json.dumps(event_dict)}", flush=True)
+    print(f"RN_EVENT {json.dumps(event_dict, default=str)}", flush=True)
 
 
 def check_control(control_file):
