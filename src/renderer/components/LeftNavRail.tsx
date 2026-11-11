@@ -2,7 +2,7 @@ import { useQueueStore } from '../store/queueStore';
 
 import React from 'react';
 
-import { Clock, Film, Layers, ListOrdered, Settings } from 'lucide-react';
+import { Clock, Film, ListOrdered, Settings } from 'lucide-react';
 
 export const LeftNavRail: React.FC = () => {
   const { activeTab, setActiveTab } = useQueueStore();
@@ -35,15 +35,7 @@ export const LeftNavRail: React.FC = () => {
   ];
 
   return (
-    <aside className="flex w-16 flex-shrink-0 flex-col items-center border-r border-rn-border bg-[#0f0f10] py-2.5 select-none z-30">
-      {/* Brand Glyph */}
-      <div
-        className="mb-3 flex h-8 w-8 items-center justify-center text-rn-muted"
-        title="Render Night — Local Blender Batch Queue"
-      >
-        <Layers className="h-4 w-4 text-rn-accent stroke-[1.75]" />
-      </div>
-
+    <aside className="flex w-16 flex-shrink-0 flex-col items-center border-r border-rn-border bg-[#0f0f10] py-2 select-none z-30">
       {/* Navigation Items: Icon + Label Only */}
       <div className="flex flex-col items-center space-y-1 w-full px-1">
         {navItems.map((item) => {
