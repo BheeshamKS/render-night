@@ -15,6 +15,7 @@ import {
   Loader2,
   MoreVertical,
   Pencil,
+  RefreshCw,
   ShieldCheck,
   Sliders,
   Trash2,
@@ -45,6 +46,7 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
     pasteOverrides,
     copiedOverrides,
     openJobDrawer,
+    reinspectJob,
   } = useQueueStore();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -312,6 +314,21 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
             <span>{statusConfig.label}</span>
           </div>
 
+          {job.status === 'Failed' && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                reinspectJob(job.id);
+              }}
+              className="flex h-5 items-center space-x-1 rounded bg-rn-accent/20 px-2 text-[10px] font-medium text-rn-accent hover:bg-rn-accent/30 transition"
+              title="Re-inspect file"
+            >
+              <RefreshCw className="h-2.5 w-2.5" />
+              <span>Retry</span>
+            </button>
+          )}
+
           {/* Overflow Menu Button */}
           <div className="relative">
             <button
@@ -350,6 +367,18 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
                   >
                     <Sliders className="h-3.5 w-3.5 text-rn-accent" />
                     <span>Edit Settings...</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      reinspectJob(job.id);
+                      setMenuOpen(false);
+                    }}
+                    className="flex w-full items-center space-x-2 px-3 py-1.5 text-left text-rn-text hover:bg-rn-subpanel"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5 text-rn-muted" />
+                    <span>Re-inspect File</span>
                   </button>
 
                   <button
@@ -519,6 +548,14 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
             >
               <Pencil className="h-3.5 w-3.5 text-rn-accent" />
               <span>Edit Settings</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => reinspectJob(job.id)}
+              className="flex w-full items-center space-x-2 px-3 py-1.5 text-rn-text hover:bg-rn-subpanel"
+            >
+              <RefreshCw className="h-3.5 w-3.5 text-rn-muted" />
+              <span>Re-inspect File</span>
             </button>
             <button
               type="button"

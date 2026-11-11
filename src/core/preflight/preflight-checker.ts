@@ -1,4 +1,4 @@
-import { compareVersions } from '../blender/version-compare';
+import { isBlendVersionNewer } from '../blender/version-compare';
 import { isFormatVideo, resolveFrameRange, validateRangeForFormat } from '../ranges/frame-range';
 import type { InspectOutput, InspectScene } from '../schemas/inspect';
 import type { OverrideMap } from '../schemas/override';
@@ -22,6 +22,7 @@ export interface PreflightJobInput {
   overrides?: OverrideMap;
   savedWithVersion?: string;
   inspectData?: InspectOutput;
+  inspectError?: string;
   deviceReport?: {
     requestedGpu?: boolean;
     engine?: string;
@@ -37,6 +38,43 @@ export interface PreflightOptions {
   platform?: NodeJS.Platform;
   checkDiskAccess?: boolean;
   checkDiskSpace?: boolean;
+}
+
+/**
+ * Checks if an executable exists either as a direct file path or as a command in PATH.
+ */
+export function isExecutableAvailable(executable?: string): boolean {
+  if (!executable) return false;
+  // If executable string contains multiple tokens (e.g. "flatpak run org.blender.Blender"), take the command name/path
+  const cmd = executable.trim().split(/\s+/)[0];
+  if (!cmd) return false;
+
+  // If it's a direct path (contains / or \)
+  if (cmd.includes('/') || cmd.includes('\\')) {
+    return fs.existsSync(cmd);
+  }
+
+  // Otherwise, it's a command name in PATH (e.g. "flatpak", "blender")
+  const pathEnv = process.env.PATH || '';
+  const delimiter = path.delimiter;
+  const dirs = pathEnv.split(delimiter);
+  const extensions =
+    process.platform === 'win32' ? (process.env.PATHEXT || '.EXE;.CMD;.BAT').split(';') : [''];
+
+  for (const dir of dirs) {
+    for (const ext of extensions) {
+      const fullPath = path.join(dir, cmd + ext);
+      try {
+        if (fs.existsSync(fullPath)) {
+          return true;
+        }
+      } catch {
+        // continue
+      }
+    }
+  }
+
+  return false;
 }
 
 export class PreflightChecker {
@@ -120,10 +158,22 @@ export class PreflightChecker {
       }
     }
 
+    // 0. File inspection failure check
+    if (job.inspectError) {
+      errors.push({
+        id: `pf-${job.id}-inspection-failed`,
+        jobId: job.id,
+        jobName: job.fileName,
+        code: 'INSPECTION_FAILED',
+        severity: 'error',
+        message: `File inspection failed for "${job.fileName}": ${job.inspectError}`,
+      });
+    }
+
     // 3. File saved with newer Blender version than selected executable
     const savedVer = job.savedWithVersion || job.inspectData?.savedWithVersion;
     if (savedVer && selectedBlender?.version) {
-      if (compareVersions(savedVer, selectedBlender.version) > 0) {
+      if (isBlendVersionNewer(savedVer, selectedBlender.version)) {
         errors.push({
           id: `pf-${job.id}-newer-version`,
           jobId: job.id,
@@ -136,18 +186,20 @@ export class PreflightChecker {
     }
 
     // 4. Camera & Selected Blender checks
-    if (!job.selectedCamera || (job.availableCameras && job.availableCameras.length === 0)) {
-      errors.push({
-        id: `pf-${job.id}-no-camera`,
-        jobId: job.id,
-        jobName: job.fileName,
-        code: 'NO_ACTIVE_CAMERA',
-        severity: 'error',
-        message: `No active camera selected for rendering in scene "${job.selectedScene || 'Scene'}".`,
-      });
+    if (!job.inspectError) {
+      if (!job.selectedCamera || (job.availableCameras && job.availableCameras.length === 0)) {
+        errors.push({
+          id: `pf-${job.id}-no-camera`,
+          jobId: job.id,
+          jobName: job.fileName,
+          code: 'NO_ACTIVE_CAMERA',
+          severity: 'error',
+          message: `No active camera selected for rendering in scene "${job.selectedScene || 'Scene'}".`,
+        });
+      }
     }
 
-    if (selectedBlender?.executable && !fs.existsSync(selectedBlender.executable)) {
+    if (selectedBlender?.executable && !isExecutableAvailable(selectedBlender.executable)) {
       errors.push({
         id: `pf-${job.id}-blender-missing`,
         jobId: job.id,

@@ -214,7 +214,12 @@ def main():
 
     # Extract Blender app version & file saved version
     blender_version = ".".join(map(str, bpy.app.version))
-    saved_with_version = ".".join(map(str, bpy.data.version))
+    # bpy.data.version is (major, minor, file_subversion), e.g. (5, 2, 44)
+    # The actual Blender release version corresponding to this file format is major.minor.0
+    if hasattr(bpy.data, "version") and len(bpy.data.version) >= 2:
+        saved_with_version = f"{bpy.data.version[0]}.{bpy.data.version[1]}.0"
+    else:
+        saved_with_version = blender_version
     blend_path = bpy.data.filepath or ""
 
     active_scene_name = (

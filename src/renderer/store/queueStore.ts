@@ -213,6 +213,7 @@ interface QueueStoreState {
   setAutoExec: (enabled: boolean) => void;
   setIsDraggingOver: (val: boolean) => void;
   addFiles: (filePaths: string[]) => Promise<void>;
+  reinspectJob: (id: string) => Promise<void>;
   removeJob: (id: string) => void;
   updateJob: (id: string, updates: Partial<QueueJob>) => void;
   setJobRangeConfig: (id: string, config: FrameRangeConfig) => void;
@@ -923,6 +924,92 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
     get().autoSaveState();
   },
 
+  reinspectJob: async (id: string) => {
+    const job = get().jobs.find((j) => j.id === id);
+    if (!job) return;
+
+    get().updateJob(id, {
+      status: 'Inspecting',
+      inspectError: undefined,
+      inspectStderrTail: undefined,
+    });
+    get().addLog(`Re-inspecting ${job.fileName}...`);
+
+    const blenders = get().blenders;
+    const globalBlender = blenders.find((b) => b.id === get().selectedBlenderId) || blenders[0];
+    const executable = globalBlender ? globalBlender.executable : 'blender';
+    const isolatedMode = get().isolatedMode;
+    const autoExec = get().autoExec;
+
+    try {
+      let inspectData: InspectOutput | undefined;
+      if (typeof window !== 'undefined' && window.rnApi) {
+        inspectData = await window.rnApi.inspectBlend(job.filePath, executable, {
+          isolatedMode,
+          autoExec,
+        });
+      }
+
+      if (inspectData) {
+        const scenes = inspectData.scenes || [];
+        const activeScene = scenes.find((s) => s.name === inspectData?.activeScene) || scenes[0];
+        const sceneName = activeScene?.name || 'Scene';
+        const cameras = activeScene?.cameras || [];
+        const cameraName = activeScene?.activeCamera || cameras[0] || '';
+
+        let fileRenderPath = '//render/{project}/{scene}_{camera}_####.png';
+        const rnaFilepath = activeScene?.render?.filepath?.value;
+        if (typeof rnaFilepath === 'string' && rnaFilepath.trim()) {
+          fileRenderPath = rnaFilepath.trim();
+        }
+
+        const preview = computePreview(fileRenderPath, job.project, sceneName, cameraName);
+        const rawFormat = activeScene?.imageSettings?.fileFormat?.value;
+        const formatVal = typeof rawFormat === 'string' ? rawFormat : undefined;
+        const isVideo = isFormatVideo(formatVal);
+        const sceneDefaults = {
+          start: activeScene?.frameStart ?? 1,
+          end: activeScene?.frameEnd ?? 250,
+          step: activeScene?.frameStep ?? 1,
+        };
+        const resolved = resolveFrameRange({ mode: 'scene_default' }, sceneDefaults);
+        const validation = validateRangeForFormat(resolved, formatVal);
+
+        get().updateJob(job.id, {
+          status: 'Queued',
+          savedWithVersion: inspectData.savedWithVersion,
+          scenes,
+          selectedScene: sceneName,
+          availableCameras: cameras,
+          selectedCamera: cameraName,
+          outputPathPattern: fileRenderPath,
+          outputPreview: preview,
+          inspectData,
+          isVideo,
+          rangeConfig: { mode: 'scene_default' },
+          customRangeLiveCount: resolved.totalCount,
+          videoRuleError: validation.valid ? undefined : validation.reason,
+          inspectError: undefined,
+          inspectStderrTail: undefined,
+        });
+
+        get().addLog(
+          `Re-inspection complete for ${job.fileName} (Blender ${inspectData.savedWithVersion}, Scene: ${sceneName})`,
+        );
+      }
+    } catch (err) {
+      const errorMsg = (err as Error).message || 'Re-inspection failed';
+      const stderrTail = (err as { stderrTail?: string }).stderrTail;
+      get().updateJob(job.id, {
+        status: 'Failed',
+        inspectError: errorMsg,
+        inspectStderrTail: stderrTail,
+      });
+      get().addLog(`Failed to re-inspect ${job.fileName}: ${errorMsg}`);
+    }
+    get().autoSaveState();
+  },
+
   removeJob: (id: string) => {
     const jobIndex = get().jobs.findIndex((j) => j.id === id);
     const job = get().jobs[jobIndex];
@@ -1370,6 +1457,7 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
       overrides: j.overrides,
       savedWithVersion: j.savedWithVersion,
       inspectData: j.inspectData,
+      inspectError: j.inspectError,
       deviceReport: j.deviceReport
         ? {
             requestedGpu: j.deviceReport.requestedGpu,
@@ -1383,7 +1471,7 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
         ? {
             version: globalBlender.version,
             executable: Array.isArray(globalBlender.executable)
-              ? globalBlender.executable[0]
+              ? globalBlender.executable.join(' ')
               : globalBlender.executable,
           }
         : undefined,

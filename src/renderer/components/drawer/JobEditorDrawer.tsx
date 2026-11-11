@@ -13,9 +13,9 @@ import { OutputPropertiesTab } from './OutputPropertiesTab';
 import { PresetToolbar } from './PresetToolbar';
 import { RenderPropertiesTab } from './RenderPropertiesTab';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 
-import { RotateCcw, Sliders, X } from 'lucide-react';
+import { RefreshCw, RotateCcw, Sliders, X } from 'lucide-react';
 
 export interface JobEditorDrawerProps {
   job: QueueJob;
@@ -30,6 +30,7 @@ export const JobEditorDrawer: React.FC<JobEditorDrawerProps> = ({ job, onClose }
     resetAllJobOverrides,
     updateJob,
     setJobRangeConfig,
+    reinspectJob,
   } = useQueueStore();
 
   const drawerRef = useRef<HTMLDivElement>(null);
@@ -48,6 +49,7 @@ export const JobEditorDrawer: React.FC<JobEditorDrawerProps> = ({ job, onClose }
   const currentScene = job.scenes.find((s) => s.name === job.selectedScene) || job.scenes[0];
   const activeEngine = getActiveEngine(job);
   const isCycles = activeEngine.includes('CYCLES');
+  const isEevee = activeEngine.includes('EEVEE');
 
   const overrideKeys = Object.keys(job.overrides || {});
   const overrideCount = overrideKeys.length;
@@ -83,11 +85,27 @@ export const JobEditorDrawer: React.FC<JobEditorDrawerProps> = ({ job, onClose }
   const sceneOptions = job.scenes.map((s) => ({ value: s.name, label: s.name }));
   const cameraOptions = (job.availableCameras || []).map((c) => ({ value: c, label: c }));
 
+  const detectedEeveeId = useMemo(() => {
+    if (job.overrides?.['scene.render.engine'] === 'BLENDER_EEVEE_NEXT')
+      return 'BLENDER_EEVEE_NEXT';
+    if (job.overrides?.['scene.render.engine'] === 'BLENDER_EEVEE') return 'BLENDER_EEVEE';
+    const fileEngine = currentScene?.render?.engine?.value;
+    if (fileEngine === 'BLENDER_EEVEE_NEXT') return 'BLENDER_EEVEE_NEXT';
+    return 'BLENDER_EEVEE';
+  }, [job.overrides, currentScene?.render?.engine?.value]);
+
   const engineItems = [
     { identifier: 'CYCLES', name: 'Cycles' },
-    { identifier: 'BLENDER_EEVEE_NEXT', name: 'EEVEE' },
+    { identifier: detectedEeveeId, name: 'EEVEE' },
     { identifier: 'BLENDER_WORKBENCH', name: 'Workbench' },
   ];
+
+  const selectedEngineId = useMemo(() => {
+    const raw = String(engineProp.value ?? detectedEeveeId);
+    if (raw.includes('EEVEE')) return detectedEeveeId;
+    if (raw.includes('WORKBENCH')) return 'BLENDER_WORKBENCH';
+    return 'CYCLES';
+  }, [engineProp.value, detectedEeveeId]);
 
   const deviceItems = [
     { identifier: 'GPU', name: 'GPU' },
@@ -158,6 +176,24 @@ export const JobEditorDrawer: React.FC<JobEditorDrawerProps> = ({ job, onClose }
       {/* Scrollable Drawer Body                                         */}
       {/* ============================================================== */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
+        {job.scenes.length === 0 && (
+          <div className="rounded border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
+            <div className="font-semibold text-amber-300">File not inspected</div>
+            <div className="mt-1 text-[11px] text-amber-300/80">
+              {job.inspectError ||
+                'Properties could not be loaded because inspection has not completed.'}
+            </div>
+            <button
+              type="button"
+              onClick={() => reinspectJob(job.id)}
+              className="mt-2.5 rounded bg-amber-500/20 px-2.5 py-1 text-xs font-medium text-amber-200 hover:bg-amber-500/30 transition flex items-center space-x-1"
+            >
+              <RefreshCw className="h-3 w-3" />
+              <span>Re-inspect File</span>
+            </button>
+          </div>
+        )}
+
         {/* ============================================================ */}
         {/* Section 1: ESSENTIALS (Always visible & expanded by default) */}
         {/* ============================================================ */}
@@ -307,7 +343,7 @@ export const JobEditorDrawer: React.FC<JobEditorDrawerProps> = ({ job, onClose }
             onReset={engineProp.reset}
           >
             <SegmentedEnumToggle
-              value={String(engineProp.value ?? 'BLENDER_EEVEE_NEXT')}
+              value={selectedEngineId}
               items={engineItems}
               isOverridden={engineProp.isOverridden}
               onReset={engineProp.reset}
@@ -367,7 +403,7 @@ export const JobEditorDrawer: React.FC<JobEditorDrawerProps> = ({ job, onClose }
                 />
               </PanelRow>
             </>
-          ) : (
+          ) : isEevee ? (
             <PanelRow
               label="Render Samples"
               isOverridden={eeveeSamplesProp.isOverridden}
@@ -382,7 +418,7 @@ export const JobEditorDrawer: React.FC<JobEditorDrawerProps> = ({ job, onClose }
                 onChange={(val) => eeveeSamplesProp.setValue(val)}
               />
             </PanelRow>
-          )}
+          ) : null}
 
           {/* 8. File Format */}
           <PanelRow

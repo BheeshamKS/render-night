@@ -100,10 +100,22 @@ export const RenderPropertiesTab: React.FC<RenderPropertiesTabProps> = ({ job })
           onReset={engineProp.reset}
         >
           <SegmentedEnumToggle
-            value={(engineProp.value as string) || 'CYCLES'}
+            value={
+              String(engineProp.value ?? 'CYCLES').includes('EEVEE')
+                ? currentScene?.render?.engine?.value === 'BLENDER_EEVEE_NEXT'
+                  ? 'BLENDER_EEVEE_NEXT'
+                  : 'BLENDER_EEVEE'
+                : (engineProp.value as string) || 'CYCLES'
+            }
             items={getEnumOptions(engineProp.meta, [
               { identifier: 'CYCLES', name: 'Cycles' },
-              { identifier: 'BLENDER_EEVEE_NEXT', name: 'EEVEE' },
+              {
+                identifier:
+                  currentScene?.render?.engine?.value === 'BLENDER_EEVEE_NEXT'
+                    ? 'BLENDER_EEVEE_NEXT'
+                    : 'BLENDER_EEVEE',
+                name: 'EEVEE',
+              },
               { identifier: 'BLENDER_WORKBENCH', name: 'Workbench' },
             ])}
             isOverridden={engineProp.isOverridden}
