@@ -123,6 +123,25 @@ describe('Post-Queue Power Actions & OS Execution', () => {
     vi.useRealTimers();
   });
 
+  it('setting action to "none" disarms the manager and ignores trigger calls', async () => {
+    const executedCommands: string[] = [];
+    const mockRunner = async (cmd: string) => {
+      executedCommands.push(cmd);
+    };
+
+    const manager = new PostActionManager({ commandRunner: mockRunner });
+    manager.setAction('shutdown', false);
+    expect(manager.getIsArmed()).toBe(true);
+
+    // User switches dropdown to "none"
+    manager.setAction('none', false);
+    expect(manager.getIsArmed()).toBe(false);
+
+    const triggered = await manager.onQueueGracefulComplete();
+    expect(triggered).toBe(false);
+    expect(executedCommands.length).toBe(0);
+  });
+
   it('allows user to cancel the countdown before it executes', async () => {
     vi.useFakeTimers();
 
@@ -155,5 +174,24 @@ describe('Post-Queue Power Actions & OS Execution', () => {
     expect(manager.getIsArmed()).toBe(false); // Disarmed!
 
     vi.useRealTimers();
+  });
+
+  it('setting action to "none" disarms the manager and ignores trigger calls', async () => {
+    const executedCommands: string[] = [];
+    const mockRunner = async (cmd: string) => {
+      executedCommands.push(cmd);
+    };
+
+    const manager = new PostActionManager({ commandRunner: mockRunner });
+    manager.setAction('shutdown', false);
+    expect(manager.getIsArmed()).toBe(true);
+
+    // User switches dropdown to "none"
+    manager.setAction('none', false);
+    expect(manager.getIsArmed()).toBe(false);
+
+    const triggered = await manager.onQueueGracefulComplete();
+    expect(triggered).toBe(false);
+    expect(executedCommands.length).toBe(0);
   });
 });

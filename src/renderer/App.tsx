@@ -6,6 +6,7 @@ import { MonitorDock } from './components/MonitorDock';
 import { PostActionCountdownModal } from './components/PostActionCountdownModal';
 import { PreflightModal } from './components/PreflightModal';
 import { ScheduleModal } from './components/ScheduleModal';
+import { SettingsModal } from './components/SettingsModal';
 import { SoundSettingsModal } from './components/SoundSettingsModal';
 import { Toolbar } from './components/Toolbar';
 import { ImageSequenceTab } from './components/sequence/ImageSequenceTab';
@@ -43,6 +44,7 @@ export default function App() {
       <ScheduleModal />
       <CopyPasteOverridesModal />
       <PreflightModal />
+      <SettingsModal />
     </div>
   );
 }

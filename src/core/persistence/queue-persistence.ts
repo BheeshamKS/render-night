@@ -54,7 +54,12 @@ export class QueuePersistence {
    * Load and validate queue state, applying migrations if necessary.
    */
   public async load(): Promise<QueueState | null> {
-    const raw = await readJsonFile<Record<string, unknown>>(this.stateFilePath);
+    let raw: Record<string, unknown> | null;
+    try {
+      raw = await readJsonFile<Record<string, unknown>>(this.stateFilePath);
+    } catch {
+      return null;
+    }
     if (!raw) return null;
 
     let current = { ...raw };

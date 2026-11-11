@@ -1,4 +1,4 @@
-import { parseStdoutLine } from '../src/core/render/stdout-parser';
+import { parseStdoutLine, StdoutParseError } from '../src/core/render/stdout-parser';
 
 import { describe, expect, it } from 'vitest';
 
@@ -73,5 +73,27 @@ describe('Stdout Parser', () => {
     const result = parseStdoutLine(line);
     expect(result.kind).toBe('text');
     expect(result.text).toBe('Blender quit');
+  });
+
+  it('handles remaining time in HH:MM:SS format and carriage returns', () => {
+    const line =
+      'Fra:50 Mem:1024.00M (Peak 1500.00M) | Time:00:15.30 | Remaining:01:45:20.10 | Sample 256/512\r\n';
+    const result = parseStdoutLine(line);
+    expect(result.kind).toBe('progress');
+    expect(result.progress?.frame).toBe(50);
+    expect(result.progress?.remaining).toBe('01:45:20.10');
+    expect(result.progress?.samples).toEqual({ current: 256, total: 512 });
+  });
+
+  it('handles unquoted Saved path lines', () => {
+    const line = 'Saved: /var/renders/shot_0005.exr';
+    const result = parseStdoutLine(line);
+    expect(result.kind).toBe('saved');
+    expect(result.savedPath).toBe('/var/renders/shot_0005.exr');
+  });
+
+  it('handles malformed RN_EVENT JSON safely by throwing StdoutParseError', () => {
+    const line = 'RN_EVENT { not valid json }';
+    expect(() => parseStdoutLine(line)).toThrow(StdoutParseError);
   });
 });

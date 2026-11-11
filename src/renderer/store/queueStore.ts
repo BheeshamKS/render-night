@@ -139,6 +139,17 @@ interface QueueStoreState {
   showSoundModal: boolean;
   showHistoryModal: boolean;
   showScheduleModal: boolean;
+  showSettingsModal: boolean;
+  setShowSettingsModal: (val: boolean) => void;
+  globalSettings: {
+    defaultPriority: 'normal' | 'below-normal' | 'low';
+    defaultThreads: number;
+    blockSleepDuringRender: boolean;
+    blockSleepWhileScheduled: boolean;
+    minFreeDiskSpaceMb: number;
+    defaultCrashPolicy: CrashPolicy;
+  };
+  setGlobalSettings: (updates: Partial<QueueStoreState['globalSettings']>) => void;
   showPreflightModal: boolean;
   preflightReport: PreflightReport | null;
   preflightTargetJobId: string | null;
@@ -395,6 +406,25 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
   showSoundModal: false,
   showHistoryModal: false,
   showScheduleModal: false,
+  showSettingsModal: false,
+  setShowSettingsModal: (val) => set({ showSettingsModal: val }),
+  globalSettings: {
+    defaultPriority: 'normal',
+    defaultThreads: 0,
+    blockSleepDuringRender: true,
+    blockSleepWhileScheduled: true,
+    minFreeDiskSpaceMb: 1024,
+    defaultCrashPolicy: {
+      maxRetries: 3,
+      maxConsecutiveCrashes: 2,
+      fallbackToCpu: true,
+      skipOnFailure: false,
+    },
+  },
+  setGlobalSettings: (updates) => {
+    set((state) => ({ globalSettings: { ...state.globalSettings, ...updates } }));
+    get().autoSaveState();
+  },
   showPreflightModal: false,
   preflightReport: null,
   preflightTargetJobId: null,
@@ -1117,6 +1147,22 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
           isRestoredSession: true,
           postAction: saved.settings?.postAction || 'none',
           postActionArmed: false, // HARD SAFETY RULE: disarmed on restore!
+          isolatedMode: saved.settings?.isolatedMode ?? get().isolatedMode,
+          autoExec: saved.settings?.autoExec ?? get().autoExec,
+          selectedBlenderId: saved.settings?.defaultBlenderId ?? get().selectedBlenderId,
+          globalSettings: {
+            defaultPriority: saved.settings?.defaultPriority ?? 'normal',
+            defaultThreads: saved.settings?.defaultThreads ?? 0,
+            blockSleepDuringRender: saved.settings?.blockSleepDuringRender ?? true,
+            blockSleepWhileScheduled: saved.settings?.blockSleepWhileScheduled ?? true,
+            minFreeDiskSpaceMb: saved.settings?.minFreeDiskSpaceMb ?? 1024,
+            defaultCrashPolicy: saved.settings?.defaultCrashPolicy ?? {
+              maxRetries: 3,
+              maxConsecutiveCrashes: 2,
+              fallbackToCpu: true,
+              skipOnFailure: false,
+            },
+          },
         });
         get().addLog('Resumed queue from previous session. Post-queue power action disarmed.');
       } else {
@@ -1233,7 +1279,16 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
 
   autoSaveState: async () => {
     if (typeof window !== 'undefined' && typeof window.rnApi?.saveQueue === 'function') {
-      const { jobs, postAction, soundSettings, scheduleConfig } = get();
+      const {
+        jobs,
+        postAction,
+        soundSettings,
+        scheduleConfig,
+        selectedBlenderId,
+        isolatedMode,
+        autoExec,
+        globalSettings,
+      } = get();
       const persistedState: PersistedQueueState = {
         version: 1,
         jobs: jobs.map(toPersistedJob),
@@ -1249,6 +1304,15 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
           resumeOnAc: false,
           maxConcurrentFrames: 1,
           postAction,
+          defaultBlenderId: selectedBlenderId || undefined,
+          isolatedMode,
+          autoExec,
+          defaultPriority: globalSettings.defaultPriority,
+          defaultThreads: globalSettings.defaultThreads,
+          blockSleepDuringRender: globalSettings.blockSleepDuringRender,
+          blockSleepWhileScheduled: globalSettings.blockSleepWhileScheduled,
+          minFreeDiskSpaceMb: globalSettings.minFreeDiskSpaceMb,
+          defaultCrashPolicy: globalSettings.defaultCrashPolicy,
           sound: {
             enabled: !soundSettings.isMuted,
             volume: soundSettings.volume,

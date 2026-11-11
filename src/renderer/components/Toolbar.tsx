@@ -13,6 +13,7 @@ import {
   Pause,
   Play,
   Plus,
+  Settings,
   Shield,
   Square,
   Terminal,
@@ -40,6 +41,7 @@ export const Toolbar: React.FC = () => {
     setShowSoundModal,
     setShowHistoryModal,
     setShowScheduleModal,
+    setShowSettingsModal,
     scheduleConfig,
     copiedOverrides,
     pasteOverrides,
@@ -179,6 +181,15 @@ export const Toolbar: React.FC = () => {
         >
           <Clock className="h-3.5 w-3.5" />
           <span>History</span>
+        </button>
+
+        <button
+          onClick={() => setShowSettingsModal(true)}
+          className="flex items-center space-x-1 rounded border border-rn-border bg-rn-subpanel px-2 py-1 text-xs text-rn-muted hover:text-rn-text transition"
+          title="Application Settings & Audit"
+        >
+          <Settings className="h-3.5 w-3.5" />
+          <span>Settings</span>
         </button>
 
         <div className="h-4 w-[1px] bg-rn-border mx-0.5" />

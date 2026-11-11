@@ -30,6 +30,7 @@ win:
   requestedExecutionLevel: "asInvoker"
   publisherName: "BheeshamKS"
   verifyUpdateCodeSignature: false
+  icon: "resources/icon.ico"
 
 # ── macOS ────────────────────────────────────────────────────────────────────
 mac:
@@ -40,8 +41,9 @@ mac:
         - x64
   type: "distribution"
   hardenedRuntime: false
-  gatekeeperAssessment: false
+  gatekeeperAssess: false
   identity: null
+  icon: "resources/icon.icns"
 
 # ── Linux ────────────────────────────────────────────────────────────────────
 linux:
@@ -56,6 +58,18 @@ linux:
   maintainer: "BheeshamKS <bheeshamkumarsajnani3@gmail.com>"
   synopsis: "A fast local render queue for Blender"
   description: "Render Night is a fast local render queue for Blender with a Blender-native look."
+  icon: "resources/icon.png"
+  desktop:
+    Name: "Render Night"
+    Comment: "A fast local render queue for Blender"
+    Categories: "Graphics;3DGraphics;RasterGraphics;"
+    Terminal: false
+    StartupWMClass: "render-night"
+    Keywords: "blender;render;queue;cycles;eevee;3d;"
+
+deb:
+  packageCategory: "graphics"
+  priority: "optional"
 
 # ── Compression ──────────────────────────────────────────────────────────────
 compression: "normal"

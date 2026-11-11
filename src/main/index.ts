@@ -14,6 +14,11 @@ function getPreloadPath(): string {
   return join(__dirname, '../preload/index.js');
 }
 
+function getIconPath(): string | undefined {
+  const iconPath = join(__dirname, '../../resources/icon.png');
+  return existsSync(iconPath) ? iconPath : undefined;
+}
+
 function createWindow(): BrowserWindow {
   mainWindow = new BrowserWindow({
     width: 1100,
@@ -22,6 +27,7 @@ function createWindow(): BrowserWindow {
     minHeight: 500,
     show: false,
     title: 'Render Night',
+    icon: getIconPath(),
     backgroundColor: '#181818',
     autoHideMenuBar: true,
     webPreferences: {

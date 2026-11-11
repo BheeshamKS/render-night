@@ -119,6 +119,17 @@ export const queueSettingsSchema = z.object({
   postAction: postActionSchema.default('none'),
   sound: soundSettingsSchema.default({}),
   schedule: scheduleConfigSchema.optional(),
+
+  // Audited global application settings
+  defaultBlenderId: z.string().optional(),
+  isolatedMode: z.boolean().optional(),
+  autoExec: z.boolean().optional(),
+  defaultPriority: z.enum(['normal', 'below-normal', 'low']).optional(),
+  defaultThreads: z.number().min(0).max(256).optional(),
+  blockSleepDuringRender: z.boolean().optional(),
+  blockSleepWhileScheduled: z.boolean().optional(),
+  minFreeDiskSpaceMb: z.number().min(0).optional(),
+  defaultCrashPolicy: crashPolicySchema.optional(),
 });
 
 export type QueueSettings = z.infer<typeof queueSettingsSchema>;

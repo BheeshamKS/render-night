@@ -233,4 +233,64 @@ describe('Atomic Persistence & Session Lock', () => {
     expect(resumedState.jobs[1].id).toBe('job-queued-next');
     expect(resumedState.jobs[1].status).toBe('pending');
   });
+
+  it('persists and restores audited global application settings', async () => {
+    const persistence = new QueuePersistence(tmpDir);
+
+    const stateWithSettings: QueueState = {
+      version: CURRENT_SCHEMA_VERSION,
+      jobs: [],
+      settings: {
+        concurrentJobs: 1,
+        stopOnFailure: false,
+        closeAppOnCompletion: false,
+        closeAppOnCompletionMode: 'last',
+        soundOnCompletion: true,
+        soundOnFailure: false,
+        powerMode: 'none',
+        pauseOnBattery: false,
+        resumeOnAc: false,
+        maxConcurrentFrames: 1,
+        postAction: 'sleep',
+        sound: { enabled: true, volume: 85, playOnFailure: true },
+        defaultBlenderId: 'blender-4-2',
+        isolatedMode: true,
+        autoExec: false,
+        defaultPriority: 'low',
+        defaultThreads: 8,
+        blockSleepDuringRender: true,
+        blockSleepWhileScheduled: true,
+        minFreeDiskSpaceMb: 2048,
+        defaultCrashPolicy: {
+          maxRetries: 5,
+          maxConsecutiveCrashes: 3,
+          fallbackToCpu: true,
+          skipOnFailure: true,
+        },
+      },
+    };
+
+    await persistence.save(stateWithSettings);
+    const restored = await persistence.load();
+
+    expect(restored).not.toBeNull();
+    expect(restored?.settings.defaultPriority).toBe('low');
+    expect(restored?.settings.defaultThreads).toBe(8);
+    expect(restored?.settings.minFreeDiskSpaceMb).toBe(2048);
+    expect(restored?.settings.isolatedMode).toBe(true);
+    expect(restored?.settings.defaultCrashPolicy?.maxRetries).toBe(5);
+    expect(restored?.settings.sound.volume).toBe(85);
+  });
+
+  it('handles corrupt state JSON safely without crashing', async () => {
+    const persistence = new QueuePersistence(tmpDir);
+    const statePath = persistence.getStateFilePath();
+
+    // Write corrupted raw bytes
+    fs.mkdirSync(path.dirname(statePath), { recursive: true });
+    fs.writeFileSync(statePath, 'CORRUPTED_NON_JSON_DATA_<<<');
+
+    const loaded = await persistence.load();
+    expect(loaded).toBeNull();
+  });
 });

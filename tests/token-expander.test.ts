@@ -44,4 +44,27 @@ describe('Token Expander', () => {
     const result = expandTokens(template, { project: 'Test', scene: '', camera: '' });
     expect(result).toBe('Test__');
   });
+
+  it('handles frame 0 and negative frame numbers correctly', () => {
+    const template = '//renders/{project}/frame_####.png';
+    const zeroResult = expandTokens(template, { ...ctx, frame: 0 });
+    expect(zeroResult).toBe('//renders/Character_Rig/frame_0000.png');
+
+    const negResult = expandTokens(template, { ...ctx, frame: -5 });
+    expect(negResult).toBe('//renders/Character_Rig/frame_-0005.png');
+  });
+
+  it('preserves full digits when frame number length exceeds hash count', () => {
+    const template = '//renders/{project}/frame_##.png';
+    const result = expandTokens(template, { ...ctx, frame: 12345 });
+    expect(result).toBe('//renders/Character_Rig/frame_12345.png');
+  });
+
+  it('handles repeated token occurrences and Windows path structures', () => {
+    const template = 'D:\\Renders\\{project}\\{project}_{scene}_{camera}_{scene}_####.exr';
+    const result = expandTokens(template, { ...ctx, frame: 10 });
+    expect(result).toBe(
+      'D:\\Renders\\Character_Rig\\Character_Rig_Shot_01_Cam_CloseUp_Shot_01_0010.exr',
+    );
+  });
 });

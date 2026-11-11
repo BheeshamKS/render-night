@@ -23,6 +23,9 @@ export function expandTokens(template: string, ctx: TokenContext): string {
   if (ctx.frame !== undefined) {
     out = out.replace(/(#+)/g, (_match, hashes: string) => {
       const len = hashes.length;
+      if (ctx.frame! < 0) {
+        return '-' + String(Math.abs(ctx.frame!)).padStart(len, '0');
+      }
       return String(ctx.frame).padStart(len, '0');
     });
   }

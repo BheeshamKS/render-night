@@ -52,6 +52,31 @@ describe('Custom Frame Range Parser', () => {
       expectedLast: 100,
       mustInclude: [1, 10, 50, 100],
     },
+    {
+      name: 'handles whitespace and tabs around tokens and operators',
+      input: '   1 - 5 ,  10 - 20 x 2  , 35 \t ',
+      expectedCount: 5 + 6 + 1, // 1..5 (5) + 10,12,14,16,18,20 (6) + 35 (1) = 12
+      expectedFirst: 1,
+      expectedLast: 35,
+      mustInclude: [1, 5, 10, 12, 20, 35],
+    },
+    {
+      name: 'handles step larger than range interval',
+      input: '1-10x50',
+      expectedCount: 1,
+      expectedFirst: 1,
+      expectedLast: 1,
+      mustInclude: [1],
+      mustNotInclude: [2, 10],
+    },
+    {
+      name: 'handles step equal to range interval',
+      input: '1-10x9',
+      expectedCount: 2,
+      expectedFirst: 1,
+      expectedLast: 10,
+      mustInclude: [1, 10],
+    },
   ];
 
   it.each(tableDrivenTests)(
