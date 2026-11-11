@@ -7,8 +7,14 @@ import React, { useEffect, useState } from 'react';
 import { ChevronDown, Film, FolderOpen, Video } from 'lucide-react';
 
 export const ImageSequenceTab: React.FC = () => {
-  const { jobs, activeSequence, setActiveSequence, loadSequenceFromPath, monitorStats } =
-    useQueueStore();
+  const {
+    jobs,
+    activeSequence,
+    sequenceError,
+    setActiveSequence,
+    loadSequenceFromPath,
+    monitorStats,
+  } = useQueueStore();
 
   const [showConverter, setShowConverter] = useState<boolean>(false);
 
@@ -21,17 +27,14 @@ export const ImageSequenceTab: React.FC = () => {
 
   // Auto-load most recent render output on mount if none loaded yet
   useEffect(() => {
-    if (!activeSequence) {
+    if (!activeSequence && !sequenceError) {
       if (monitorStats.lastThumbnailPath) {
-        loadSequenceFromPath(monitorStats.lastThumbnailPath);
+        const refJob = completedImageJobs[0] ?? jobs[0];
+        void loadSequenceFromPath(monitorStats.lastThumbnailPath, refJob?.filePath);
       } else if (completedImageJobs.length > 0) {
         const first = completedImageJobs[0];
-        let target = first.outputPreview || first.outputPathPattern;
-        if (target.startsWith('//') && first.filePath) {
-          const baseDir = first.filePath.replace(/[/\\][^/\\]+$/, '');
-          target = target.replace(/^\/\//, `${baseDir}/`);
-        }
-        loadSequenceFromPath(target);
+        const target = first.outputPreview || first.outputPathPattern;
+        void loadSequenceFromPath(target, first.filePath);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -59,11 +62,7 @@ export const ImageSequenceTab: React.FC = () => {
 
             <div className="flex items-center space-x-1.5 min-w-0">
               {completedImageJobs.map((j) => {
-                let target = j.outputPreview || j.outputPathPattern;
-                if (target.startsWith('//') && j.filePath) {
-                  const baseDir = j.filePath.replace(/[/\\][^/\\]+$/, '');
-                  target = target.replace(/^\/\//, `${baseDir}/`);
-                }
+                const target = j.outputPreview || j.outputPathPattern;
                 const isActive =
                   activeSequence &&
                   ((j.outputPreview &&
@@ -77,7 +76,7 @@ export const ImageSequenceTab: React.FC = () => {
                   <button
                     key={j.id}
                     type="button"
-                    onClick={() => loadSequenceFromPath(target)}
+                    onClick={() => void loadSequenceFromPath(target, j.filePath)}
                     className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-md text-xs transition border flex-shrink-0 ${
                       isActive
                         ? 'bg-rn-accent/15 border-rn-accent/50 text-rn-accent font-semibold'
@@ -109,6 +108,7 @@ export const ImageSequenceTab: React.FC = () => {
       <div className="flex-1 flex flex-col min-h-[380px]">
         <SequenceViewer
           sequence={activeSequence}
+          errorMessage={sequenceError}
           onSelectSequence={(seq) => setActiveSequence(seq)}
         />
       </div>

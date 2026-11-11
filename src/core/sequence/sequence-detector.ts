@@ -1,3 +1,4 @@
+import { resolveOutputPath } from '../render/output-path-resolver';
 import {
   type ImageSequenceInfo,
   NATIVE_IMAGE_EXTENSIONS,
@@ -149,25 +150,33 @@ export async function findSequencesInDirectory(dir: string): Promise<ImageSequen
 
 /**
  * Detects an image sequence from either a directory path or an individual frame file path.
+ * Resolves Blender `//` relative paths and cross-OS paths when `blendFilePath` is provided.
  */
-export async function detectSequence(dirOrPath: string): Promise<ImageSequenceInfo | null> {
-  if (!dirOrPath) return null;
-  let targetDir = dirOrPath;
+export async function detectSequence(
+  dirOrPath: string,
+  blendFilePath?: string,
+): Promise<ImageSequenceInfo | null> {
+  if (!dirOrPath && !blendFilePath) return null;
+  const resolvedInput = resolveOutputPath(dirOrPath, blendFilePath);
+  if (!resolvedInput) return null;
+
+  let targetDir = resolvedInput;
   let targetFile: string | null = null;
 
   try {
-    const stat = await fs.promises.stat(dirOrPath);
+    const stat = await fs.promises.stat(resolvedInput);
     if (!stat.isDirectory()) {
-      targetDir = path.dirname(dirOrPath);
-      targetFile = path.basename(dirOrPath);
+      targetDir = path.dirname(resolvedInput);
+      targetFile = path.basename(resolvedInput);
     }
   } catch {
-    const parentDir = path.dirname(dirOrPath);
+    const trimmed = resolvedInput.replace(/[/\\]+$/, '') || resolvedInput;
+    const parentDir = path.dirname(trimmed);
     try {
       const parentStat = await fs.promises.stat(parentDir);
       if (parentStat.isDirectory()) {
         targetDir = parentDir;
-        targetFile = path.basename(dirOrPath);
+        targetFile = path.basename(trimmed);
       } else {
         return null;
       }
@@ -183,12 +192,14 @@ export async function detectSequence(dirOrPath: string): Promise<ImageSequenceIn
 
   if (targetFile) {
     const cleanTarget = targetFile.replace(/#+/g, '');
-    const fileMatch = cleanTarget.match(/^(.*?)(\d*)\.([a-zA-Z0-9]+)$/);
+    const fileMatch = cleanTarget.match(/^(.*?)(\d*)(?:\.([a-zA-Z0-9]+))?$/);
     if (fileMatch) {
       const baseName = fileMatch[1];
-      const ext = fileMatch[3].toLowerCase();
+      const ext = fileMatch[3]?.toLowerCase();
       const match = sequences.find(
-        (s) => (s.baseName === baseName || s.baseName.startsWith(baseName)) && s.extension === ext,
+        (s) =>
+          (s.baseName === baseName || s.baseName.startsWith(baseName)) &&
+          (!ext || s.extension === ext),
       );
       if (match) {
         return match;

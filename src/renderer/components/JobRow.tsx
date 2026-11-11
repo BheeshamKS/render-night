@@ -220,12 +220,8 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
   const canPreview = job.status === 'Completed' || (job.completedFrames ?? 0) > 0;
 
   const handlePreview = async () => {
-    let target = job.outputPreview || job.outputPathPattern;
-    if (target.startsWith('//') && job.filePath) {
-      const baseDir = job.filePath.replace(/[/\\][^/\\]+$/, '');
-      target = target.replace(/^\/\//, `${baseDir}/`);
-    }
-    await loadSequenceFromPath(target);
+    const target = job.outputPreview || job.outputPathPattern;
+    await loadSequenceFromPath(target, job.filePath);
   };
 
   return (
@@ -312,13 +308,10 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
               onClick={async (e) => {
                 e.stopPropagation();
                 if (window.rnApi) {
-                  let target = job.outputPathPattern;
-                  if (target.startsWith('//') && job.filePath) {
-                    const baseDir = job.filePath.replace(/[/\\][^/\\]+$/, '');
-                    target = target.replace(/^\/\//, `${baseDir}/`);
-                  }
-                  const dir = target.replace(/[/\\][^/\\]+$/, '');
-                  await window.rnApi.openPath(dir || target);
+                  await window.rnApi.openPath(
+                    job.outputPreview || job.outputPathPattern,
+                    job.filePath,
+                  );
                 }
               }}
               className="flex h-6 w-6 items-center justify-center rounded text-rn-muted hover:bg-rn-subpanel hover:text-white transition"

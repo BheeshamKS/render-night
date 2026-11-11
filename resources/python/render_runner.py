@@ -41,6 +41,60 @@ def check_control(control_file):
     return "continue"
 
 
+def resolve_foreign_windows_path(raw_pattern, blend_filepath=None):
+    """Map Flatpak /app/blender/D:/... or Windows drive paths on POSIX to the local host via .blend ancestors."""
+    if not raw_pattern:
+        return raw_pattern
+
+    cleaned = raw_pattern.strip()
+    flatpak_match = re.match(r"^/app/blender/([A-Za-z]:[/\\].*)$", cleaned)
+    if flatpak_match:
+        cleaned = flatpak_match.group(1)
+
+    has_trailing_slash = cleaned.endswith(("/", "\\"))
+
+    if cleaned.startswith("//") and blend_filepath:
+        blend_dir = os.path.dirname(os.path.abspath(blend_filepath))
+        rel = cleaned[2:].replace("\\", "/").lstrip("/")
+        joined = os.path.join(blend_dir, rel) if rel else blend_dir
+        return f"{joined}{os.sep}" if has_trailing_slash and not joined.endswith(os.sep) else joined
+
+    if os.name != "nt" and re.match(r"^[A-Za-z]:[/\\]", cleaned) and blend_filepath:
+        without_drive = re.sub(r"^[A-Za-z]:", "", cleaned)
+        segments = [seg for seg in re.split(r"[/\\]+", without_drive) if seg]
+        blend_dir = os.path.dirname(os.path.abspath(blend_filepath))
+
+        ancestors = []
+        cur = blend_dir
+        for _ in range(12):
+            ancestors.append(cur)
+            nxt = os.path.dirname(cur)
+            if nxt == cur:
+                break
+            cur = nxt
+
+        # Longest existing suffix match first
+        for start_idx in range(len(segments)):
+            suffix = segments[start_idx:]
+            for ancestor in ancestors:
+                joined = os.path.join(ancestor, *suffix)
+                if os.path.exists(joined):
+                    return f"{joined}{os.sep}" if has_trailing_slash else joined
+
+        # Fallback: longest suffix whose parent directory exists (uncreated output dir/file)
+        for start_idx in range(len(segments)):
+            suffix = segments[start_idx:]
+            if len(suffix) <= 1:
+                continue
+            for ancestor in ancestors:
+                joined = os.path.join(ancestor, *suffix)
+                parent = os.path.dirname(joined)
+                if parent != ancestor and os.path.exists(parent):
+                    return f"{joined}{os.sep}" if has_trailing_slash else joined
+
+    return cleaned
+
+
 def compute_frame_filepath(pattern, frame):
     """Expand #### tokens to zero-padded frame numbers."""
     if "#" in pattern:
@@ -48,6 +102,8 @@ def compute_frame_filepath(pattern, frame):
             hashes = match.group(0)
             return f"{frame:0{len(hashes)}d}"
         return re.sub(r"#+", repl, pattern)
+    if pattern.endswith(("/", "\\")):
+        return f"{pattern}{frame:04d}"
     base, ext = os.path.splitext(pattern)
     return f"{base}_{frame:04d}{ext}"
 
@@ -271,11 +327,17 @@ def main():
         "FFMPEG", "AVI_JPEG", "AVI_RAW", "THEORA", "QUICKTIME", "H264"
     )
 
+    blend_filepath = payload.get("blendPath") or getattr(bpy.data, "filepath", "")
+    resolved_pattern = resolve_foreign_windows_path(
+        payload.get("outputPattern", scene.render.filepath),
+        blend_filepath,
+    )
+
     if is_video:
         # Video animation rendering - atomic render without frame-by-frame pause
         scene.frame_start = frames[0]
         scene.frame_end = frames[-1]
-        raw_pattern = payload.get("outputPattern", scene.render.filepath)
+        raw_pattern = resolved_pattern
         scene.render.filepath = raw_pattern
         try:
             bpy.ops.render.render(animation=True, scene=scene.name)
@@ -322,7 +384,7 @@ def main():
             })
 
             scene.frame_set(frame)
-            frame_filepath = compute_frame_filepath(payload.get("outputPattern", scene.render.filepath), frame)
+            frame_filepath = compute_frame_filepath(resolved_pattern, frame)
             scene.render.filepath = frame_filepath
 
             t_frame_start = time.time()

@@ -86,12 +86,7 @@ export const HistoryView: React.FC = () => {
 
   const handleOpenFolder = async (outputPath: string, filePath?: string) => {
     if (typeof window !== 'undefined' && window.rnApi) {
-      let target = outputPath;
-      if (target.startsWith('//') && filePath) {
-        const baseDir = filePath.replace(/[/\\][^/\\]+$/, '');
-        target = target.replace(/^\/\//, `${baseDir}/`);
-      }
-      await window.rnApi.openPath(target);
+      await window.rnApi.openPath(outputPath, filePath);
     }
   };
 
@@ -211,16 +206,11 @@ export const HistoryView: React.FC = () => {
 
                     {/* Actions */}
                     <div className="flex items-center space-x-2 flex-shrink-0">
-                      {isSuccess && (
+                      {(isSuccess || entry.frameCount > 0) && (
                         <button
                           type="button"
                           onClick={() => {
-                            let target = entry.outputPath;
-                            if (target.startsWith('//') && entry.filePath) {
-                              const baseDir = entry.filePath.replace(/[/\\][^/\\]+$/, '');
-                              target = target.replace(/^\/\//, `${baseDir}/`);
-                            }
-                            loadSequenceFromPath(target);
+                            void loadSequenceFromPath(entry.outputPath, entry.filePath);
                           }}
                           className="flex items-center space-x-1 rounded-md bg-rn-accent/15 border border-rn-accent/35 px-2.5 py-1 text-xs font-medium text-rn-accent hover:bg-rn-accent hover:text-[#0f0f10] transition"
                           title="Preview sequence in player"

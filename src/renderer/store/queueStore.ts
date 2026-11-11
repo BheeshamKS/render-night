@@ -136,8 +136,12 @@ interface QueueStoreState {
   setActiveTab: (tab: 'queue' | 'sequences' | 'history' | 'settings' | 'components') => void;
 
   activeSequence: ImageSequenceInfo | null;
+  sequenceError: string | null;
   setActiveSequence: (seq: ImageSequenceInfo | null) => void;
-  loadSequenceFromPath: (dirOrPath: string) => Promise<ImageSequenceInfo | null>;
+  loadSequenceFromPath: (
+    dirOrPath: string,
+    blendFilePath?: string,
+  ) => Promise<ImageSequenceInfo | null>;
 
   // Master-Detail Selection & Bulk Operations
   selectedJobId: string | null;
@@ -441,29 +445,38 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
   setActiveTab: (tab) => set({ activeTab: tab }),
 
   activeSequence: null,
-  setActiveSequence: (seq) => set({ activeSequence: seq }),
-  loadSequenceFromPath: async (dirOrPath: string) => {
-    if (!dirOrPath) return null;
-    let target = dirOrPath.trim();
-    if (target.startsWith('//')) {
-      const state = get();
-      const job =
-        (state.activeJobId ? state.jobs.find((j) => j.id === state.activeJobId) : null) ||
-        state.jobs[0];
-      if (job?.filePath) {
-        const baseDir = job.filePath.replace(/[/\\][^/\\]+$/, '');
-        target = target.replace(/^\/\//, `${baseDir}/`);
-      }
+  sequenceError: null,
+  setActiveSequence: (seq) => set({ activeSequence: seq, sequenceError: null }),
+  loadSequenceFromPath: async (dirOrPath: string, blendFilePath?: string) => {
+    if (!dirOrPath && !blendFilePath) return null;
+    const state = get();
+    const resolvedBlend =
+      blendFilePath ||
+      (state.activeJobId
+        ? state.jobs.find((j) => j.id === state.activeJobId)?.filePath
+        : undefined) ||
+      state.jobs[0]?.filePath;
+
+    let target = (dirOrPath || '').trim();
+    if (target.startsWith('//') && resolvedBlend) {
+      const baseDir = resolvedBlend.replace(/[/\\][^/\\]+$/, '');
+      target = target.replace(/^\/\//, `${baseDir}/`);
     }
     if (typeof window !== 'undefined' && window.rnApi?.detectSequence) {
       try {
-        const detected = await window.rnApi.detectSequence(target);
+        const detected = await window.rnApi.detectSequence(target, resolvedBlend);
         if (detected) {
-          set({ activeSequence: detected, activeTab: 'sequences' });
+          set({ activeSequence: detected, sequenceError: null, activeTab: 'sequences' });
           return detected;
         }
+        const msg = `No rendered image sequence or still frame found at "${dirOrPath}"`;
+        get().addLog(msg);
+        set({ activeSequence: null, sequenceError: msg, activeTab: 'sequences' });
       } catch (err) {
-        console.error('Failed to detect sequence:', err);
+        const msg = `Failed to load sequence from "${dirOrPath}": ${err instanceof Error ? err.message : String(err)}`;
+        console.error(msg);
+        get().addLog(msg);
+        set({ activeSequence: null, sequenceError: msg, activeTab: 'sequences' });
       }
     }
     return null;
@@ -1827,7 +1840,7 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
           ) {
             get().addLog(`Starting post-render MP4 stitch for job ${job.fileName}...`);
             window.rnApi
-              .detectSequence(job.outputPreview || job.outputPathPattern)
+              .detectSequence(job.outputPreview || job.outputPathPattern, job.filePath)
               .then((seq) => {
                 if (seq && seq.totalFrames > 0) {
                   const baseName = seq.baseName.replace(/[_\-.]$/, '');

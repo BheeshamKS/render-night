@@ -17,10 +17,15 @@ import {
 
 export interface SequenceViewerProps {
   sequence: ImageSequenceInfo | null;
+  errorMessage?: string | null;
   onSelectSequence?: (seq: ImageSequenceInfo | null) => void;
 }
 
-export const SequenceViewer: React.FC<SequenceViewerProps> = ({ sequence, onSelectSequence }) => {
+export const SequenceViewer: React.FC<SequenceViewerProps> = ({
+  sequence,
+  errorMessage,
+  onSelectSequence,
+}) => {
   const [currentFrame, setCurrentFrame] = useState<number>(sequence?.startFrame || 1);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [fps, setFps] = useState<number>(24);
@@ -54,7 +59,7 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({ sequence, onSele
     }
 
     if (sequence.isNativeFormat) {
-      setProxyUrl(`file://${currentFilePath}`);
+      setProxyUrl(encodeURI(`file://${currentFilePath}`).replace(/#/g, '%23'));
       setProxyError(null);
       return;
     }
@@ -333,14 +338,25 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({ sequence, onSele
             <span className="text-xs text-neutral-400">Frame not found</span>
           )
         ) : (
-          <div className="flex flex-col items-center justify-center text-neutral-500 space-y-2 p-8 text-center">
+          <div className="flex flex-col items-center justify-center text-neutral-500 space-y-2 p-8 text-center max-w-md">
             <FolderOpen className="w-10 h-10 stroke-[1.2] opacity-40 text-neutral-400" />
-            <p className="text-xs font-medium text-neutral-300">
-              Click "Open Sequence" or select a finished job above to preview
-            </p>
-            <p className="text-[11px] text-neutral-500">
-              Supports PNG, JPG, EXR, TIF, WebP sequences and single stills
-            </p>
+            {errorMessage ? (
+              <>
+                <p className="text-xs font-medium text-rn-accent">{errorMessage}</p>
+                <p className="text-[11px] text-neutral-500">
+                  Use "Open Sequence" to pick the folder containing your rendered frames.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-xs font-medium text-neutral-300">
+                  Click "Open Sequence" or select a finished job above to preview
+                </p>
+                <p className="text-[11px] text-neutral-500">
+                  Supports PNG, JPG, EXR, TIF, WebP sequences and single stills
+                </p>
+              </>
+            )}
           </div>
         )}
 

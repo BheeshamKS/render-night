@@ -44,8 +44,8 @@ const api: RenderNightApi = {
     return ipcRenderer.invoke('dialog:selectDirectory', defaultPath);
   },
 
-  openPath: (targetPath: string): Promise<void> => {
-    return ipcRenderer.invoke('shell:openPath', targetPath);
+  openPath: (targetPath: string, blendFilePath?: string): Promise<void> => {
+    return ipcRenderer.invoke('shell:openPath', targetPath, blendFilePath);
   },
 
   startQueue: (jobs: QueueEngineJob[]): Promise<void> => {
@@ -159,8 +159,8 @@ const api: RenderNightApi = {
   },
 
   // Image Sequence Tools & FFmpeg
-  detectSequence: (dirOrPath) => {
-    return ipcRenderer.invoke('sequence:detect', dirOrPath);
+  detectSequence: (dirOrPath, blendFilePath) => {
+    return ipcRenderer.invoke('sequence:detect', dirOrPath, blendFilePath);
   },
 
   generateProxy: (sourcePath) => {

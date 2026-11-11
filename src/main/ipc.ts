@@ -11,6 +11,7 @@ import { type PowerSaveBlockerDriver, SleepBlockerManager } from '../core/power/
 import { PreflightChecker, type PreflightJobInput, type PreflightOptions } from '../core/preflight';
 import { PresetStore, type SavePresetInput } from '../core/presets';
 import { QueueEngine, type QueueEngineJob } from '../core/queue/queue-engine';
+import { resolveOutputPath } from '../core/render/output-path-resolver';
 import type { PersistedQueueState, PostAction } from '../core/schemas/queue-state';
 import { generateFrameProxy } from '../core/sequence/proxy-generator';
 import { detectSequence } from '../core/sequence/sequence-detector';
@@ -23,6 +24,80 @@ import * as path from 'node:path';
 
 let globalQueueEngine: QueueEngine | null = null;
 let activeStitcher: SequenceStitcher | null = null;
+
+function buildSanitizedDesktopEnv(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  delete env.LD_LIBRARY_PATH;
+  delete env.LD_PRELOAD;
+  delete env.APPIMAGE;
+  delete env.APPDIR;
+  delete env.ARGV0;
+  return env;
+}
+
+/**
+ * Opens a folder or reveals a file in the host file manager without blocking Electron's main thread.
+ * On Linux, spawns `xdg-open` detached so KDE/GTK portals and MIME lookups never freeze the window.
+ */
+async function openPathNonBlocking(targetPath: string, blendFilePath?: string): Promise<void> {
+  if (!targetPath || typeof targetPath !== 'string') return;
+  const resolved = resolveOutputPath(targetPath, blendFilePath, { fallbackToBlendDir: true });
+  if (!resolved) return;
+
+  const trimmed = resolved.replace(/[/\\]+$/, '') || resolved;
+  let existingPath = '';
+  let isFile = false;
+
+  if (fs.existsSync(resolved)) {
+    existingPath = resolved;
+    isFile = fs.statSync(resolved).isFile();
+  } else if (fs.existsSync(trimmed)) {
+    existingPath = trimmed;
+    isFile = fs.statSync(trimmed).isFile();
+  } else {
+    let cur = path.dirname(trimmed);
+    for (let i = 0; i < 4; i++) {
+      if (fs.existsSync(cur)) {
+        existingPath = cur;
+        isFile = fs.statSync(cur).isFile();
+        break;
+      }
+      const next = path.dirname(cur);
+      if (next === cur) break;
+      cur = next;
+    }
+  }
+
+  if (!existingPath) return;
+
+  if (isFile) {
+    try {
+      shell.showItemInFolder(existingPath);
+      return;
+    } catch {
+      existingPath = path.dirname(existingPath);
+    }
+  }
+
+  if (process.platform === 'linux') {
+    const child = spawn('xdg-open', [existingPath], {
+      detached: true,
+      stdio: 'ignore',
+      env: buildSanitizedDesktopEnv(),
+    });
+    child.on('error', () => {
+      // Fallback only if xdg-open binary is unavailable
+      void shell.openPath(existingPath).catch(() => {});
+    });
+    child.unref();
+    return;
+  }
+
+  await Promise.race([
+    shell.openPath(existingPath),
+    new Promise((resolve) => setTimeout(resolve, 3000)),
+  ]);
+}
 
 export function isQueueActive(): boolean {
   if (!globalQueueEngine) return false;
@@ -202,7 +277,7 @@ export function registerIpcHandlers(mainWindowProvider: () => BrowserWindow | nu
 
   ipcMain.handle('queue:openLogsFolder', async (_event, jobId?: string) => {
     const target = jobId ? path.join(logsDir, jobId) : logsDir;
-    await shell.openPath(target);
+    await openPathNonBlocking(target);
   });
 
   ipcMain.handle(
@@ -327,55 +402,39 @@ export function registerIpcHandlers(mainWindowProvider: () => BrowserWindow | nu
 
   ipcMain.handle('dialog:selectDirectory', async (_event, defaultPath?: string) => {
     const win = mainWindowProvider();
+    let safeDefault: string | undefined;
+    if (defaultPath && typeof defaultPath === 'string') {
+      const resolved = resolveOutputPath(defaultPath);
+      if (resolved && fs.existsSync(resolved)) {
+        safeDefault = fs.statSync(resolved).isFile() ? path.dirname(resolved) : resolved;
+      }
+    }
     const result = win
       ? await dialog.showOpenDialog(win, {
           title: 'Select Output Directory',
-          defaultPath,
+          defaultPath: safeDefault,
           properties: ['openDirectory', 'createDirectory'],
         })
       : await dialog.showOpenDialog({
           title: 'Select Output Directory',
-          defaultPath,
+          defaultPath: safeDefault,
           properties: ['openDirectory', 'createDirectory'],
         });
     if (result.canceled || result.filePaths.length === 0) return null;
     return result.filePaths[0];
   });
 
-  ipcMain.handle('shell:openPath', async (_event, targetPath: string) => {
-    if (!targetPath || typeof targetPath !== 'string') return;
-    const cleanPath = targetPath.trim();
-    if (cleanPath.startsWith('//')) {
-      return;
-    }
+  ipcMain.handle('shell:openPath', async (_event, targetPath: string, blendFilePath?: string) => {
     try {
-      if (fs.existsSync(cleanPath)) {
-        const stat = fs.statSync(cleanPath);
-        if (stat.isFile()) {
-          shell.showItemInFolder(cleanPath);
-          return;
-        }
-        await Promise.race([
-          shell.openPath(cleanPath),
-          new Promise((resolve) => setTimeout(resolve, 3000)),
-        ]);
-        return;
-      }
-      const dir = path.dirname(cleanPath);
-      if (fs.existsSync(dir)) {
-        await Promise.race([
-          shell.openPath(dir),
-          new Promise((resolve) => setTimeout(resolve, 3000)),
-        ]);
-      }
+      await openPathNonBlocking(targetPath, blendFilePath);
     } catch {
       // ignore
     }
   });
 
   // Image Sequence Tools & FFmpeg
-  ipcMain.handle('sequence:detect', async (_event, dirOrPath: string) => {
-    return detectSequence(dirOrPath);
+  ipcMain.handle('sequence:detect', async (_event, dirOrPath: string, blendFilePath?: string) => {
+    return detectSequence(dirOrPath, blendFilePath);
   });
 
   ipcMain.handle('sequence:generateProxy', async (_event, sourcePath: string) => {

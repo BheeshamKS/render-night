@@ -371,8 +371,12 @@ export const MonitorDock: React.FC = () => {
               {/* Centre: Larger Preview of Last Finished Frame */}
               <div
                 onClick={async () => {
-                  if (monitorStats.lastThumbnailPath) {
-                    await loadSequenceFromPath(monitorStats.lastThumbnailPath);
+                  const targetPath =
+                    monitorStats.lastThumbnailPath ||
+                    activeJob?.outputPreview ||
+                    activeJob?.outputPathPattern;
+                  if (targetPath) {
+                    await loadSequenceFromPath(targetPath, activeJob?.filePath);
                   } else {
                     setActiveTab('sequences');
                   }
@@ -382,7 +386,7 @@ export const MonitorDock: React.FC = () => {
               >
                 {monitorStats.lastThumbnailPath && !thumbFailed ? (
                   <img
-                    src={`file://${monitorStats.lastThumbnailPath}`}
+                    src={encodeURI(`file://${monitorStats.lastThumbnailPath}`).replace(/#/g, '%23')}
                     alt="Last Rendered Frame"
                     className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
                     onError={() => setThumbFailed(true)}
@@ -493,8 +497,13 @@ export const MonitorDock: React.FC = () => {
                   <button
                     type="button"
                     onClick={async () => {
-                      if (monitorStats.lastThumbnailPath) {
-                        await loadSequenceFromPath(monitorStats.lastThumbnailPath);
+                      const targetJob = jobs.find((j) => j.status === 'Completed') ?? jobs[0];
+                      const targetPath =
+                        monitorStats.lastThumbnailPath ||
+                        targetJob?.outputPreview ||
+                        targetJob?.outputPathPattern;
+                      if (targetPath) {
+                        await loadSequenceFromPath(targetPath, targetJob?.filePath);
                       } else {
                         setActiveTab('sequences');
                       }
@@ -509,9 +518,14 @@ export const MonitorDock: React.FC = () => {
                   <button
                     type="button"
                     onClick={async () => {
-                      if (window.rnApi && monitorStats.lastThumbnailPath) {
-                        const dir = monitorStats.lastThumbnailPath.replace(/[/\\][^/\\]+$/, '');
-                        await window.rnApi.openPath(dir);
+                      const targetJob = jobs.find((j) => j.status === 'Completed') ?? jobs[0];
+                      const targetPath =
+                        monitorStats.lastThumbnailPath ||
+                        targetJob?.outputPreview ||
+                        targetJob?.outputPathPattern ||
+                        '';
+                      if (window.rnApi && (targetPath || targetJob?.filePath)) {
+                        await window.rnApi.openPath(targetPath, targetJob?.filePath);
                       }
                     }}
                     className="flex items-center space-x-1.5 rounded-md border border-rn-border bg-rn-panel px-3 py-1 text-xs text-rn-text hover:bg-rn-subpanel transition"
@@ -526,8 +540,13 @@ export const MonitorDock: React.FC = () => {
               {/* Centre: Rendered Frame Thumbnail */}
               <div
                 onClick={async () => {
-                  if (monitorStats.lastThumbnailPath) {
-                    await loadSequenceFromPath(monitorStats.lastThumbnailPath);
+                  const targetJob = jobs.find((j) => j.status === 'Completed') ?? jobs[0];
+                  const targetPath =
+                    monitorStats.lastThumbnailPath ||
+                    targetJob?.outputPreview ||
+                    targetJob?.outputPathPattern;
+                  if (targetPath) {
+                    await loadSequenceFromPath(targetPath, targetJob?.filePath);
                   } else {
                     setActiveTab('sequences');
                   }
@@ -537,7 +556,7 @@ export const MonitorDock: React.FC = () => {
               >
                 {monitorStats.lastThumbnailPath && !thumbFailed ? (
                   <img
-                    src={`file://${monitorStats.lastThumbnailPath}`}
+                    src={encodeURI(`file://${monitorStats.lastThumbnailPath}`).replace(/#/g, '%23')}
                     alt="Last Rendered Frame"
                     className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
                     onError={() => setThumbFailed(true)}

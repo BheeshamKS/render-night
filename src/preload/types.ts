@@ -102,7 +102,7 @@ export interface RenderNightApi {
   openInBlender(executable: string | string[], filePath: string): Promise<boolean>;
   selectBlendFiles(): Promise<string[]>;
   selectDirectory(defaultPath?: string): Promise<string | null>;
-  openPath(targetPath: string): Promise<void>;
+  openPath(targetPath: string, blendFilePath?: string): Promise<void>;
 
   // Queue controls & events
   startQueue(jobs: QueueEngineJob[]): Promise<void>;
@@ -145,7 +145,7 @@ export interface RenderNightApi {
   importPresets(jsonStr: string): Promise<ImportPresetsResult>;
 
   // Image Sequence Tools & FFmpeg
-  detectSequence(dirOrPath: string): Promise<ImageSequenceInfo | null>;
+  detectSequence(dirOrPath: string, blendFilePath?: string): Promise<ImageSequenceInfo | null>;
   generateProxy(sourcePath: string): Promise<ProxyResult>;
   stitchSequence(options: StitchOptions): Promise<string>;
   cancelStitch(): Promise<void>;
