@@ -12,7 +12,8 @@ export interface SegmentedEnumToggleProps {
   label?: string;
   value: string;
   defaultValue?: string;
-  items: EnumItem[];
+  items?: EnumItem[];
+  options?: Array<{ value: string; label: string; description?: string }>;
   isOverridden?: boolean;
   onReset?: () => void;
   onChange: (val: string) => void;
@@ -23,13 +24,24 @@ export interface SegmentedEnumToggleProps {
 export const SegmentedEnumToggle: React.FC<SegmentedEnumToggleProps> = ({
   value,
   items,
+  options,
   isOverridden = false,
   onReset,
   onChange,
   description,
   disabled = false,
 }) => {
-  const isSegmented = items.length <= 4 && items.length > 0;
+  const enumItems =
+    items ||
+    (options
+      ? options.map((o) => ({
+          identifier: o.value,
+          name: o.label,
+          description: o.description,
+        }))
+      : []);
+
+  const isSegmented = enumItems.length <= 4 && enumItems.length > 0;
 
   return (
     <div
@@ -48,7 +60,7 @@ export const SegmentedEnumToggle: React.FC<SegmentedEnumToggleProps> = ({
 
       {isSegmented ? (
         <div className="flex w-full rounded border border-rn-border bg-rn-input overflow-hidden text-xs">
-          {items.map((item, idx) => {
+          {enumItems.map((item, idx) => {
             const isSelected = item.identifier === value;
             return (
               <button
@@ -75,7 +87,7 @@ export const SegmentedEnumToggle: React.FC<SegmentedEnumToggleProps> = ({
             isOverridden ? 'border-rn-accent/80' : 'border-rn-border'
           }`}
         >
-          {items.map((item) => (
+          {enumItems.map((item) => (
             <option key={item.identifier} value={item.identifier} title={item.description}>
               {item.name}
             </option>

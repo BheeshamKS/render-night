@@ -16,6 +16,7 @@ export interface BlenderNumberFieldProps {
   onChange: (val: number) => void;
   description?: string;
   disabled?: boolean;
+  className?: string;
 }
 
 export const BlenderNumberField: React.FC<BlenderNumberFieldProps> = ({
@@ -31,6 +32,7 @@ export const BlenderNumberField: React.FC<BlenderNumberFieldProps> = ({
   onChange,
   description,
   disabled = false,
+  className = '',
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [textValue, setTextValue] = useState(value.toString());
@@ -38,6 +40,7 @@ export const BlenderNumberField: React.FC<BlenderNumberFieldProps> = ({
 
   const dragStartRef = useRef<{ startX: number; startVal: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const previousValueRef = useRef(value);
 
   useEffect(() => {
     if (!isEditing) {
@@ -66,8 +69,9 @@ export const BlenderNumberField: React.FC<BlenderNumberFieldProps> = ({
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (disabled || isEditing) return;
-    if (e.button !== 0) return; // Primary button only
+    if (e.button !== 0) return;
 
+    previousValueRef.current = value;
     dragStartRef.current = {
       startX: e.clientX,
       startVal: value,
@@ -78,17 +82,24 @@ export const BlenderNumberField: React.FC<BlenderNumberFieldProps> = ({
     const onMouseMove = (moveEvent: MouseEvent) => {
       if (!dragStartRef.current) return;
       const deltaX = moveEvent.clientX - dragStartRef.current.startX;
-      if (!moved && Math.abs(deltaX) > 3) {
+
+      if (!moved && Math.abs(deltaX) > 2) {
         moved = true;
         setIsDragging(true);
       }
 
       if (moved) {
-        // Shift gives 0.1x fine tuning
+        // Shift gives fine tuning (0.1x)
         const sensitivity = moveEvent.shiftKey ? 0.1 : 1.0;
         const deltaVal = (deltaX / 8) * step * sensitivity;
-        const nextVal = clamp(dragStartRef.current.startVal + deltaVal);
-        onChange(nextVal);
+        let nextVal = dragStartRef.current.startVal + deltaVal;
+
+        // Ctrl snaps to step increments
+        if (moveEvent.ctrlKey) {
+          nextVal = Math.round(nextVal / step) * step;
+        }
+
+        onChange(clamp(nextVal));
       }
     };
 
@@ -96,7 +107,6 @@ export const BlenderNumberField: React.FC<BlenderNumberFieldProps> = ({
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
       if (!moved) {
-        // Was a simple click, enter edit mode
         setIsEditing(true);
         setTimeout(() => {
           inputRef.current?.focus();
@@ -118,7 +128,36 @@ export const BlenderNumberField: React.FC<BlenderNumberFieldProps> = ({
     onChange(clamp(value + direction * step * factor));
   };
 
-  // Slider progress bar calculation
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (isEditing) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleCommit(textValue);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setIsEditing(false);
+        setTextValue(
+          precision > 0
+            ? previousValueRef.current.toFixed(precision)
+            : previousValueRef.current.toString(),
+        );
+        onChange(previousValueRef.current);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const factor = e.shiftKey ? 0.1 : 1.0;
+        const next = clamp(parseFloat(textValue || '0') + step * factor);
+        setTextValue(next.toString());
+        onChange(next);
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const factor = e.shiftKey ? 0.1 : 1.0;
+        const next = clamp(parseFloat(textValue || '0') - step * factor);
+        setTextValue(next.toString());
+        onChange(next);
+      }
+    }
+  };
+
   const hasRange = min !== -Infinity && max !== Infinity && max > min;
   const progressPct = hasRange
     ? Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100))
@@ -126,26 +165,35 @@ export const BlenderNumberField: React.FC<BlenderNumberFieldProps> = ({
 
   return (
     <div
-      className={`relative group flex items-center w-full select-none ${
+      className={`relative group flex items-center w-full select-none ${className} ${
         disabled ? 'opacity-50 cursor-not-allowed' : ''
       }`}
       title={description}
     >
       <div
         onMouseDown={handleMouseDown}
+        onDoubleClick={() => {
+          if (!disabled) {
+            setIsEditing(true);
+            setTimeout(() => {
+              inputRef.current?.focus();
+              inputRef.current?.select();
+            }, 10);
+          }
+        }}
         className={`relative flex items-center w-full h-6 rounded border bg-rn-input transition overflow-hidden ${
           isOverridden ? 'border-rn-accent/80' : 'border-rn-border'
         } ${isDragging ? 'cursor-ew-resize border-rn-accent' : 'hover:border-rn-muted/70 cursor-ew-resize'}`}
       >
-        {/* Accent bar for overrides */}
+        {/* Accent bar for modified properties */}
         {isOverridden && (
           <div
             className="absolute left-0 top-0 bottom-0 w-0.5 bg-rn-accent z-10"
-            title="Overridden value"
+            title="Modified from file default"
           />
         )}
 
-        {/* Progress fill */}
+        {/* Range Fill Indicator */}
         {hasRange && (
           <div
             className="absolute left-0 top-0 bottom-0 bg-rn-accent/20 pointer-events-none transition-all duration-75"
@@ -160,19 +208,13 @@ export const BlenderNumberField: React.FC<BlenderNumberFieldProps> = ({
             value={textValue}
             onChange={(e) => setTextValue(e.target.value)}
             onBlur={() => handleCommit(textValue)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleCommit(textValue);
-              else if (e.key === 'Escape') {
-                setIsEditing(false);
-                setTextValue(precision > 0 ? value.toFixed(precision) : value.toString());
-              }
-            }}
+            onKeyDown={handleKeyDown}
             className="w-full h-full bg-transparent px-2 text-xs font-mono text-rn-text outline-none z-10"
             autoFocus
           />
         ) : (
           <div className="flex items-center justify-between w-full h-full px-2 text-xs font-mono text-rn-text z-0">
-            <span className="truncate">{label ? `${label}: ` : ''}</span>
+            <span className="truncate text-rn-muted">{label ? `${label}: ` : ''}</span>
             <span className="font-medium truncate">
               {precision > 0 ? value.toFixed(precision) : value}
               {unit ? ` ${unit}` : ''}
@@ -180,7 +222,7 @@ export const BlenderNumberField: React.FC<BlenderNumberFieldProps> = ({
           </div>
         )}
 
-        {/* Micro step buttons on hover */}
+        {/* Micro step up/down chevrons */}
         {!isEditing && !disabled && (
           <div className="absolute right-1 flex flex-col opacity-0 group-hover:opacity-80 transition z-10">
             <button

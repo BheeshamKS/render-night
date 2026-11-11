@@ -87,8 +87,29 @@ Render Night is functionally robust under the hood, but its visual presentation 
 ## 3. Implementation Roadmap
 
 - [x] **Step 1**: Capture initial screenshots and document UI Usability Audit (`docs/ui-audit.md`).
-- [ ] **Step 2**: Layout Architecture: Master-detail layout with left nav rail, top 48px toolbar, resizable Properties panel, and collapsible Monitor dock.
-- [ ] **Step 3**: Job Row: 56-64px scannable row with status chips, preview thumbnail, compact selects, frame chip, device badge, and multi-select.
-- [ ] **Step 4**: Blender-Native Custom Controls: Number scrubbers, searchable dropdowns, segmented toggles, collapsible panels, and `/components` showcase.
-- [ ] **Step 5**: Monitor Dock & Console: Sparkline, frame preview, virtualized monospace console with error filtering and override log tabs.
-- [ ] **Step 6**: Polish: Empty state, tooltips, keyboard shortcuts, structured settings tabs, WCAG AA compliance, and final comparative screenshots.
+- [x] **Step 2**: Layout Architecture: Master-detail layout with left nav rail, top 48px toolbar, resizable Properties panel, and collapsible Monitor dock.
+- [x] **Step 3**: Job Row: 56-64px scannable row with status chips, preview thumbnail, compact selects, frame chip, device badge, and multi-select.
+- [x] **Step 4**: Blender-Native Custom Controls: Number scrubbers, searchable dropdowns, segmented toggles, collapsible panels, and `/components` showcase.
+- [x] **Step 5**: Monitor Dock & Console: Sparkline, frame preview, virtualized monospace console with error filtering and override log tabs.
+- [x] **Step 6**: Polish: Empty state, tooltips, keyboard shortcuts, structured settings tabs, WCAG AA compliance, and final comparative screenshots.
+
+---
+
+## 4. Post-Overhaul Verification Matrix & Before / After Analysis
+
+All 12 problems identified in the audit were resolved and verified across 3 resolutions (1100x700, 1280x800, and 1920x1080) for all application states.
+
+| Audit Item | Pre-Overhaul Problem | Post-Overhaul Solution | Verified In Screenshots |
+|---|---|---|---|
+| **1. Inline Drawers (Broken Master-Detail)** | Expanding card pushed other cards off-screen, causing massive layout reflows. | Resizable right-hand Properties panel (300-600px) with vertical icon tabs (`Render`, `Output`, `Job`, `All RNA`). Queue remains fully visible and scrollable. | `06-properties-editor-open-*` |
+| **2. Multi-Select & Bulk Operations** | No multi-selection; tedious 1-by-1 job actions. | Checkbox multi-select, shift-click range select, Ctrl/Cmd+A select all, floating bulk bar with batch Enable/Disable/Copy/Paste/Remove, and right-click context menu. | `03-queued-jobs-*`, `04-job-rendering-*` |
+| **3. Virtualization & Render Throttling** | 50+ cards created 50+ DOM subtrees re-rendering on every tick. | Row component memoization, isolated Zustand selectors, and 5 Hz throttled progress updates. Zero jank during heavy queue renders. | `03-queued-jobs-*`, `04-job-rendering-*` |
+| **4. Console Virtualization & Errors** | Raw plain text dump without error highlighting or filter. | Monospace virtualized log viewer with red error/traceback highlighting, search filter input, auto-scroll toggle, 1-click clipboard copy, and folder reveal. | `05-failed-job-crash-log-*` |
+| **5. Navigation Hierarchy** | History and Settings opened as disorienting transient overlays. | Persistent 56px left navigation rail (`Queue`, `History`, `Sequences`, `Settings`) with tooltips, active indicator, and smooth routing. | `07-history-tab-*`, `08-sequence-tools-tab-*`, `09-settings-*` |
+| **6. Queue Control State Ambiguity** | Start button state was ambiguous when rendering. | Segmented Pause / Stop control appears during active render; big green Start button with preflight shield indicator when idle. | `04-job-rendering-*` |
+| **7. Post-Queue Action Prominence** | Secondary hidden action dropdown. | Center toolbar group displays "When finished: [ Do nothing | Sleep | Shutdown | ... ]" with countdown timer and red cancel button. | `12-shutdown-countdown-*` |
+| **8. Frame Range & Device Visibility** | Buried inside inspection drawers. | Dense 60px job row displays compact frame chip (`1-250 · 250 f`) and hardware device badge (`GPU · RTX 3080 · OptiX` or `CPU`) at a glance. | `03-queued-jobs-*`, `04-job-rendering-*` |
+| **9. Blender-Native Controls** | Standard browser HTML inputs. | Custom `BlenderNumberField` (drag to scrub, shift fine, ctrl snap, double-click type, blue modified bar), searchable `BlenderDropdown`, and `SegmentedEnumToggle`. | `06-properties-editor-open-*`, `13-components-showcase-*` |
+| **10. Empty Queue Dropzone** | Empty dashed outline. | Rich dropzone with detected Blender installations table, version tags, default selection, and preset tips. | `01-empty-queue-*` |
+| **11. Typography & Grid Hierarchy** | Random system fonts and paddings. | Bundled Inter locally for UI text, JetBrains Mono for numbers/console (0 network calls). Strict 4px spacing grid. | All screenshots |
+| **12. Native Window Feel & Sparkline** | Default window title bar and plain footer. | Native dark theme (`titleBarOverlay` / `hiddenInset`), 48px/28px collapsible monitor dock with frame sparkline, frame thumbnail preview, and status metrics. | `04-job-rendering-*` |

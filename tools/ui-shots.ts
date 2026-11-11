@@ -446,6 +446,20 @@ async function run() {
         showHistoryModal: false,
       }),
     },
+    {
+      id: '13-components-showcase',
+      description: 'components showcase',
+      getState: () => ({
+        jobs: [baseJob('job-1', 'cyber_street_hero.blend', 'Queued')],
+        queueState: 'idle',
+        activeTab: 'components',
+        showPostActionModal: false,
+        showCrashRestoreBanner: false,
+        showPreflightModal: false,
+        showSettingsModal: false,
+        showHistoryModal: false,
+      }),
+    },
   ];
 
   for (const res of RESOLUTIONS) {

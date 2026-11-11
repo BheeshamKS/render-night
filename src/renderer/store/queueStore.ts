@@ -131,8 +131,35 @@ interface QueueStoreState {
   scheduleConfig: ScheduleConfigState;
   activeSleepBlockId: number | null;
 
-  activeTab: 'queue' | 'sequences';
-  setActiveTab: (tab: 'queue' | 'sequences') => void;
+  activeTab: 'queue' | 'sequences' | 'history' | 'settings' | 'components';
+  setActiveTab: (tab: 'queue' | 'sequences' | 'history' | 'settings' | 'components') => void;
+
+  // Master-Detail Selection & Bulk Operations
+  selectedJobId: string | null;
+  selectedJobIds: string[];
+  setSelectedJobId: (id: string | null) => void;
+  toggleSelectJobId: (id: string) => void;
+  selectJobRange: (id: string) => void;
+  selectAllJobs: () => void;
+  clearJobSelection: () => void;
+  setSelectedJobsEnabled: (enabled: boolean) => void;
+  removeSelectedJobs: () => void;
+
+  // UI Dock & Properties Panel
+  isMonitorCollapsed: boolean;
+  toggleMonitorCollapsed: () => void;
+  monitorTab: 'monitor' | 'console' | 'log';
+  setMonitorTab: (tab: 'monitor' | 'console' | 'log') => void;
+  propertiesTab: 'render' | 'output' | 'job' | 'all';
+  setPropertiesTab: (tab: 'render' | 'output' | 'job' | 'all') => void;
+  propertiesPanelWidth: number;
+  setPropertiesPanelWidth: (width: number) => void;
+  recentFrameTimes: number[];
+
+  // Undo Removal
+  lastRemovedJob: { job: QueueJob; index: number } | null;
+  undoRemoveJob: () => void;
+  dismissUndoRemove: () => void;
 
   showCrashRestoreBanner: boolean;
   showPostActionModal: boolean;
@@ -400,6 +427,120 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
 
   activeTab: 'queue',
   setActiveTab: (tab) => set({ activeTab: tab }),
+
+  // Master-Detail Selection & Bulk Operations
+  selectedJobId: null,
+  selectedJobIds: [],
+  setSelectedJobId: (id) =>
+    set({
+      selectedJobId: id,
+      selectedJobIds: id ? [id] : [],
+    }),
+
+  toggleSelectJobId: (id) =>
+    set((state) => {
+      const exists = state.selectedJobIds.includes(id);
+      const nextIds = exists
+        ? state.selectedJobIds.filter((jId) => jId !== id)
+        : [...state.selectedJobIds, id];
+      return {
+        selectedJobIds: nextIds,
+        selectedJobId: nextIds.length > 0 ? id : null,
+      };
+    }),
+
+  selectJobRange: (targetId) =>
+    set((state) => {
+      const { jobs, selectedJobId, selectedJobIds } = state;
+      const targetIdx = jobs.findIndex((j) => j.id === targetId);
+      if (targetIdx === -1) return {};
+
+      const startIdx = selectedJobId ? jobs.findIndex((j) => j.id === selectedJobId) : 0;
+      const low = Math.min(startIdx, targetIdx);
+      const high = Math.max(startIdx, targetIdx);
+      const rangeIds = jobs.slice(low, high + 1).map((j) => j.id);
+
+      const union = Array.from(new Set([...selectedJobIds, ...rangeIds]));
+      return {
+        selectedJobIds: union,
+        selectedJobId: targetId,
+      };
+    }),
+
+  selectAllJobs: () =>
+    set((state) => ({
+      selectedJobIds: state.jobs.map((j) => j.id),
+      selectedJobId: state.jobs[0]?.id || null,
+    })),
+
+  clearJobSelection: () =>
+    set({
+      selectedJobIds: [],
+      selectedJobId: null,
+    }),
+
+  setSelectedJobsEnabled: (enabled: boolean) => {
+    const { selectedJobIds } = get();
+    if (selectedJobIds.length === 0) return;
+    set((state) => ({
+      jobs: state.jobs.map((j) => (selectedJobIds.includes(j.id) ? { ...j, enabled } : j)),
+    }));
+    get().autoSaveState();
+  },
+
+  removeSelectedJobs: () => {
+    const { selectedJobIds } = get();
+    if (selectedJobIds.length === 0) return;
+    set((state) => ({
+      jobs: state.jobs.filter((j) => !selectedJobIds.includes(j.id)),
+      selectedJobIds: [],
+      selectedJobId: null,
+    }));
+    get().autoSaveState();
+  },
+
+  // UI Dock & Properties Panel
+  isMonitorCollapsed: false,
+  toggleMonitorCollapsed: () => set((state) => ({ isMonitorCollapsed: !state.isMonitorCollapsed })),
+  monitorTab: 'monitor',
+  setMonitorTab: (tab) => set({ monitorTab: tab }),
+  propertiesTab: 'render',
+  setPropertiesTab: (tab) => set({ propertiesTab: tab }),
+  propertiesPanelWidth: (() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('rn:properties-width');
+      if (saved) {
+        const parsed = parseInt(saved, 10);
+        if (!isNaN(parsed) && parsed >= 280 && parsed <= 600) return parsed;
+      }
+    }
+    return 360;
+  })(),
+  setPropertiesPanelWidth: (width) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('rn:properties-width', String(width));
+    }
+    set({ propertiesPanelWidth: width });
+  },
+  recentFrameTimes: [4.2, 4.5, 4.1, 4.8, 5.0, 4.9, 4.6, 5.2],
+
+  // Undo Removal
+  lastRemovedJob: null,
+  undoRemoveJob: () => {
+    const { lastRemovedJob, jobs } = get();
+    if (!lastRemovedJob) return;
+    const next = [...jobs];
+    const idx = Math.min(lastRemovedJob.index, next.length);
+    next.splice(idx, 0, lastRemovedJob.job);
+    set({
+      jobs: next,
+      lastRemovedJob: null,
+      selectedJobId: lastRemovedJob.job.id,
+      selectedJobIds: [lastRemovedJob.job.id],
+    });
+    get().autoSaveState();
+  },
+  dismissUndoRemove: () => set({ lastRemovedJob: null }),
 
   showCrashRestoreBanner: false,
   showPostActionModal: false,
@@ -765,8 +906,17 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
   },
 
   removeJob: (id: string) => {
-    set((state) => ({ jobs: state.jobs.filter((j) => j.id !== id) }));
-    get().autoSaveState();
+    const jobIndex = get().jobs.findIndex((j) => j.id === id);
+    const job = get().jobs[jobIndex];
+    if (job) {
+      set((state) => ({
+        jobs: state.jobs.filter((j) => j.id !== id),
+        lastRemovedJob: { job, index: jobIndex },
+        selectedJobId: state.selectedJobId === id ? null : state.selectedJobId,
+        selectedJobIds: state.selectedJobIds.filter((jId) => jId !== id),
+      }));
+      get().autoSaveState();
+    }
   },
 
   updateJob: (id: string, updates: Partial<QueueJob>) => {

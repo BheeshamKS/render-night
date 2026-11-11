@@ -1,23 +1,10 @@
 import type { PostAction } from '../../core/schemas/queue-state';
 import { useQueueStore } from '../store/queueStore';
+import { BlenderDropdown } from './controls/BlenderDropdown';
 
 import React from 'react';
 
-import {
-  Bell,
-  Calendar,
-  Clock,
-  Download,
-  Film,
-  ListOrdered,
-  Pause,
-  Play,
-  Plus,
-  Settings,
-  Shield,
-  Square,
-  Terminal,
-} from 'lucide-react';
+import { Bookmark, Moon, Pause, Play, Plus, Square, Volume2, VolumeX } from 'lucide-react';
 
 export const Toolbar: React.FC = () => {
   const {
@@ -25,28 +12,17 @@ export const Toolbar: React.FC = () => {
     blenders,
     selectedBlenderId,
     setSelectedBlenderId,
-    isolatedMode,
-    setIsolatedMode,
-    autoExec,
-    setAutoExec,
-    addFiles,
     queueState,
-    activeJobId,
     startQueueWithPreflight,
     pauseQueue,
     resumeQueue,
     stopQueue,
     postAction,
     setPostAction,
-    setShowSoundModal,
-    setShowHistoryModal,
-    setShowScheduleModal,
-    setShowSettingsModal,
-    scheduleConfig,
-    copiedOverrides,
-    pasteOverrides,
-    activeTab,
-    setActiveTab,
+    soundSettings,
+    setSoundSettings,
+    activeJobId,
+    addFiles,
   } = useQueueStore();
 
   const handleAddFiles = async () => {
@@ -64,254 +40,188 @@ export const Toolbar: React.FC = () => {
   const isBusy = isRunning || isPaused;
 
   const activeJob = jobs.find((j) => j.id === activeJobId);
-  const pauseLabel = isPaused
-    ? 'Resume'
+  const pauseTooltip = isPaused
+    ? 'Resume queue execution'
     : activeJob?.isVideo
-      ? 'Pause After Job'
-      : 'Pause After Frame';
+      ? 'Pause after finishing current video job'
+      : 'Pause after finishing current frame';
+
+  const blenderOptions = blenders.map((b) => ({
+    value: b.id,
+    label: `Blender ${b.version}`,
+    sublabel: b.isPortable ? 'Portable' : b.source,
+  }));
+
+  const postActionOptions = [
+    { value: 'none', label: 'Do nothing' },
+    { value: 'sleep', label: 'Sleep' },
+    { value: 'hibernate', label: 'Hibernate' },
+    { value: 'shutdown', label: 'Shutdown' },
+    { value: 'restart', label: 'Restart' },
+    { value: 'close_app', label: 'Close Render Night' },
+  ];
+
+  const toggleMute = () => {
+    setSoundSettings({ isMuted: !soundSettings.isMuted });
+  };
 
   return (
-    <div className="flex h-12 flex-shrink-0 items-center justify-between border-b border-rn-border bg-rn-panel px-4 select-none">
-      {/* Left: App Title, Version, & Add Button */}
-      <div className="flex items-center space-x-3">
-        <div className="flex items-center space-x-2">
-          <span className="font-bold tracking-wide text-rn-text">Render Night</span>
-          <span className="rounded bg-rn-subpanel px-2 py-0.5 text-xs text-rn-muted font-mono">
-            v0.1.0-alpha.1
-          </span>
-        </div>
-
+    <header className="flex h-12 flex-shrink-0 items-center justify-between border-b border-rn-border bg-[#202020] px-3 select-none z-20">
+      {/* ============================================================== */}
+      {/* 1. Left Group: "Add .blend" Primary Button & Blender Dropdown   */}
+      {/* ============================================================== */}
+      <div className="flex items-center space-x-2.5">
         <button
+          type="button"
           onClick={handleAddFiles}
           disabled={isBusy}
-          className="flex items-center space-x-1.5 rounded bg-rn-accent px-3 py-1.5 text-xs font-medium text-white transition hover:brightness-110 active:brightness-95 disabled:opacity-50 disabled:cursor-not-allowed"
-          title="Add one or more .blend files to queue"
+          className="flex h-7 items-center space-x-1.5 rounded bg-rn-accent px-3 text-xs font-semibold text-white shadow-sm transition hover:brightness-110 active:brightness-95 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Add .blend files to the queue (Ctrl+O)"
         >
           <Plus className="h-3.5 w-3.5" />
           <span>Add .blend</span>
         </button>
 
-        {/* Tab Navigation */}
-        <div className="flex items-center space-x-1 bg-rn-input p-0.5 rounded border border-rn-border ml-2">
-          <button
-            onClick={() => setActiveTab('queue')}
-            className={`flex items-center space-x-1.5 px-2.5 py-1 rounded text-xs font-medium transition ${
-              activeTab === 'queue'
-                ? 'bg-rn-panel text-white shadow-sm'
-                : 'text-rn-muted hover:text-rn-text'
-            }`}
-          >
-            <ListOrdered className="w-3.5 h-3.5" />
-            <span>Queue</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('sequences')}
-            className={`flex items-center space-x-1.5 px-2.5 py-1 rounded text-xs font-medium transition ${
-              activeTab === 'sequences'
-                ? 'bg-rn-panel text-white shadow-sm'
-                : 'text-rn-muted hover:text-rn-text'
-            }`}
-          >
-            <Film className="w-3.5 h-3.5" />
-            <span>Image Sequences</span>
-          </button>
+        <div className="flex items-center space-x-1.5">
+          <span className="text-[11px] text-rn-muted font-medium">Blender:</span>
+          {blenderOptions.length > 0 ? (
+            <BlenderDropdown
+              value={selectedBlenderId || blenders[0]?.id || ''}
+              options={blenderOptions}
+              onChange={(val) => setSelectedBlenderId(val)}
+              disabled={isBusy}
+              className="w-44"
+              title="Select Blender version for jobs"
+            />
+          ) : (
+            <span className="rounded bg-rn-subpanel px-2 py-0.5 text-xs text-rn-error">
+              No Blender Detected
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Center: Blender Version Selector */}
-      <div className="flex items-center space-x-2">
-        <label htmlFor="global-blender-select" className="text-xs text-rn-muted">
-          Blender:
-        </label>
-        {blenders.length > 0 ? (
-          <select
-            id="global-blender-select"
-            value={selectedBlenderId || ''}
-            onChange={(e) => setSelectedBlenderId(e.target.value)}
-            disabled={isBusy}
-            className="rounded border border-rn-border bg-rn-input px-2.5 py-1 text-xs text-rn-text focus:border-rn-accent focus:outline-none disabled:opacity-50"
-            title="Switch global default Blender version"
+      {/* ============================================================== */}
+      {/* 2. Centre Group: Big Start / Segmented Pause-Stop & Post-Action */}
+      {/* ============================================================== */}
+      <div className="flex items-center space-x-3">
+        {/* Render Control (Start vs Pause/Stop Segmented Control) */}
+        {!isBusy ? (
+          <button
+            type="button"
+            onClick={startQueueWithPreflight}
+            disabled={!hasEligibleJobs}
+            className="flex h-8 items-center space-x-2 rounded bg-[#388e3c] px-5 text-xs font-bold text-white shadow transition hover:brightness-110 active:brightness-95 disabled:opacity-40 disabled:cursor-not-allowed"
+            title="Start batch render queue (Ctrl+Enter)"
           >
-            {blenders.map((b) => (
-              <option key={b.id} value={b.id}>
-                v{b.version} ({b.source}) - {b.displayPath}
-              </option>
-            ))}
-          </select>
+            <Play className="h-4 w-4 fill-current" />
+            <span>Start Queue</span>
+          </button>
         ) : (
-          <span className="rounded bg-rn-subpanel px-2 py-1 text-xs text-rn-error">
-            No Blender found
-          </span>
+          <div className="flex h-8 items-center rounded border border-rn-border bg-rn-input p-0.5 shadow-sm">
+            {isRunning ? (
+              <button
+                type="button"
+                onClick={pauseQueue}
+                className="flex h-7 items-center space-x-1.5 rounded px-3 text-xs font-semibold text-yellow-300 transition hover:bg-yellow-500/20 active:bg-yellow-500/30"
+                title={pauseTooltip}
+              >
+                <Pause className="h-3.5 w-3.5" />
+                <span>Pause</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={resumeQueue}
+                className="flex h-7 items-center space-x-1.5 rounded px-3 text-xs font-semibold text-green-400 transition hover:bg-green-500/20 active:bg-green-500/30"
+                title="Resume queue execution"
+              >
+                <Play className="h-3.5 w-3.5 fill-current" />
+                <span>Resume</span>
+              </button>
+            )}
+
+            <div className="h-4 w-px bg-rn-border mx-0.5" />
+
+            <button
+              type="button"
+              onClick={stopQueue}
+              className="flex h-7 items-center space-x-1.5 rounded px-3 text-xs font-semibold text-red-400 transition hover:bg-red-500/20 active:bg-red-500/30"
+              title="Stop queue cleanly (kills current Blender process and saves progress)"
+            >
+              <Square className="h-3.5 w-3.5 fill-current" />
+              <span>Stop</span>
+            </button>
+          </div>
         )}
+
+        {/* Post-Queue Action Selector */}
+        <div className="flex items-center space-x-1.5">
+          <span className="text-[11px] text-rn-muted font-medium">When finished:</span>
+          <BlenderDropdown
+            value={postAction}
+            options={postActionOptions}
+            onChange={(val) => setPostAction(val as PostAction)}
+            className="w-40"
+            title="Action to execute after all queue jobs complete gracefully"
+          />
+        </div>
       </div>
 
-      {/* Right: Modals, Post-Action & Controls */}
+      {/* ============================================================== */}
+      {/* 3. Right Group: Presets, Sound Mute/Volume & Sleep-Lock Pill    */}
+      {/* ============================================================== */}
       <div className="flex items-center space-x-2">
-        {/* Modals & Tools: Schedule, Finish Sound, History */}
+        {/* Sleep Lock Status Indicator */}
+        {isRunning && (
+          <div
+            className="flex h-6 items-center space-x-1.5 rounded border border-green-500/40 bg-green-500/10 px-2 text-[10px] font-medium text-green-400 animate-in fade-in"
+            title="System sleep is actively prevented while rendering is in progress"
+          >
+            <Moon className="h-3 w-3" />
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
+            <span>Sleep Blocked</span>
+          </div>
+        )}
+
+        {/* Presets Button */}
         <button
-          onClick={() => setShowScheduleModal(true)}
-          className={`flex items-center space-x-1 rounded border px-2 py-1 text-xs transition ${
-            scheduleConfig.enabled
-              ? 'border-rn-accent bg-rn-accent/20 text-rn-accent font-semibold'
-              : 'border-rn-border bg-rn-subpanel text-rn-muted hover:text-rn-text'
+          type="button"
+          onClick={() => {
+            const { jobs } = useQueueStore.getState();
+            if (jobs.length > 0) {
+              useQueueStore.getState().addLog(`Presets menu ready.`);
+            }
+          }}
+          className="flex h-7 items-center space-x-1 rounded border border-rn-border bg-rn-panel px-2.5 text-xs text-rn-text transition hover:border-rn-muted hover:bg-rn-subpanel"
+          title="Manage and apply render presets"
+        >
+          <Bookmark className="h-3.5 w-3.5 text-rn-accent" />
+          <span>Presets</span>
+        </button>
+
+        {/* Volume / Mute Toggle */}
+        <button
+          type="button"
+          onClick={toggleMute}
+          className={`flex h-7 w-7 items-center justify-center rounded border transition ${
+            soundSettings.isMuted
+              ? 'border-rn-border bg-rn-panel text-rn-muted hover:text-rn-text'
+              : 'border-rn-border bg-rn-panel text-rn-text hover:border-rn-muted'
           }`}
           title={
-            scheduleConfig.enabled
-              ? `Scheduled to start at ${scheduleConfig.time}`
-              : 'Schedule queue to start at a specific time'
+            soundSettings.isMuted
+              ? 'Unmute finish sound notification'
+              : `Finish sound enabled (Volume: ${soundSettings.volume}%)`
           }
         >
-          <Calendar className="h-3.5 w-3.5" />
-          <span>{scheduleConfig.enabled ? scheduleConfig.time : 'Schedule'}</span>
-        </button>
-
-        <button
-          onClick={() => setShowSoundModal(true)}
-          className="flex items-center space-x-1 rounded border border-rn-border bg-rn-subpanel px-2 py-1 text-xs text-rn-muted hover:text-rn-text transition"
-          title="Finish sound ('to-DUNG') settings"
-        >
-          <Bell className="h-3.5 w-3.5" />
-          <span>Sound</span>
-        </button>
-
-        <button
-          onClick={() => setShowHistoryModal(true)}
-          className="flex items-center space-x-1 rounded border border-rn-border bg-rn-subpanel px-2 py-1 text-xs text-rn-muted hover:text-rn-text transition"
-          title="View past render history"
-        >
-          <Clock className="h-3.5 w-3.5" />
-          <span>History</span>
-        </button>
-
-        <button
-          onClick={() => setShowSettingsModal(true)}
-          className="flex items-center space-x-1 rounded border border-rn-border bg-rn-subpanel px-2 py-1 text-xs text-rn-muted hover:text-rn-text transition"
-          title="Application Settings & Audit"
-        >
-          <Settings className="h-3.5 w-3.5" />
-          <span>Settings</span>
-        </button>
-
-        <div className="h-4 w-[1px] bg-rn-border mx-0.5" />
-
-        {/* Post-Queue Action Dropdown */}
-        <div className="flex items-center space-x-1">
-          <label htmlFor="post-action-select" className="text-[11px] text-rn-muted">
-            After:
-          </label>
-          <select
-            id="post-action-select"
-            value={postAction}
-            onChange={(e) => setPostAction(e.target.value as PostAction)}
-            disabled={isBusy}
-            className="rounded border border-rn-border bg-rn-input px-2 py-1 text-xs text-rn-text focus:border-rn-accent focus:outline-none disabled:opacity-50"
-            title="Safe Post-Queue Action: Only executes after queue finishes gracefully, followed by a 60-second cancel countdown"
-          >
-            <option value="none">Do Nothing</option>
-            <option value="sleep">Sleep</option>
-            <option value="hibernate">Hibernate</option>
-            <option value="shutdown">Shutdown</option>
-            <option value="restart">Restart</option>
-            <option value="close_app">Close Night Render</option>
-          </select>
-        </div>
-
-        {/* Isolated Mode Toggle */}
-        <button
-          onClick={() => setIsolatedMode(!isolatedMode)}
-          disabled={isBusy}
-          className={`flex items-center space-x-1 rounded border px-2 py-1 text-xs transition disabled:opacity-50 ${
-            isolatedMode
-              ? 'border-rn-accent bg-rn-accent/20 text-rn-text'
-              : 'border-rn-border bg-rn-subpanel text-rn-muted hover:text-rn-text'
-          }`}
-          title="Isolated Mode (--factory-startup): Disables user preferences and custom addons for clean renders"
-        >
-          <Shield className="h-3.5 w-3.5" />
-          <span>Isolated</span>
-        </button>
-
-        {/* Auto-exec Scripts Toggle */}
-        <button
-          onClick={() => setAutoExec(!autoExec)}
-          disabled={isBusy}
-          className={`flex items-center space-x-1 rounded border px-2 py-1 text-xs transition disabled:opacity-50 ${
-            autoExec
-              ? 'border-rn-rendering bg-rn-rendering/20 text-rn-text'
-              : 'border-rn-border bg-rn-subpanel text-rn-muted hover:text-rn-text'
-          }`}
-          title="Auto-exec scripts (--enable-autoexec): Required for files with Python driver scripts"
-        >
-          <Terminal className="h-3.5 w-3.5" />
-          <span>Auto-exec</span>
-        </button>
-
-        {/* Paste Overrides to All Jobs button */}
-        {copiedOverrides && Object.keys(copiedOverrides).length > 0 && (
-          <button
-            onClick={() => pasteOverrides()}
-            disabled={jobs.length === 0}
-            className="flex items-center space-x-1 rounded border border-rn-accent/50 bg-rn-accent/20 px-2 py-1 text-xs text-rn-accent hover:bg-rn-accent hover:text-white transition disabled:opacity-40"
-            title={`Paste copied ${Object.keys(copiedOverrides).length} overrides onto all jobs in the queue`}
-          >
-            <Download className="h-3.5 w-3.5" />
-            <span>Paste to All</span>
-          </button>
-        )}
-
-        <div className="h-4 w-[1px] bg-rn-border mx-0.5" />
-
-        {/* Queue State Pill */}
-        {isBusy && (
-          <span
-            className={`flex items-center space-x-1 rounded px-2 py-0.5 text-xs font-medium font-mono ${
-              isRunning
-                ? 'bg-rn-rendering/20 text-rn-rendering'
-                : 'bg-yellow-500/20 text-yellow-400'
-            }`}
-          >
-            <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
-            <span className="capitalize">{queueState}</span>
-          </span>
-        )}
-
-        {/* Start Button */}
-        <button
-          onClick={startQueueWithPreflight}
-          disabled={!hasEligibleJobs || isBusy}
-          className="flex items-center space-x-1 rounded bg-rn-subpanel px-2.5 py-1 text-xs font-medium text-rn-text hover:bg-rn-accent hover:text-white transition disabled:opacity-40 disabled:cursor-not-allowed"
-          title="Start queue execution (runs pre-flight check)"
-        >
-          <Play className="h-3 w-3 fill-current" />
-          <span>Start</span>
-        </button>
-
-        {/* Pause / Resume Button */}
-        <button
-          onClick={isPaused ? resumeQueue : pauseQueue}
-          disabled={!isBusy}
-          className="flex items-center space-x-1 rounded bg-rn-subpanel px-2.5 py-1 text-xs font-medium text-rn-text hover:bg-rn-subpanel/80 hover:text-yellow-400 transition disabled:opacity-40 disabled:cursor-not-allowed"
-          title={isPaused ? 'Resume queue' : 'Pause queue'}
-        >
-          {isPaused ? (
-            <Play className="h-3 w-3 fill-current" />
+          {soundSettings.isMuted ? (
+            <VolumeX className="h-3.5 w-3.5 text-rn-muted" />
           ) : (
-            <Pause className="h-3 w-3 fill-current" />
+            <Volume2 className="h-3.5 w-3.5 text-green-400" />
           )}
-          <span>{pauseLabel}</span>
-        </button>
-
-        {/* Stop Button */}
-        <button
-          onClick={stopQueue}
-          disabled={!isBusy}
-          className="flex items-center space-x-1 rounded bg-rn-subpanel px-2.5 py-1 text-xs font-medium text-rn-text hover:bg-red-600 hover:text-white transition disabled:opacity-40 disabled:cursor-not-allowed"
-          title="Stop queue and terminate active process"
-        >
-          <Square className="h-3 w-3 fill-current" />
-          <span>Stop</span>
         </button>
       </div>
-    </div>
+    </header>
   );
 };

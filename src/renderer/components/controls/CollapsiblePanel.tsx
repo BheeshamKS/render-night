@@ -5,6 +5,7 @@ import { ChevronDown, ChevronRight, RotateCcw } from 'lucide-react';
 export interface CollapsiblePanelProps {
   title: string;
   defaultExpanded?: boolean;
+  defaultOpen?: boolean;
   badge?: string | number;
   overrideCount?: number;
   onResetAll?: () => void;
@@ -15,13 +16,16 @@ export interface CollapsiblePanelProps {
 export const CollapsiblePanel: React.FC<CollapsiblePanelProps> = ({
   title,
   defaultExpanded = true,
+  defaultOpen,
   badge,
   overrideCount = 0,
   onResetAll,
   children,
   className = '',
 }) => {
-  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const [isExpanded, setIsExpanded] = useState(
+    defaultOpen !== undefined ? defaultOpen : defaultExpanded,
+  );
 
   return (
     <div
