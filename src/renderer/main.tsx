@@ -1,8 +1,20 @@
 import App from './App';
 import './index.css';
+import { useQueueStore } from './store/queueStore';
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+
+import '@fontsource/inter/400.css';
+import '@fontsource/inter/500.css';
+import '@fontsource/inter/600.css';
+import '@fontsource/inter/700.css';
+import '@fontsource/jetbrains-mono/400.css';
+import '@fontsource/jetbrains-mono/500.css';
+
+if (typeof window !== 'undefined') {
+  (window as unknown as { __queueStore: typeof useQueueStore }).__queueStore = useQueueStore;
+}
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>

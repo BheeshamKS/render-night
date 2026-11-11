@@ -1,6 +1,6 @@
 import { isQueueActive, registerIpcHandlers, stopQueueCleanly } from './ipc';
 
-import { app, BrowserWindow, dialog } from 'electron';
+import { app, BrowserWindow, dialog, nativeTheme } from 'electron';
 
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -20,16 +20,26 @@ function getIconPath(): string | undefined {
 }
 
 function createWindow(): BrowserWindow {
+  nativeTheme.themeSource = 'dark';
+
+  const initialWidth = process.env.WINDOW_WIDTH ? parseInt(process.env.WINDOW_WIDTH, 10) : 1280;
+  const initialHeight = process.env.WINDOW_HEIGHT ? parseInt(process.env.WINDOW_HEIGHT, 10) : 800;
+
   mainWindow = new BrowserWindow({
-    width: 1100,
-    height: 750,
-    minWidth: 800,
-    minHeight: 500,
+    width: initialWidth,
+    height: initialHeight,
+    minWidth: 1100,
+    minHeight: 700,
     show: false,
     title: 'Render Night',
     icon: getIconPath(),
     backgroundColor: '#181818',
     autoHideMenuBar: true,
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    titleBarOverlay:
+      process.platform === 'win32'
+        ? { color: '#181818', symbolColor: '#e6e6e6', height: 32 }
+        : undefined,
     webPreferences: {
       preload: getPreloadPath(),
       sandbox: false,
