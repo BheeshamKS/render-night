@@ -49,14 +49,23 @@ export async function findSequencesInDirectory(dir: string): Promise<ImageSequen
       continue;
     }
 
-    // Match base name and frame number: e.g. "shot_0042.png" or "0001.exr"
+    // Match base name and frame number: e.g. "shot_0042.png" or "0001.exr", or single still "render.png"
     const nameMatch = entry.name.match(/^(.*?)(\d+)\.([a-zA-Z0-9]+)$/);
-    if (!nameMatch) continue;
+    let baseName: string;
+    let frame = 1;
+    let padding = 1;
 
-    const baseName = nameMatch[1];
-    const frameDigits = nameMatch[2];
-    const frame = parseInt(frameDigits, 10);
-    const padding = frameDigits.length;
+    if (nameMatch) {
+      baseName = nameMatch[1];
+      const frameDigits = nameMatch[2];
+      frame = parseInt(frameDigits, 10);
+      padding = frameDigits.length;
+    } else {
+      // Single still image without frame digits
+      baseName = entry.name.replace(/\.[a-zA-Z0-9]+$/, '');
+      frame = 1;
+      padding = 1;
+    }
 
     const groupKey = `${baseName}::${ext}`;
     let group = groups.get(groupKey);
@@ -142,6 +151,7 @@ export async function findSequencesInDirectory(dir: string): Promise<ImageSequen
  * Detects an image sequence from either a directory path or an individual frame file path.
  */
 export async function detectSequence(dirOrPath: string): Promise<ImageSequenceInfo | null> {
+  if (!dirOrPath) return null;
   let targetDir = dirOrPath;
   let targetFile: string | null = null;
 
@@ -152,7 +162,18 @@ export async function detectSequence(dirOrPath: string): Promise<ImageSequenceIn
       targetFile = path.basename(dirOrPath);
     }
   } catch {
-    return null;
+    const parentDir = path.dirname(dirOrPath);
+    try {
+      const parentStat = await fs.promises.stat(parentDir);
+      if (parentStat.isDirectory()) {
+        targetDir = parentDir;
+        targetFile = path.basename(dirOrPath);
+      } else {
+        return null;
+      }
+    } catch {
+      return null;
+    }
   }
 
   const sequences = await findSequencesInDirectory(targetDir);
@@ -161,11 +182,14 @@ export async function detectSequence(dirOrPath: string): Promise<ImageSequenceIn
   }
 
   if (targetFile) {
-    const fileMatch = targetFile.match(/^(.*?)(\d+)\.([a-zA-Z0-9]+)$/);
+    const cleanTarget = targetFile.replace(/#+/g, '');
+    const fileMatch = cleanTarget.match(/^(.*?)(\d*)\.([a-zA-Z0-9]+)$/);
     if (fileMatch) {
       const baseName = fileMatch[1];
       const ext = fileMatch[3].toLowerCase();
-      const match = sequences.find((s) => s.baseName === baseName && s.extension === ext);
+      const match = sequences.find(
+        (s) => (s.baseName === baseName || s.baseName.startsWith(baseName)) && s.extension === ext,
+      );
       if (match) {
         return match;
       }

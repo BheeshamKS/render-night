@@ -29,6 +29,7 @@ import type {
   PostAction,
 } from '../../core/schemas/queue-state';
 import type { DeviceReport, OverridesReport } from '../../core/schemas/runner-event';
+import type { ImageSequenceInfo } from '../../core/schemas/sequence';
 import { playTodungSound } from '../utils/soundPlayer';
 
 import { create } from 'zustand';
@@ -133,6 +134,10 @@ interface QueueStoreState {
 
   activeTab: 'queue' | 'sequences' | 'history' | 'settings' | 'components';
   setActiveTab: (tab: 'queue' | 'sequences' | 'history' | 'settings' | 'components') => void;
+
+  activeSequence: ImageSequenceInfo | null;
+  setActiveSequence: (seq: ImageSequenceInfo | null) => void;
+  loadSequenceFromPath: (dirOrPath: string) => Promise<ImageSequenceInfo | null>;
 
   // Master-Detail Selection & Bulk Operations
   selectedJobId: string | null;
@@ -434,6 +439,35 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
 
   activeTab: 'queue',
   setActiveTab: (tab) => set({ activeTab: tab }),
+
+  activeSequence: null,
+  setActiveSequence: (seq) => set({ activeSequence: seq }),
+  loadSequenceFromPath: async (dirOrPath: string) => {
+    if (!dirOrPath) return null;
+    let target = dirOrPath.trim();
+    if (target.startsWith('//')) {
+      const state = get();
+      const job =
+        (state.activeJobId ? state.jobs.find((j) => j.id === state.activeJobId) : null) ||
+        state.jobs[0];
+      if (job?.filePath) {
+        const baseDir = job.filePath.replace(/[/\\][^/\\]+$/, '');
+        target = target.replace(/^\/\//, `${baseDir}/`);
+      }
+    }
+    if (typeof window !== 'undefined' && window.rnApi?.detectSequence) {
+      try {
+        const detected = await window.rnApi.detectSequence(target);
+        if (detected) {
+          set({ activeSequence: detected, activeTab: 'sequences' });
+          return detected;
+        }
+      } catch (err) {
+        console.error('Failed to detect sequence:', err);
+      }
+    }
+    return null;
+  },
 
   // Master-Detail Selection & Bulk Operations
   selectedJobId: null,

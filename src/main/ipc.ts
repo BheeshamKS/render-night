@@ -18,6 +18,7 @@ import { detectSequence } from '../core/sequence/sequence-detector';
 import { app, dialog, ipcMain, powerSaveBlocker, shell, type BrowserWindow } from 'electron';
 
 import { spawn } from 'node:child_process';
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 let globalQueueEngine: QueueEngine | null = null;
@@ -342,7 +343,34 @@ export function registerIpcHandlers(mainWindowProvider: () => BrowserWindow | nu
   });
 
   ipcMain.handle('shell:openPath', async (_event, targetPath: string) => {
-    await shell.openPath(targetPath);
+    if (!targetPath || typeof targetPath !== 'string') return;
+    const cleanPath = targetPath.trim();
+    if (cleanPath.startsWith('//')) {
+      return;
+    }
+    try {
+      if (fs.existsSync(cleanPath)) {
+        const stat = fs.statSync(cleanPath);
+        if (stat.isFile()) {
+          shell.showItemInFolder(cleanPath);
+          return;
+        }
+        await Promise.race([
+          shell.openPath(cleanPath),
+          new Promise((resolve) => setTimeout(resolve, 3000)),
+        ]);
+        return;
+      }
+      const dir = path.dirname(cleanPath);
+      if (fs.existsSync(dir)) {
+        await Promise.race([
+          shell.openPath(dir),
+          new Promise((resolve) => setTimeout(resolve, 3000)),
+        ]);
+      }
+    } catch {
+      // ignore
+    }
   });
 
   // Image Sequence Tools & FFmpeg

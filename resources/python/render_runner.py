@@ -275,10 +275,25 @@ def main():
         # Video animation rendering - atomic render without frame-by-frame pause
         scene.frame_start = frames[0]
         scene.frame_end = frames[-1]
-        scene.render.filepath = payload.get("outputPattern", scene.render.filepath)
+        raw_pattern = payload.get("outputPattern", scene.render.filepath)
+        scene.render.filepath = raw_pattern
         try:
             bpy.ops.render.render(animation=True, scene=scene.name)
             completed_count = len(frames)
+            abs_video_path = os.path.abspath(bpy.path.abspath(raw_pattern))
+            actual_video = abs_video_path
+            if not os.path.exists(actual_video):
+                for ext in (".mp4", ".mkv", ".mov", ".avi", ".webm"):
+                    if os.path.exists(abs_video_path + ext):
+                        actual_video = abs_video_path + ext
+                        break
+            emit_event({
+                "type": "frame_done",
+                "frame": frames[-1],
+                "scene": scene.name,
+                "saved": actual_video,
+                "timeSeconds": round(time.time() - t_job_start, 2)
+            })
         except Exception as err:
             emit_event({"type": "frame_error", "frame": frames[0], "message": str(err)})
             failed_count = len(frames)
@@ -314,11 +329,13 @@ def main():
             try:
                 bpy.ops.render.render(write_still=True, scene=scene.name)
                 dt = time.time() - t_frame_start
-                actual_saved = frame_filepath
+                # Resolve to real absolute filesystem path on the host
+                abs_filepath = os.path.abspath(bpy.path.abspath(frame_filepath))
+                actual_saved = abs_filepath
                 if not os.path.exists(actual_saved):
-                    for ext in (".png", ".jpg", ".exr", ".tif", ".webp"):
-                        if os.path.exists(frame_filepath + ext):
-                            actual_saved = frame_filepath + ext
+                    for ext in (".png", ".jpg", ".jpeg", ".exr", ".tif", ".tiff", ".webp"):
+                        if os.path.exists(abs_filepath + ext):
+                            actual_saved = abs_filepath + ext
                             break
 
                 emit_event({
