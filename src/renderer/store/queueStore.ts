@@ -154,6 +154,10 @@ interface QueueStoreState {
   setPropertiesTab: (tab: 'render' | 'output' | 'job' | 'all') => void;
   propertiesPanelWidth: number;
   setPropertiesPanelWidth: (width: number) => void;
+  isDrawerOpen: boolean;
+  setIsDrawerOpen: (isOpen: boolean) => void;
+  openJobDrawer: (jobId: string) => void;
+  closeJobDrawer: () => void;
   recentFrameTimes: number[];
 
   // Undo Removal
@@ -168,6 +172,8 @@ interface QueueStoreState {
   showScheduleModal: boolean;
   showSettingsModal: boolean;
   setShowSettingsModal: (val: boolean) => void;
+  showShortcutsModal: boolean;
+  setShowShortcutsModal: (val: boolean) => void;
   globalSettings: {
     defaultPriority: 'normal' | 'below-normal' | 'low';
     defaultThreads: number;
@@ -477,6 +483,7 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
     set({
       selectedJobIds: [],
       selectedJobId: null,
+      isDrawerOpen: false,
     }),
 
   setSelectedJobsEnabled: (enabled: boolean) => {
@@ -511,10 +518,10 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
       const saved = localStorage.getItem('rn:properties-width');
       if (saved) {
         const parsed = parseInt(saved, 10);
-        if (!isNaN(parsed) && parsed >= 280 && parsed <= 600) return parsed;
+        if (!isNaN(parsed) && parsed >= 380 && parsed <= 650) return parsed;
       }
     }
-    return 360;
+    return 440;
   })(),
   setPropertiesPanelWidth: (width) => {
     if (typeof window !== 'undefined') {
@@ -522,7 +529,16 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
     }
     set({ propertiesPanelWidth: width });
   },
-  recentFrameTimes: [4.2, 4.5, 4.1, 4.8, 5.0, 4.9, 4.6, 5.2],
+  isDrawerOpen: false,
+  setIsDrawerOpen: (isOpen) => set({ isDrawerOpen: isOpen }),
+  openJobDrawer: (jobId) =>
+    set({
+      selectedJobId: jobId,
+      selectedJobIds: [jobId],
+      isDrawerOpen: true,
+    }),
+  closeJobDrawer: () => set({ isDrawerOpen: false }),
+  recentFrameTimes: [],
 
   // Undo Removal
   lastRemovedJob: null,
@@ -549,6 +565,8 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
   showScheduleModal: false,
   showSettingsModal: false,
   setShowSettingsModal: (val) => set({ showSettingsModal: val }),
+  showShortcutsModal: false,
+  setShowShortcutsModal: (val) => set({ showShortcutsModal: val }),
   globalSettings: {
     defaultPriority: 'normal',
     defaultThreads: 0,

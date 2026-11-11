@@ -11,10 +11,10 @@ Render Night enables seamless background batch rendering for Blender. It operate
 ![Render Night - Active Batch Render Queue](docs/screenshots/04-job-rendering-1280x800.png)
 *Active batch render queue showing master-detail layout, device badges, real-time monitor dock, and frame sparkline.*
 
-| Blender-Style Properties Panel | Interactive Components Showcase |
+| Slide-Over Job Settings Drawer | Interactive Components Showcase |
 | :---: | :---: |
 | ![Properties Panel](docs/screenshots/06-properties-editor-open-1280x800.png) | ![Components Showcase](docs/screenshots/13-components-showcase-1280x800.png) |
-| *Blender-native properties editor with vertical icon tab strip* | *Custom drag-to-scrub number fields, dropdowns, and toggles* |
+| *Slide-over settings drawer with Essentials upfront and advanced RNA tree* | *Custom drag-to-scrub number fields, dropdowns, and toggles* |
 
 ---
 

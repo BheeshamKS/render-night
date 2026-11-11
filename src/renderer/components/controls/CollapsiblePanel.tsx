@@ -99,22 +99,25 @@ export const PanelRow: React.FC<PanelRowProps> = ({
   children,
 }) => {
   return (
-    <div className="flex items-center w-full" title={description}>
+    <div className="flex items-center w-full min-h-[26px]" title={description}>
       {/* 40% Right-Aligned Label Column */}
-      <div className="w-[40%] text-right pr-3 select-none flex items-center justify-end">
+      <div className="w-[40%] text-right pr-2.5 select-none flex items-center justify-end flex-shrink-0">
         {isOverridden && (
           <span
             className="w-1.5 h-1.5 rounded-full bg-rn-accent mr-1.5 flex-shrink-0"
             title="Modified from file default"
           />
         )}
-        <label className="text-[11px] font-medium text-rn-muted truncate hover:text-rn-text">
+        <label
+          className="text-[11px] font-medium text-rn-muted hover:text-rn-text leading-tight"
+          title={label}
+        >
           {label}
         </label>
       </div>
 
       {/* 60% Control Column */}
-      <div className="w-[60%] flex items-center space-x-1">
+      <div className="w-[60%] flex items-center space-x-1 min-w-0">
         <div className="flex-1 min-w-0">{children}</div>
         {isOverridden && onReset && (
           <button

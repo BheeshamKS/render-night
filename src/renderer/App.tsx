@@ -17,7 +17,7 @@ import { Toolbar } from './components/Toolbar';
 import { ImageSequenceTab } from './components/sequence/ImageSequenceTab';
 import { useQueueStore } from './store/queueStore';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 
 export default function App() {
   const {
@@ -40,9 +40,9 @@ export default function App() {
     resumeQueue,
     queueState,
     addFiles,
+    showShortcutsModal,
+    setShowShortcutsModal,
   } = useQueueStore();
-
-  const [showShortcuts, setShowShortcuts] = useState(false);
 
   useEffect(() => {
     loadBlenders();
@@ -59,7 +59,7 @@ export default function App() {
       // '?' opens shortcuts sheet when not typing
       if (e.key === '?' && !isInput) {
         e.preventDefault();
-        setShowShortcuts(true);
+        setShowShortcutsModal(true);
         return;
       }
 
@@ -150,6 +150,7 @@ export default function App() {
     pauseQueue,
     resumeQueue,
     setActiveTab,
+    setShowShortcutsModal,
   ]);
 
   return (
@@ -163,7 +164,7 @@ export default function App() {
       {/* Main Workspace Body with Left Nav Rail */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left Navigation Rail (56px) */}
-        <LeftNavRail onOpenShortcuts={() => setShowShortcuts(true)} />
+        <LeftNavRail />
 
         {/* View Routing */}
         {activeTab === 'queue' && <QueueWorkspace />}
@@ -186,7 +187,10 @@ export default function App() {
       <CopyPasteOverridesModal />
       <PreflightModal />
       <SettingsModal />
-      <KeyboardShortcutsModal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
+      <KeyboardShortcutsModal
+        isOpen={showShortcutsModal}
+        onClose={() => setShowShortcutsModal(false)}
+      />
     </div>
   );
 }

@@ -113,3 +113,45 @@ All 12 problems identified in the audit were resolved and verified across 3 reso
 | **10. Empty Queue Dropzone** | Empty dashed outline. | Rich dropzone with detected Blender installations table, version tags, default selection, and preset tips. | `01-empty-queue-*` |
 | **11. Typography & Grid Hierarchy** | Random system fonts and paddings. | Bundled Inter locally for UI text, JetBrains Mono for numbers/console (0 network calls). Strict 4px spacing grid. | All screenshots |
 | **12. Native Window Feel & Sparkline** | Default window title bar and plain footer. | Native dark theme (`titleBarOverlay` / `hiddenInset`), 48px/28px collapsible monitor dock with frame sparkline, frame thumbnail preview, and status metrics. | `04-job-rendering-*` |
+
+---
+
+## 5. Phase 11: First-Glance Redesign & Simplification
+
+Following user testing and visual review of the rendering workflow, Phase 11 overhauled the entire layout to achieve a zero-clutter, first-glance experience:
+
+### Key Improvements:
+1. **Master-Detail on Demand (Slide-Over Drawer)**
+   - The Queue workspace is now full width by default (`flex-1`). No persistent right-hand panel squishing job rows.
+   - Double-clicking any row or clicking its `[Edit]` button smoothly slides out a 440px `JobEditorDrawer` from the right with a subtle dimmed backdrop.
+   - Pressing `Esc`, clicking the backdrop, or clicking `X` instantly closes the drawer and restores full-width queue scannability.
+
+2. **Essentials-First Property Hierarchy**
+   - Section 1: **Essentials** is always expanded at the top: Scene, Camera, Frame Range (File/Custom/Still), Resolution (X, Y, %), Render Engine, Compute Device, Samples (Render & Noise threshold), and File Format.
+   - Section 2: **All Settings** collapses advanced controls (RNA tree, light paths, motion blur, ffmpeg containers) for power users without cluttering everyday tasks.
+   - Eliminated label truncation: labels use proper 40% column layout in 440px width; segmented buttons use standard short labels (`GPU`, `CPU`, `Auto`, `OIDN`, `OptiX`) with full-name tooltips and accessibility labels.
+
+3. **Scannable Two-Line Job Rows (~56px)**
+   - **Line 1**: Drag handle, enable checkbox, bold white filename taking all available space, solid status chips (`Queued`, `Inspecting`, `Rendering`, `Done`, `Failed`, `Skipped`), and row quick actions (`[Edit]`, `[Folder]`, `[Delete]`, and `⋯` overflow).
+   - **Line 2**: One clean, compact monospace summary string:
+     `Scene: Scene · Camera: Camera · Frames: 1-250 (250f) · Cycles GPU · 1920x1080 · PNG`
+     with resolved tooltip. Eliminates horizontal collision between dropdowns and status chips on 1100px screens.
+   - Shows `"File defaults"` or `"N modified"` chip, and active hardware device badge ONLY during active rendering.
+
+4. **Minimal Toolbar**
+   - Prominent primary blue `[+ Add .blend]` button.
+   - Blender version selector dynamically hides if only 1 Blender installation is detected, showing only when multiple installations exist.
+   - Big, obvious `[Start Queue]` button (morphs into segmented `[Pause]` / `[Stop]` with render-orange accent during execution).
+   - "When finished: [ Do nothing | Sleep | Shutdown | ... ]" post-queue action selector.
+   - Single `⋯` (`MoreHorizontal`) overflow menu for Schedule, Finish Sound Settings, and Keyboard Shortcuts.
+   - Removed duplicate Presets and volume buttons from the toolbar (presets live strictly in the drawer).
+
+5. **Clean Bottom Status Dock & Honest Sparkline**
+   - When idle: Collapses to a thin 24-26px status bar: `"Ready · 3 jobs (3 enabled)"` with zero fake graphs or dummy numbers.
+   - When rendering: Expands to show live frame progress, ETA, and thumbnail, with an active sleep-prevention indicator (`Sleep Blocked`).
+   - The frame-time sparkline strictly renders ONLY when real timing samples exist; otherwise it cleanly reports `"No timings yet"`.
+
+6. **Navigation Rail Purity**
+   - Stripped orange notification dots and duplicate calendar/help icons from the left nav rail.
+   - Strictly clean icons + labels for `Queue`, `History`, `Tools`, `Settings`.
+

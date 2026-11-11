@@ -1,7 +1,7 @@
 import { useQueueStore } from '../store/queueStore';
 import { BulkActionBar } from './BulkActionBar';
 import { JobRow } from './JobRow';
-import { PropertiesPanel } from './properties/PropertiesPanel';
+import { JobEditorDrawer } from './drawer/JobEditorDrawer';
 
 import React from 'react';
 
@@ -17,6 +17,9 @@ export const QueueWorkspace: React.FC = () => {
     setIsDraggingOver,
     addFiles,
     selectAllJobs,
+    selectedJobId,
+    isDrawerOpen,
+    closeJobDrawer,
   } = useQueueStore();
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -58,6 +61,8 @@ export const QueueWorkspace: React.FC = () => {
       }
     }
   };
+
+  const selectedJob = jobs.find((j) => j.id === selectedJobId) || jobs[0];
 
   return (
     <div
@@ -158,45 +163,53 @@ export const QueueWorkspace: React.FC = () => {
           </div>
         </div>
       ) : (
-        /* Master-Detail Layout: Job Rows List (Left) & Resizable Properties Panel (Right) */
-        <div className="flex flex-1 overflow-hidden">
-          {/* Master: Job List */}
-          <div className="flex flex-1 flex-col overflow-hidden">
-            {/* Queue Sub-Header Status Strip */}
-            <div className="flex h-7 flex-shrink-0 items-center justify-between border-b border-rn-border bg-[#1a1a1a] px-3 text-[11px] text-rn-muted select-none">
-              <div className="flex items-center space-x-2">
-                <span className="font-semibold text-rn-text">
-                  {jobs.length} job{jobs.length === 1 ? '' : 's'}
-                </span>
-                <span>·</span>
-                <span>{jobs.filter((j) => j.enabled).length} enabled</span>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <button
-                  type="button"
-                  onClick={selectAllJobs}
-                  className="hover:text-rn-text transition text-[10px]"
-                  title="Select all jobs (Ctrl+A)"
-                >
-                  Select All
-                </button>
-              </div>
+        /* Full-Width Queue Workspace with Slide-Over Drawer on demand */
+        <div className="relative flex flex-1 flex-col overflow-hidden">
+          {/* Queue Sub-Header Status Strip */}
+          <div className="flex h-7 flex-shrink-0 items-center justify-between border-b border-rn-border bg-[#1a1a1a] px-3 text-[11px] text-rn-muted select-none">
+            <div className="flex items-center space-x-2">
+              <span className="font-semibold text-rn-text">
+                {jobs.length} job{jobs.length === 1 ? '' : 's'}
+              </span>
+              <span>·</span>
+              <span>{jobs.filter((j) => j.enabled).length} enabled</span>
             </div>
 
-            {/* Scrollable Virtualized Job Rows */}
-            <div className="flex-1 overflow-y-auto">
-              {jobs.map((job, idx) => (
-                <JobRow key={job.id} job={job} index={idx} />
-              ))}
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                onClick={selectAllJobs}
+                className="hover:text-rn-text transition text-[10px]"
+                title="Select all jobs (Ctrl+A)"
+              >
+                Select All
+              </button>
             </div>
-
-            {/* Contextual Bulk Action Bar */}
-            <BulkActionBar />
           </div>
 
-          {/* Detail: Blender-Style Properties Panel */}
-          <PropertiesPanel />
+          {/* Scrollable Full-Width Job Rows */}
+          <div className="flex-1 overflow-y-auto">
+            {jobs.map((job, idx) => (
+              <JobRow key={job.id} job={job} index={idx} />
+            ))}
+          </div>
+
+          {/* Contextual Bulk Action Bar */}
+          <BulkActionBar />
+
+          {/* Slide-Over Job Editor Drawer */}
+          {isDrawerOpen && selectedJob && (
+            <>
+              {/* Dimmed Backdrop */}
+              <div
+                onClick={closeJobDrawer}
+                className="absolute inset-0 z-20 bg-black/40 backdrop-blur-[1px] animate-in fade-in"
+              />
+
+              {/* Drawer Container */}
+              <JobEditorDrawer job={selectedJob} onClose={closeJobDrawer} />
+            </>
+          )}
         </div>
       )}
     </div>

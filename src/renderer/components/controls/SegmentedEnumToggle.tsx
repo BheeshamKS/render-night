@@ -21,6 +21,23 @@ export interface SegmentedEnumToggleProps {
   disabled?: boolean;
 }
 
+const SHORT_LABELS: Record<string, string> = {
+  'GPU Compute': 'GPU',
+  CPU: 'CPU',
+  'Auto-detect': 'Auto',
+  Automatic: 'Auto',
+  OpenImageDenoise: 'OIDN',
+  OptiX: 'OptiX',
+  Cycles: 'Cycles',
+  EEVEE: 'EEVEE',
+  'EEVEE Next': 'EEVEE',
+  WorkBench: 'Workbench',
+  Supported: 'Supported',
+  Experimental: 'Experimental',
+  Enabled: 'On',
+  Disabled: 'Off',
+};
+
 export const SegmentedEnumToggle: React.FC<SegmentedEnumToggleProps> = ({
   value,
   items,
@@ -62,10 +79,12 @@ export const SegmentedEnumToggle: React.FC<SegmentedEnumToggleProps> = ({
         <div className="flex w-full rounded border border-rn-border bg-rn-input overflow-hidden text-xs">
           {enumItems.map((item, idx) => {
             const isSelected = item.identifier === value;
+            const shortName = SHORT_LABELS[item.name] || item.name;
             return (
               <button
                 key={item.identifier}
                 type="button"
+                aria-label={item.name}
                 onClick={() => onChange(item.identifier)}
                 title={item.description || item.name}
                 className={`flex-1 py-1 px-1.5 text-center font-medium truncate transition ${
@@ -74,7 +93,7 @@ export const SegmentedEnumToggle: React.FC<SegmentedEnumToggleProps> = ({
                     : 'text-rn-muted hover:text-rn-text hover:bg-rn-subpanel/80'
                 } ${idx > 0 ? 'border-l border-rn-border/80' : ''}`}
               >
-                {item.name}
+                {shortName}
               </button>
             );
           })}
