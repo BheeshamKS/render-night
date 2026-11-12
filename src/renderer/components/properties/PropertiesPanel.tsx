@@ -121,7 +121,7 @@ export const PropertiesPanel: React.FC = () => {
                   onClick={() => setPropertiesTab(tab.id as 'render' | 'output' | 'job')}
                   className={`group relative flex h-7 w-7 items-center justify-center rounded transition ${
                     isActive
-                      ? 'bg-rn-accent text-white shadow-sm'
+                      ? 'bg-rn-accent text-[#0f0f10] shadow-sm'
                       : 'text-rn-muted hover:bg-rn-subpanel hover:text-rn-text'
                   }`}
                   title={tab.tooltip}

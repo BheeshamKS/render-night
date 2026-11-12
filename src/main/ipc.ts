@@ -12,7 +12,11 @@ import { PreflightChecker, type PreflightJobInput, type PreflightOptions } from 
 import { PresetStore, type SavePresetInput } from '../core/presets';
 import { QueueEngine, type QueueEngineJob } from '../core/queue/queue-engine';
 import { resolveOutputPath } from '../core/render/output-path-resolver';
-import type { PersistedQueueState, PostAction } from '../core/schemas/queue-state';
+import {
+  type PersistedQueueState,
+  type PostAction,
+  queueStateSchema,
+} from '../core/schemas/queue-state';
 import { generateFrameProxy } from '../core/sequence/proxy-generator';
 import { detectSequence } from '../core/sequence/sequence-detector';
 
@@ -613,5 +617,105 @@ export function registerIpcHandlers(mainWindowProvider: () => BrowserWindow | nu
 
   ipcMain.handle('ffmpeg:getInfo', async () => {
     return getFfmpegPath();
+  });
+
+  ipcMain.handle('dialog:exportQueueToFile', async (_event, state: PersistedQueueState) => {
+    const win = mainWindowProvider();
+    const result = win
+      ? await dialog.showSaveDialog(win, {
+          title: 'Export Render Queue',
+          defaultPath: 'render-queue.json',
+          filters: [
+            { name: 'Render Night Queue (*.json, *.rnqueue)', extensions: ['json', 'rnqueue'] },
+            { name: 'All Files', extensions: ['*'] },
+          ],
+        })
+      : await dialog.showSaveDialog({
+          title: 'Export Render Queue',
+          defaultPath: 'render-queue.json',
+          filters: [
+            { name: 'Render Night Queue (*.json, *.rnqueue)', extensions: ['json', 'rnqueue'] },
+            { name: 'All Files', extensions: ['*'] },
+          ],
+        });
+
+    if (result.canceled || !result.filePath) {
+      return { success: false, canceled: true };
+    }
+
+    try {
+      const json = JSON.stringify(state, null, 2);
+      await fs.promises.writeFile(result.filePath, json, 'utf-8');
+      return { success: true, filePath: result.filePath };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  ipcMain.handle('dialog:importQueueFromFile', async () => {
+    const win = mainWindowProvider();
+    const result = win
+      ? await dialog.showOpenDialog(win, {
+          title: 'Import Render Queue',
+          properties: ['openFile'],
+          filters: [
+            { name: 'Render Night Queue (*.json, *.rnqueue)', extensions: ['json', 'rnqueue'] },
+            { name: 'JSON Files', extensions: ['json'] },
+            { name: 'All Files', extensions: ['*'] },
+          ],
+        })
+      : await dialog.showOpenDialog({
+          title: 'Import Render Queue',
+          properties: ['openFile'],
+          filters: [
+            { name: 'Render Night Queue (*.json, *.rnqueue)', extensions: ['json', 'rnqueue'] },
+            { name: 'JSON Files', extensions: ['json'] },
+            { name: 'All Files', extensions: ['*'] },
+          ],
+        });
+
+    if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
+      return { success: false, canceled: true };
+    }
+
+    try {
+      const filePath = result.filePaths[0];
+      const content = await fs.promises.readFile(filePath, 'utf-8');
+      const parsed = JSON.parse(content);
+      const validated = queueStateSchema.safeParse(parsed);
+      if (validated.success) {
+        return { success: true, state: validated.data };
+      }
+
+      // Support legacy or CLI queue format { jobs: [...] }
+      if (Array.isArray(parsed?.jobs)) {
+        const fallbackState: PersistedQueueState = {
+          version: typeof parsed.version === 'number' ? parsed.version : 1,
+          jobs: parsed.jobs,
+          settings: parsed.settings || {
+            concurrentJobs: 1,
+            stopOnFailure: false,
+            closeAppOnCompletion: false,
+            closeAppOnCompletionMode: 'last',
+            soundOnCompletion: true,
+            soundOnFailure: true,
+            powerMode: 'none',
+            pauseOnBattery: false,
+            resumeOnAc: false,
+            maxConcurrentFrames: 1,
+            postAction: 'none',
+            sound: { enabled: true, volume: 100, playOnFailure: false },
+          },
+        };
+        return { success: true, state: fallbackState };
+      }
+
+      return {
+        success: false,
+        error: `Invalid queue format: ${validated.error.issues.map((i) => i.message).join(', ')}`,
+      };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
   });
 }

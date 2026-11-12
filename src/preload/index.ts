@@ -110,6 +110,14 @@ const api: RenderNightApi = {
     return ipcRenderer.invoke('persistence:clearLock');
   },
 
+  exportQueueToFile: (state) => {
+    return ipcRenderer.invoke('dialog:exportQueueToFile', state);
+  },
+
+  importQueueFromFile: () => {
+    return ipcRenderer.invoke('dialog:importQueueFromFile');
+  },
+
   executePostAction: (action) => {
     return ipcRenderer.invoke('postAction:execute', action);
   },

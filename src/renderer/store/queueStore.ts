@@ -269,6 +269,18 @@ interface QueueStoreState {
   resumeFromCrash: () => Promise<void>;
   dismissCrashBanner: () => Promise<void>;
   autoSaveState: () => Promise<void>;
+  exportQueue: () => Promise<{
+    success: boolean;
+    filePath?: string;
+    canceled?: boolean;
+    error?: string;
+  }>;
+  importQueue: () => Promise<{
+    success: boolean;
+    count?: number;
+    canceled?: boolean;
+    error?: string;
+  }>;
   addCustomBlender: (
     pathOrCommand: string,
   ) => Promise<{ success: boolean; error?: string; blender?: BlenderInstallation }>;
@@ -323,7 +335,7 @@ function computeJobRangeInfo(
   };
 }
 
-function toPersistedJob(qj: QueueJob): Job {
+export function toPersistedJob(qj: QueueJob): Job {
   const statusMap: Record<JobStatus, Job['status']> = {
     Queued: 'pending',
     Inspecting: 'pending',
@@ -364,7 +376,7 @@ function toPersistedJob(qj: QueueJob): Job {
   };
 }
 
-function fromPersistedJob(pj: Job): QueueJob {
+export function fromPersistedJob(pj: Job): QueueJob {
   const uiStatusMap: Record<Job['status'], JobStatus> = {
     pending: 'Queued',
     active: 'Queued',
@@ -1745,6 +1757,113 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
       };
       await window.rnApi.saveQueue(persistedState).catch(() => {});
     }
+  },
+
+  exportQueue: async () => {
+    if (typeof window === 'undefined' || !window.rnApi?.exportQueueToFile) {
+      return { success: false, error: 'Export not supported in this environment' };
+    }
+    const {
+      jobs,
+      postAction,
+      soundSettings,
+      scheduleConfig,
+      selectedBlenderId,
+      isolatedMode,
+      autoExec,
+      globalSettings,
+      customBlenderPaths,
+    } = get();
+
+    const persistedState: PersistedQueueState = {
+      version: 1,
+      jobs: jobs.map(toPersistedJob),
+      settings: {
+        concurrentJobs: 1,
+        stopOnFailure: false,
+        closeAppOnCompletion: false,
+        closeAppOnCompletionMode: 'last',
+        soundOnCompletion: !soundSettings.isMuted,
+        soundOnFailure: soundSettings.playOnFailure,
+        powerMode: 'none',
+        pauseOnBattery: false,
+        resumeOnAc: false,
+        maxConcurrentFrames: 1,
+        postAction,
+        defaultBlenderId: selectedBlenderId || undefined,
+        isolatedMode,
+        autoExec,
+        defaultPriority: globalSettings.defaultPriority,
+        defaultThreads: globalSettings.defaultThreads,
+        blockSleepDuringRender: globalSettings.blockSleepDuringRender,
+        blockSleepWhileScheduled: globalSettings.blockSleepWhileScheduled,
+        minFreeDiskSpaceMb: globalSettings.minFreeDiskSpaceMb,
+        defaultCrashPolicy: globalSettings.defaultCrashPolicy,
+        customBlenderPaths,
+        sound: {
+          enabled: !soundSettings.isMuted,
+          volume: soundSettings.volume,
+          playOnFailure: soundSettings.playOnFailure,
+        },
+        schedule: scheduleConfig.enabled
+          ? {
+              enabled: true,
+              targetTime: scheduleConfig.time,
+              blockSleepWhileWaiting: scheduleConfig.blockSleep,
+              startImmediately: scheduleConfig.startImmediately,
+              stopEnabled: scheduleConfig.stopEnabled,
+              stopTime: scheduleConfig.stopTime,
+              stopAction: scheduleConfig.stopAction,
+            }
+          : undefined,
+      },
+    };
+
+    const res = await window.rnApi.exportQueueToFile(persistedState);
+    if (res.success && res.filePath) {
+      get().addLog(`Queue exported to ${res.filePath}`);
+    } else if (res.error) {
+      get().addLog(`Export failed: ${res.error}`);
+    }
+    return res;
+  },
+
+  importQueue: async () => {
+    if (typeof window === 'undefined' || !window.rnApi?.importQueueFromFile) {
+      return { success: false, error: 'Import not supported in this environment' };
+    }
+    const res = await window.rnApi.importQueueFromFile();
+    if (!res.success) {
+      if (res.error) {
+        get().addLog(`Queue import failed: ${res.error}`);
+      }
+      return { success: false, canceled: res.canceled, error: res.error };
+    }
+
+    if (res.state && Array.isArray(res.state.jobs)) {
+      const importedJobs = res.state.jobs.map(fromPersistedJob);
+      if (importedJobs.length === 0) {
+        get().addLog('Imported queue file contains no jobs.');
+        return { success: true, count: 0 };
+      }
+
+      const existingIds = new Set(get().jobs.map((j) => j.id));
+      const adjustedJobs = importedJobs.map((j) => {
+        if (existingIds.has(j.id)) {
+          return {
+            ...j,
+            id: `job_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          };
+        }
+        return j;
+      });
+
+      set({ jobs: [...get().jobs, ...adjustedJobs] });
+      get().addLog(`Imported ${adjustedJobs.length} job(s) from queue file.`);
+      get().autoSaveState();
+      return { success: true, count: adjustedJobs.length };
+    }
+    return { success: false, error: 'Invalid queue format received' };
   },
 
   initIpcListeners: () => {

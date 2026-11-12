@@ -121,6 +121,15 @@ export interface RenderNightApi {
   loadSavedQueue(): Promise<PersistedQueueState | null>;
   saveQueue(state: PersistedQueueState): Promise<void>;
   clearUncleanShutdownLock(): Promise<void>;
+  exportQueueToFile(
+    state: PersistedQueueState,
+  ): Promise<{ success: boolean; filePath?: string; canceled?: boolean; error?: string }>;
+  importQueueFromFile(): Promise<{
+    success: boolean;
+    state?: PersistedQueueState;
+    canceled?: boolean;
+    error?: string;
+  }>;
 
   // Post Actions & OS Power
   executePostAction(action: PostAction): Promise<{ success: boolean; error?: string }>;

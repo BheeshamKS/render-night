@@ -43,6 +43,8 @@ export default function App() {
     showShortcutsModal,
     setShowShortcutsModal,
     setShowScheduleModal,
+    exportQueue,
+    importQueue,
   } = useQueueStore();
 
   useEffect(() => {
@@ -84,10 +86,21 @@ export default function App() {
           setActiveTab('settings');
         } else if (e.key === 'o' || e.key === 'O') {
           e.preventDefault();
-          if (window.rnApi) {
+          if (e.shiftKey) {
+            void importQueue();
+          } else if (window.rnApi) {
             const files = await window.rnApi.selectBlendFiles();
             if (files && files.length > 0) {
               await addFiles(files);
+            }
+          }
+        } else if (e.key === 's' || e.key === 'S') {
+          if (!isInput) {
+            e.preventDefault();
+            if (e.shiftKey) {
+              void exportQueue();
+            } else {
+              setShowScheduleModal(true);
             }
           }
         } else if (e.key === 'Enter') {
@@ -118,11 +131,6 @@ export default function App() {
           if (!isInput && copiedOverrides) {
             e.preventDefault();
             pasteOverrides(selectedJobIds.length > 0 ? selectedJobIds : undefined);
-          }
-        } else if (e.key === 's' || e.key === 'S') {
-          if (!isInput) {
-            e.preventDefault();
-            setShowScheduleModal(true);
           }
         }
       } else if ((e.key === 'Delete' || e.key === 'Backspace') && !isInput) {
@@ -158,6 +166,8 @@ export default function App() {
     setActiveTab,
     setShowShortcutsModal,
     setShowScheduleModal,
+    exportQueue,
+    importQueue,
   ]);
 
   return (

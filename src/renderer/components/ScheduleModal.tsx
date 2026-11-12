@@ -1,8 +1,19 @@
 import { useQueueStore } from '../store/queueStore';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
-import { Calendar, Clock, Moon, Play, Power, Square, Timer, X } from 'lucide-react';
+import {
+  Calendar,
+  Clock,
+  Edit2,
+  Moon,
+  Play,
+  Power,
+  RotateCcw,
+  Square,
+  Timer,
+  X,
+} from 'lucide-react';
 
 export const ScheduleModal: React.FC = () => {
   const {
@@ -15,6 +26,7 @@ export const ScheduleModal: React.FC = () => {
     queueState,
   } = useQueueStore();
 
+  const [isEditing, setIsEditing] = useState(false);
   const [startMode, setStartMode] = useState<'scheduled' | 'now'>(
     scheduleConfig.startImmediately ? 'now' : 'scheduled',
   );
@@ -25,6 +37,21 @@ export const ScheduleModal: React.FC = () => {
     scheduleConfig.stopAction || 'shutdown',
   );
   const [blockSleep, setBlockSleep] = useState(scheduleConfig.blockSleep ?? true);
+
+  // Sync state whenever modal is opened
+  useEffect(() => {
+    if (showScheduleModal) {
+      setStartMode(
+        queueState === 'running' || scheduleConfig.startImmediately ? 'now' : 'scheduled',
+      );
+      setStartTimeStr(scheduleConfig.time || '23:00');
+      setStopEnabled(scheduleConfig.stopEnabled ?? true);
+      setStopTimeStr(scheduleConfig.stopTime || '06:00');
+      setStopAction(scheduleConfig.stopAction || 'shutdown');
+      setBlockSleep(scheduleConfig.blockSleep ?? true);
+      setIsEditing(false);
+    }
+  }, [showScheduleModal, scheduleConfig, queueState]);
 
   // Compute calculated duration between start and stop time
   const calculatedDuration = useMemo(() => {
@@ -57,6 +84,7 @@ export const ScheduleModal: React.FC = () => {
       stopAction,
       blockSleep,
     });
+    setIsEditing(false);
     setShowScheduleModal(false);
   };
 
@@ -106,7 +134,7 @@ export const ScheduleModal: React.FC = () => {
           </button>
         </div>
 
-        {scheduleConfig.enabled ? (
+        {scheduleConfig.enabled && !isEditing ? (
           /* Active Schedule State */
           <div className="space-y-4">
             <div className="rounded-lg bg-rn-subpanel p-4 border border-rn-accent/40 text-center space-y-2">
@@ -152,24 +180,38 @@ export const ScheduleModal: React.FC = () => {
               )}
             </div>
 
-            <div className="flex space-x-2 pt-1">
+            <div className="flex flex-col space-y-2 pt-1">
               {queueState === 'idle' && (
                 <button
                   type="button"
                   onClick={handleStartNow}
-                  className="flex-1 flex items-center justify-center space-x-1.5 rounded-md bg-rn-accent px-3 py-2 text-xs font-semibold text-[#0f0f10] hover:brightness-110 transition shadow-sm"
+                  className="w-full flex items-center justify-center space-x-1.5 rounded-md bg-rn-accent px-3 py-2 text-xs font-semibold text-[#0f0f10] hover:brightness-110 transition shadow-sm"
                 >
                   <Play className="h-3 w-3 fill-current" />
                   <span>Start Queue Now</span>
                 </button>
               )}
-              <button
-                type="button"
-                onClick={cancelSchedule}
-                className="flex-1 flex items-center justify-center space-x-1 rounded-md border border-rn-border bg-rn-subpanel px-3 py-2 text-xs font-medium text-rn-text hover:bg-rn-error/15 hover:text-rn-error hover:border-rn-error/40 transition"
-              >
-                <span>Cancel Schedule</span>
-              </button>
+
+              <div className="flex space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(true)}
+                  className="flex-1 flex items-center justify-center space-x-1.5 rounded-md border border-rn-border bg-rn-subpanel px-3 py-2 text-xs font-medium text-rn-text hover:border-rn-muted transition"
+                  title="Edit scheduled times and stop actions"
+                >
+                  <Edit2 className="h-3 w-3 text-rn-accent" />
+                  <span>Edit Schedule</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={cancelSchedule}
+                  className="flex-1 flex items-center justify-center space-x-1 rounded-md border border-rn-border bg-rn-subpanel px-3 py-2 text-xs font-medium text-rn-text hover:bg-rn-error/15 hover:text-rn-error hover:border-rn-error/40 transition"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  <span>Cancel Schedule</span>
+                </button>
+              </div>
             </div>
           </div>
         ) : (
@@ -179,44 +221,53 @@ export const ScheduleModal: React.FC = () => {
             <div className="rounded-lg border border-rn-border bg-rn-subpanel/50 p-3 space-y-2">
               <span className="text-xs font-semibold text-rn-text flex items-center space-x-1.5">
                 <Clock className="h-3.5 w-3.5 text-rn-accent" />
-                <span>1. Queue Start Time</span>
+                <span>Start Time</span>
               </span>
 
-              <div className="flex items-center space-x-4 text-xs pt-1">
-                <label className="flex items-center space-x-1.5 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="start-mode"
-                    checked={startMode === 'scheduled'}
-                    onChange={() => setStartMode('scheduled')}
-                    className="accent-rn-accent"
-                  />
-                  <span>Start at scheduled time</span>
-                </label>
-                <label className="flex items-center space-x-1.5 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="start-mode"
-                    checked={startMode === 'now'}
-                    onChange={() => setStartMode('now')}
-                    className="accent-rn-accent"
-                  />
-                  <span>Start immediately</span>
-                </label>
-              </div>
-
-              {startMode === 'scheduled' && (
-                <div className="pt-1">
-                  <input
-                    type="time"
-                    value={startTimeStr}
-                    onChange={(e) => setStartTimeStr(e.target.value)}
-                    className="w-full rounded border border-rn-border bg-rn-input px-3 py-1.5 text-xs text-rn-text font-mono focus:border-rn-accent focus:outline-none"
-                  />
-                  <p className="text-[10px] text-rn-muted mt-1">
-                    If this time has passed today, it will schedule for tomorrow.
-                  </p>
+              {queueState === 'running' ? (
+                <div className="rounded bg-rn-input p-2 text-xs text-rn-muted">
+                  Queue is currently rendering. Set an automatic stop window below to stop rendering
+                  safely.
                 </div>
+              ) : (
+                <>
+                  <div className="flex items-center space-x-4 text-xs pt-1">
+                    <label className="flex items-center space-x-1.5 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="start-mode"
+                        checked={startMode === 'scheduled'}
+                        onChange={() => setStartMode('scheduled')}
+                        className="accent-rn-accent"
+                      />
+                      <span>Start at scheduled time</span>
+                    </label>
+                    <label className="flex items-center space-x-1.5 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="start-mode"
+                        checked={startMode === 'now'}
+                        onChange={() => setStartMode('now')}
+                        className="accent-rn-accent"
+                      />
+                      <span>Start immediately</span>
+                    </label>
+                  </div>
+
+                  {startMode === 'scheduled' && (
+                    <div className="pt-1">
+                      <input
+                        type="time"
+                        value={startTimeStr}
+                        onChange={(e) => setStartTimeStr(e.target.value)}
+                        className="w-full rounded border border-rn-border bg-rn-input px-3 py-1.5 text-xs text-rn-text font-mono focus:border-rn-accent focus:outline-none"
+                      />
+                      <p className="text-[10px] text-rn-muted mt-1">
+                        If this time has passed today, it will schedule for tomorrow.
+                      </p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
@@ -225,7 +276,7 @@ export const ScheduleModal: React.FC = () => {
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-rn-text flex items-center space-x-1.5">
                   <Power className="h-3.5 w-3.5 text-rn-rendering" />
-                  <span>2. Stop Time & Automatic Action</span>
+                  <span>Stop Window & Action</span>
                 </span>
                 <input
                   type="checkbox"
@@ -309,20 +360,41 @@ export const ScheduleModal: React.FC = () => {
 
             {/* Actions */}
             <div className="border-t border-rn-border pt-3 flex justify-end space-x-2">
-              <button
-                type="button"
-                onClick={() => setShowScheduleModal(false)}
-                className="rounded border border-rn-border bg-rn-subpanel px-3 py-1.5 text-xs text-rn-muted hover:text-rn-text transition"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleApplySchedule}
-                className="rounded-md bg-rn-accent px-4 py-1.5 text-xs font-semibold text-[#0f0f10] hover:brightness-110 transition shadow-sm"
-              >
-                Activate Schedule
-              </button>
+              {scheduleConfig.enabled && isEditing ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditing(false)}
+                    className="rounded border border-rn-border bg-rn-subpanel px-3 py-1.5 text-xs text-rn-muted hover:text-rn-text transition"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleApplySchedule}
+                    className="rounded-md bg-rn-accent px-4 py-1.5 text-xs font-semibold text-[#0f0f10] hover:brightness-110 transition shadow-sm"
+                  >
+                    Save Changes
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setShowScheduleModal(false)}
+                    className="rounded border border-rn-border bg-rn-subpanel px-3 py-1.5 text-xs text-rn-muted hover:text-rn-text transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleApplySchedule}
+                    className="rounded-md bg-rn-accent px-4 py-1.5 text-xs font-semibold text-[#0f0f10] hover:brightness-110 transition shadow-sm"
+                  >
+                    Activate Schedule
+                  </button>
+                </>
+              )}
             </div>
           </div>
         )}

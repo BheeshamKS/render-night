@@ -264,7 +264,7 @@ export const SequenceConverter: React.FC<SequenceConverterProps> = ({ sequence }
             {audioPath && (
               <button
                 onClick={() => setAudioPath(null)}
-                className="p-1 hover:bg-rn-subpanel rounded text-rn-muted hover:text-red-400"
+                className="p-1 hover:bg-rn-subpanel rounded text-rn-muted hover:text-rn-error transition"
                 title="Remove audio"
               >
                 <X className="w-3.5 h-3.5" />

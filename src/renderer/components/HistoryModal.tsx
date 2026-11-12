@@ -99,7 +99,7 @@ export const HistoryModal: React.FC = () => {
             {entries.length > 0 && (
               <button
                 onClick={handleClearHistory}
-                className="flex items-center space-x-1 rounded border border-rn-border bg-rn-subpanel px-2.5 py-1 text-xs text-rn-muted hover:text-red-400 hover:border-red-400/50 transition"
+                className="flex items-center space-x-1 rounded border border-rn-border bg-rn-subpanel px-2.5 py-1 text-xs text-rn-muted hover:text-rn-error hover:border-rn-error/50 transition"
               >
                 <Trash2 className="h-3 w-3" />
                 <span>Clear History</span>
@@ -198,7 +198,7 @@ export const HistoryModal: React.FC = () => {
                       </button>
                       <button
                         onClick={() => handleDeleteEntry(entry.id)}
-                        className="rounded p-1 text-rn-muted hover:text-red-400 transition"
+                        className="rounded p-1 text-rn-muted hover:text-rn-error transition"
                         title="Delete this history record"
                       >
                         <Trash2 className="h-3.5 w-3.5" />

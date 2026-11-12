@@ -69,33 +69,33 @@ export const PreflightModal: React.FC = () => {
         {/* Status Summary Banner */}
         <div className="px-5 pt-4">
           {hasErrors ? (
-            <div className="flex items-start space-x-2 rounded-lg border border-rn-error/35 bg-rn-error/10 p-3 text-xs text-red-300">
+            <div className="flex items-start space-x-2 rounded-lg border border-rn-error/35 bg-rn-error/10 p-3 text-xs text-rn-text">
               <AlertCircle className="h-4 w-4 text-rn-error flex-shrink-0 mt-0.5" />
               <div>
-                <div className="font-semibold text-red-200">Execution Blocked</div>
-                <div className="mt-0.5 leading-relaxed">
+                <div className="font-semibold text-rn-error">Execution Blocked</div>
+                <div className="mt-0.5 leading-relaxed text-rn-muted">
                   One or more critical errors will prevent rendering. Resolve the errors or apply
                   the quick fixes below to start the queue.
                 </div>
               </div>
             </div>
           ) : hasWarnings ? (
-            <div className="flex items-start space-x-2 rounded-lg border border-rn-warning/35 bg-rn-warning/10 p-3 text-xs text-yellow-300">
+            <div className="flex items-start space-x-2 rounded-lg border border-rn-warning/35 bg-rn-warning/10 p-3 text-xs text-rn-text">
               <AlertTriangle className="h-4 w-4 text-rn-warning flex-shrink-0 mt-0.5" />
               <div>
-                <div className="font-semibold text-yellow-200">Warnings Detected</div>
-                <div className="mt-0.5 leading-relaxed">
+                <div className="font-semibold text-rn-warning">Warnings Detected</div>
+                <div className="mt-0.5 leading-relaxed text-rn-muted">
                   No fatal errors were found, but potential issues may degrade performance or visual
                   output. You may apply quick fixes or continue anyway.
                 </div>
               </div>
             </div>
           ) : (
-            <div className="flex items-start space-x-2 rounded-lg border border-rn-success/35 bg-rn-success/10 p-3 text-xs text-green-300">
+            <div className="flex items-start space-x-2 rounded-lg border border-rn-success/35 bg-rn-success/10 p-3 text-xs text-rn-text">
               <CheckCircle2 className="h-4 w-4 text-rn-success flex-shrink-0 mt-0.5" />
               <div>
-                <div className="font-semibold text-green-200">All Checks Passed</div>
-                <div className="mt-0.5 leading-relaxed">
+                <div className="font-semibold text-rn-success">All Checks Passed</div>
+                <div className="mt-0.5 leading-relaxed text-rn-muted">
                   No errors or warnings found. Output paths, versions, ranges, and camera bindings
                   are verified.
                 </div>
@@ -123,17 +123,17 @@ export const PreflightModal: React.FC = () => {
                   </div>
                   <div className="flex items-center space-x-1.5 flex-shrink-0">
                     {jobErrors.length > 0 && (
-                      <span className="rounded bg-red-500/20 px-2 py-0.5 text-[11px] font-medium text-red-400">
+                      <span className="rounded bg-rn-error/15 border border-rn-error/30 px-2 py-0.5 text-[11px] font-medium text-rn-error">
                         {jobErrors.length} Error{jobErrors.length === 1 ? '' : 's'}
                       </span>
                     )}
                     {jobWarnings.length > 0 && (
-                      <span className="rounded bg-yellow-500/20 px-2 py-0.5 text-[11px] font-medium text-yellow-400">
+                      <span className="rounded bg-rn-warning/15 border border-rn-warning/30 px-2 py-0.5 text-[11px] font-medium text-rn-warning">
                         {jobWarnings.length} Warning{jobWarnings.length === 1 ? '' : 's'}
                       </span>
                     )}
                     {totalJobIssues === 0 && (
-                      <span className="flex items-center space-x-1 text-green-400 text-[11px]">
+                      <span className="flex items-center space-x-1 text-rn-success text-[11px]">
                         <CheckCircle2 className="h-3.5 w-3.5" />
                         <span>Ready</span>
                       </span>
@@ -147,7 +147,7 @@ export const PreflightModal: React.FC = () => {
                     {jobErrors.map((err) => (
                       <div
                         key={err.id}
-                        className="rounded border border-red-500/20 bg-red-950/20 p-2 space-y-1.5"
+                        className="rounded border border-rn-error/25 bg-rn-error/10 p-2 space-y-1.5"
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-start space-x-1.5 text-rn-error">

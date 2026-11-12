@@ -502,7 +502,7 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
                     }}
                     className="flex w-full items-center space-x-2 px-3 py-1.5 text-left text-rn-text hover:bg-rn-subpanel"
                   >
-                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+                    <ShieldCheck className="h-3.5 w-3.5 text-rn-success" />
                     <span>Pre-flight Check</span>
                   </button>
 
@@ -526,9 +526,9 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
                       removeJob(job.id);
                       setMenuOpen(false);
                     }}
-                    className="flex w-full items-center space-x-2 px-3 py-1.5 text-left text-rose-400 hover:bg-rose-500/10"
+                    className="flex w-full items-center space-x-2 px-3 py-1.5 text-left text-rn-error hover:bg-rn-error/15"
                   >
-                    <Trash2 className="h-3.5 w-3.5 text-rose-400" />
+                    <Trash2 className="h-3.5 w-3.5 text-rn-error" />
                     <span>Remove Job</span>
                   </button>
                 </div>
@@ -636,9 +636,9 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
             <button
               type="button"
               onClick={() => removeJob(job.id)}
-              className="flex w-full items-center space-x-2 px-3 py-1.5 text-rose-400 hover:bg-rose-500/10"
+              className="flex w-full items-center space-x-2 px-3 py-1.5 text-rn-error hover:bg-rn-error/15"
             >
-              <Trash2 className="h-3.5 w-3.5 text-rose-400" />
+              <Trash2 className="h-3.5 w-3.5 text-rn-error" />
               <span>Remove</span>
             </button>
           </div>

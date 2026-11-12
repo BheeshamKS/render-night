@@ -669,7 +669,7 @@ export const SettingsModal: React.FC = () => {
         <div className="flex h-12 flex-shrink-0 items-center justify-end border-t border-rn-border px-5 bg-rn-subpanel">
           <button
             onClick={() => setShowSettingsModal(false)}
-            className="rounded bg-rn-accent px-4 py-1.5 text-xs font-medium text-white hover:brightness-110 active:brightness-95 transition"
+            className="rounded bg-rn-accent px-4 py-1.5 text-xs font-semibold text-[#0f0f10] hover:brightness-110 active:brightness-95 transition"
           >
             Done
           </button>

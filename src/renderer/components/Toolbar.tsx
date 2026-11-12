@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import {
   AlertTriangle,
   Calendar,
+  Download,
   HelpCircle,
   MoreHorizontal,
   Pause,
@@ -14,6 +15,7 @@ import {
   Plus,
   Square,
   Timer,
+  Upload,
   Volume2,
   VolumeX,
   X,
@@ -41,6 +43,8 @@ export const Toolbar: React.FC = () => {
     setShowShortcutsModal,
     activeJobId,
     addFiles,
+    exportQueue,
+    importQueue,
   } = useQueueStore();
 
   const [overflowOpen, setOverflowOpen] = useState(false);
@@ -211,8 +215,7 @@ export const Toolbar: React.FC = () => {
           <button
             type="button"
             onClick={() => setShowScheduleModal(true)}
-            disabled={isBusy}
-            className="flex h-8 items-center space-x-1.5 rounded-lg border border-rn-border bg-rn-panel px-3 text-xs font-medium text-rn-text shadow-sm transition hover:border-rn-muted hover:bg-rn-subpanel active:bg-rn-subpanel/80 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex h-8 items-center space-x-1.5 rounded-lg border border-rn-border bg-rn-panel px-3 text-xs font-medium text-rn-text shadow-sm transition hover:border-rn-muted hover:bg-rn-subpanel active:bg-rn-subpanel/80"
             title="Set overnight render schedule or automatic stop window"
           >
             <Calendar className="h-3.5 w-3.5 text-rn-muted" />
@@ -312,6 +315,39 @@ export const Toolbar: React.FC = () => {
                   <Volume2 className="h-3.5 w-3.5 text-rn-success" />
                 )}
                 <span>Completion Sound Settings...</span>
+              </button>
+
+              <div className="my-1 h-px bg-rn-border/60" />
+
+              <button
+                type="button"
+                onClick={() => {
+                  setOverflowOpen(false);
+                  void exportQueue();
+                }}
+                disabled={jobs.length === 0}
+                className="flex w-full items-center space-x-2 px-3 py-2 text-left text-rn-text hover:bg-rn-panel transition disabled:opacity-40 disabled:cursor-not-allowed"
+                title={
+                  jobs.length === 0
+                    ? 'No jobs in queue to export'
+                    : 'Export render queue to .json file'
+                }
+              >
+                <Download className="h-3.5 w-3.5 text-rn-accent" />
+                <span>Export Queue (.json)...</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setOverflowOpen(false);
+                  void importQueue();
+                }}
+                className="flex w-full items-center space-x-2 px-3 py-2 text-left text-rn-text hover:bg-rn-panel transition"
+                title="Import render queue from .json file"
+              >
+                <Upload className="h-3.5 w-3.5 text-rn-accent" />
+                <span>Import Queue (.json)...</span>
               </button>
 
               <div className="my-1 h-px bg-rn-border/60" />

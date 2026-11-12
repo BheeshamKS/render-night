@@ -114,28 +114,28 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
     switch (job.status) {
       case 'Inspecting':
         return (
-          <span className="flex items-center space-x-1 rounded bg-blue-500/20 px-2 py-0.5 text-xs font-medium text-blue-400">
-            <Loader2 className="h-3 w-3 animate-spin" />
+          <span className="flex items-center space-x-1 rounded bg-rn-subpanel border border-rn-border px-2 py-0.5 text-xs font-medium text-rn-muted">
+            <Loader2 className="h-3 w-3 animate-spin text-rn-accent" />
             <span>Inspecting</span>
           </span>
         );
       case 'Queued':
         return (
-          <span className="flex items-center space-x-1 rounded bg-rn-subpanel px-2 py-0.5 text-xs font-medium text-rn-muted">
+          <span className="flex items-center space-x-1 rounded bg-rn-subpanel border border-rn-border/70 px-2 py-0.5 text-xs font-medium text-rn-muted">
             <Clock className="h-3 w-3" />
             <span>Queued</span>
           </span>
         );
       case 'Rendering':
         return (
-          <span className="flex items-center space-x-1 rounded bg-rn-rendering/20 px-2 py-0.5 text-xs font-medium text-rn-rendering">
+          <span className="flex items-center space-x-1 rounded bg-rn-accent/15 border border-rn-accent/30 px-2 py-0.5 text-xs font-medium text-rn-accent">
             <Loader2 className="h-3 w-3 animate-spin" />
             <span>Rendering</span>
           </span>
         );
       case 'Completed':
         return (
-          <span className="flex items-center space-x-1 rounded bg-green-500/20 px-2 py-0.5 text-xs font-medium text-green-400">
+          <span className="flex items-center space-x-1 rounded bg-rn-success/15 border border-rn-success/25 px-2 py-0.5 text-xs font-medium text-rn-success">
             <CheckCircle2 className="h-3 w-3" />
             <span>Completed</span>
           </span>
@@ -144,7 +144,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
         return (
           <button
             onClick={() => setShowErrorDetails(!showErrorDetails)}
-            className="flex items-center space-x-1 rounded bg-red-500/20 px-2 py-0.5 text-xs font-medium text-red-400 hover:bg-red-500/30"
+            className="flex items-center space-x-1 rounded bg-rn-error/15 border border-rn-error/25 px-2 py-0.5 text-xs font-medium text-rn-error hover:bg-rn-error/25 transition"
             title="Click to toggle error details"
           >
             <AlertCircle className="h-3 w-3" />
@@ -167,7 +167,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
     if (fallbackToCpu) {
       return (
         <span
-          className="flex items-center space-x-1 rounded bg-yellow-500/20 px-2 py-0.5 text-[10px] font-medium text-yellow-400 border border-yellow-500/30"
+          className="flex items-center space-x-1 rounded bg-rn-warning/15 border border-rn-warning/30 px-2 py-0.5 text-[10px] font-medium text-rn-warning"
           title="Requested GPU but Cycles fell back to CPU"
         >
           <AlertTriangle className="h-3 w-3" />
@@ -181,7 +181,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
       const devName = activeDev ? activeDev.name : 'GPU';
       return (
         <span
-          className="flex items-center space-x-1 rounded bg-rn-accent/20 px-2 py-0.5 text-[10px] font-medium text-rn-accent"
+          className="flex items-center space-x-1 rounded bg-rn-accent/15 border border-rn-accent/30 px-2 py-0.5 text-[10px] font-medium text-rn-accent"
           title={`Compute device: ${computeDeviceType}`}
         >
           <Cpu className="h-3 w-3" />
@@ -266,9 +266,9 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
             onClick={() => setShowAdvancedDrawer(!showAdvancedDrawer)}
             className={`flex items-center space-x-1.5 rounded px-2 py-0.5 text-xs transition ${
               showAdvancedDrawer
-                ? 'bg-rn-accent text-white font-medium'
+                ? 'bg-rn-accent text-[#0f0f10] font-semibold'
                 : Object.keys(job.overrides || {}).length > 0
-                  ? 'bg-rn-accent/20 border border-rn-accent/40 text-rn-accent'
+                  ? 'bg-rn-accent/20 border border-rn-accent/40 text-rn-accent font-medium'
                   : 'bg-rn-subpanel text-rn-muted hover:text-rn-text'
             }`}
             title="Toggle advanced properties and overrides drawer"
@@ -276,7 +276,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
             <Sliders className="h-3 w-3" />
             <span>Overrides</span>
             {Object.keys(job.overrides || {}).length > 0 && (
-              <span className="rounded bg-rn-accent px-1 py-0.2 text-[10px] text-white font-mono">
+              <span className="rounded bg-rn-accent px-1 py-0.2 text-[10px] text-[#0f0f10] font-semibold font-mono">
                 {Object.keys(job.overrides || {}).length}
               </span>
             )}
@@ -287,7 +287,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
             onClick={() => setShowConsole(!showConsole)}
             className={`flex items-center space-x-1 rounded px-2 py-0.5 text-xs font-mono transition ${
               showConsole
-                ? 'bg-rn-accent text-white'
+                ? 'bg-rn-accent text-[#0f0f10] font-semibold'
                 : 'bg-rn-subpanel text-rn-muted hover:text-rn-text'
             }`}
             title="Toggle raw output and error drawer"
@@ -396,7 +396,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
           {/* Live Frame Count / Status Badge */}
           <div className="flex items-center space-x-1.5 text-xs font-mono">
             {job.customRangeError ? (
-              <span className="rounded bg-red-500/20 px-2 py-0.5 text-red-400 font-sans text-[11px]">
+              <span className="rounded bg-rn-error/15 border border-rn-error/30 px-2 py-0.5 text-rn-error font-sans text-[11px]">
                 {job.customRangeError}
               </span>
             ) : (
@@ -532,8 +532,8 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
 
         {/* Video Rule Violation Warning */}
         {job.videoRuleError && (
-          <div className="flex items-center space-x-1.5 rounded border border-yellow-500/40 bg-yellow-500/10 px-2.5 py-1.5 text-xs text-yellow-300">
-            <AlertTriangle className="h-4 w-4 shrink-0 text-yellow-400" />
+          <div className="flex items-center space-x-1.5 rounded border border-rn-warning/35 bg-rn-warning/10 px-2.5 py-1.5 text-xs text-rn-warning">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-rn-warning" />
             <span>{job.videoRuleError}</span>
           </div>
         )}
@@ -556,9 +556,9 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
 
       {/* Failed Frames List & Retry Button */}
       {job.failedFrames && job.failedFrames.length > 0 && (
-        <div className="mt-2.5 rounded border border-red-500/40 bg-red-500/10 p-2.5 text-xs space-y-1.5">
+        <div className="mt-2.5 rounded border border-rn-error/35 bg-rn-error/10 p-2.5 text-xs space-y-1.5">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-1.5 text-red-400 font-semibold">
+            <div className="flex items-center space-x-1.5 text-rn-error font-semibold">
               <AlertCircle className="h-4 w-4 shrink-0" />
               <span>Failed Frames ({job.failedFrames.length}):</span>
               <span className="font-mono text-rn-text">
@@ -567,7 +567,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
             </div>
             <button
               onClick={() => retryFailedFrames(job.id)}
-              className="flex items-center space-x-1 rounded bg-red-500/20 px-2.5 py-1 text-xs font-medium text-red-200 hover:bg-red-500/30 border border-red-500/40 transition"
+              className="flex items-center space-x-1 rounded bg-rn-error/15 px-2.5 py-1 text-xs font-semibold text-rn-error hover:bg-rn-error/25 border border-rn-error/35 transition"
               title="Queue retry of failed frames"
             >
               <RotateCcw className="h-3 w-3" />
@@ -575,7 +575,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
             </button>
           </div>
           {job.failedFrames.some((f) => f.stderrTail) && (
-            <div className="text-[10px] font-mono text-red-300/80 max-h-20 overflow-y-auto whitespace-pre-wrap bg-black/40 p-1.5 rounded">
+            <div className="text-[10px] font-mono text-rn-error/90 max-h-20 overflow-y-auto whitespace-pre-wrap bg-rn-input p-1.5 rounded border border-rn-border/50">
               {job.failedFrames
                 .filter((f) => f.stderrTail)
                 .map((f) => `[Frame ${f.frame}] ${f.stderrTail}`)
@@ -644,7 +644,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
               await runPreflightCheck(job.id);
               setShowPreflightModal(true);
             }}
-            className="flex items-center space-x-1 rounded bg-rn-subpanel px-2 py-0.5 text-[11px] text-rn-text hover:bg-rn-accent hover:text-white transition"
+            className="flex items-center space-x-1 rounded bg-rn-subpanel px-2 py-0.5 text-[11px] text-rn-text hover:bg-rn-accent hover:text-[#0f0f10] transition"
             title="Run pre-flight validation on this job"
           >
             <ShieldCheck className="h-3 w-3 text-rn-accent" />
@@ -699,7 +699,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
               onClick={() => {
                 setActiveTab('sequences');
               }}
-              className="flex items-center space-x-1 rounded bg-rn-accent/20 border border-rn-accent/40 px-2 py-0.5 text-[11px] text-rn-accent hover:bg-rn-accent hover:text-white transition"
+              className="flex items-center space-x-1 rounded bg-rn-accent/20 border border-rn-accent/40 px-2 py-0.5 text-[11px] text-rn-accent hover:bg-rn-accent hover:text-[#0f0f10] transition"
               title="Open Sequence Viewer for this job's rendered frames"
             >
               <Film className="h-3 w-3" />
@@ -765,14 +765,14 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
               {job.overridesReport.applied && job.overridesReport.applied.length > 0 && (
                 <div className="flex flex-wrap gap-1 font-mono text-[10px]">
                   {job.overridesReport.applied.map((app, idx) => (
-                    <span key={idx} className="rounded bg-rn-input px-1.5 py-0.5 text-green-400">
+                    <span key={idx} className="rounded bg-rn-input px-1.5 py-0.5 text-rn-success">
                       {app.rnaPath}: {String(app.value)}
                     </span>
                   ))}
                 </div>
               )}
               {job.overridesReport.skipped && job.overridesReport.skipped.length > 0 && (
-                <div className="space-y-0.5 pt-1 border-t border-rn-border/50 text-yellow-400">
+                <div className="space-y-0.5 pt-1 border-t border-rn-border/50 text-rn-warning">
                   {job.overridesReport.skipped.map((sk, idx) => (
                     <div key={idx} className="font-mono text-[10px]">
                       Skipped {sk.rnaPath}: {sk.reason}
@@ -790,9 +790,9 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
                   key={idx}
                   className={`leading-tight break-all ${
                     log.isError
-                      ? 'text-red-400 font-semibold'
+                      ? 'text-rn-error font-semibold'
                       : log.stream === 'stderr'
-                        ? 'text-yellow-400/80'
+                        ? 'text-rn-warning'
                         : 'text-rn-text/70'
                   }`}
                 >
@@ -808,13 +808,15 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
 
       {/* Error Details Accordion when Failed */}
       {job.status === 'Failed' && showErrorDetails && (
-        <div className="mt-2 rounded bg-black/40 p-2 text-xs text-red-300 font-mono overflow-x-auto">
-          <div className="font-semibold text-red-400">Error:</div>
+        <div className="mt-2 rounded bg-black/40 p-2 text-xs text-rn-text font-mono overflow-x-auto border border-rn-error/30">
+          <div className="font-semibold text-rn-error">Error:</div>
           <div>{job.error || job.inspectError}</div>
           {job.inspectStderrTail && (
             <div className="mt-1">
-              <div className="font-semibold text-red-400">Blender stderr:</div>
-              <pre className="text-[10px] whitespace-pre-wrap">{job.inspectStderrTail}</pre>
+              <div className="font-semibold text-rn-error">Blender stderr:</div>
+              <pre className="text-[10px] whitespace-pre-wrap text-rn-error/90">
+                {job.inspectStderrTail}
+              </pre>
             </div>
           )}
         </div>

@@ -351,19 +351,19 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
         {sequence ? (
           isCurrentMissing ? (
             <div className="flex flex-col items-center justify-center p-6 text-center text-rn-muted">
-              <AlertTriangle className="w-10 h-10 text-amber-400 mb-2" />
-              <span className="text-sm font-medium text-amber-300">
+              <AlertTriangle className="w-10 h-10 text-rn-warning mb-2" />
+              <span className="text-sm font-medium text-rn-warning">
                 Frame {currentFrame} is Missing
               </span>
-              <span className="text-xs mt-1 text-neutral-400">
+              <span className="text-xs mt-1 text-rn-muted">
                 This frame is absent from the sequence.
               </span>
             </div>
           ) : proxyError ? (
             <div className="flex flex-col items-center justify-center p-6 text-center max-w-md">
-              <AlertTriangle className="w-8 h-8 text-rose-400 mb-2" />
-              <span className="text-xs font-medium text-rose-300">Preview Limitation Notice</span>
-              <span className="text-[11px] text-neutral-400 mt-1">{proxyError}</span>
+              <AlertTriangle className="w-8 h-8 text-rn-error mb-2" />
+              <span className="text-xs font-medium text-rn-error">Preview Limitation Notice</span>
+              <span className="text-[11px] text-rn-muted mt-1">{proxyError}</span>
             </div>
           ) : proxyUrl ? (
             <div
@@ -380,29 +380,29 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
               />
             </div>
           ) : isLoadingProxy ? (
-            <div className="flex items-center space-x-2 text-xs text-neutral-400">
+            <div className="flex items-center space-x-2 text-xs text-rn-muted">
               <div className="w-4 h-4 border-2 border-rn-accent border-t-transparent rounded-full animate-spin" />
               <span>Generating proxy preview...</span>
             </div>
           ) : (
-            <span className="text-xs text-neutral-400">Frame not found</span>
+            <span className="text-xs text-rn-muted">Frame not found</span>
           )
         ) : (
-          <div className="flex flex-col items-center justify-center text-neutral-500 space-y-2 p-8 text-center max-w-md">
-            <FolderOpen className="w-10 h-10 stroke-[1.2] opacity-40 text-neutral-400" />
+          <div className="flex flex-col items-center justify-center text-rn-muted space-y-2 p-8 text-center max-w-md">
+            <FolderOpen className="w-10 h-10 stroke-[1.2] opacity-40 text-rn-muted" />
             {errorMessage ? (
               <>
                 <p className="text-xs font-medium text-rn-accent">{errorMessage}</p>
-                <p className="text-[11px] text-neutral-500">
+                <p className="text-[11px] text-rn-muted">
                   Use "Open Sequence" to pick the folder containing your rendered frames.
                 </p>
               </>
             ) : (
               <>
-                <p className="text-xs font-medium text-neutral-300">
+                <p className="text-xs font-medium text-rn-text">
                   Click "Open Sequence" or select a finished job above to preview
                 </p>
-                <p className="text-[11px] text-neutral-500">
+                <p className="text-[11px] text-rn-muted">
                   Supports PNG, JPG, EXR, TIF, WebP sequences and single stills
                 </p>
               </>

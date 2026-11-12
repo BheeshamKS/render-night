@@ -689,8 +689,8 @@ export const MonitorDock: React.FC = () => {
               >
                 {copied ? (
                   <>
-                    <Check className="h-3 w-3 text-emerald-400" />
-                    <span className="text-emerald-400">Copied</span>
+                    <Check className="h-3 w-3 text-rn-success" />
+                    <span className="text-rn-success">Copied</span>
                   </>
                 ) : (
                   <>
@@ -703,7 +703,7 @@ export const MonitorDock: React.FC = () => {
               <button
                 type="button"
                 onClick={clearLogs}
-                className="flex items-center space-x-1 rounded bg-rn-panel px-2 py-0.5 text-[11px] text-rn-muted hover:text-rose-400 hover:bg-rn-subpanel transition border border-rn-border"
+                className="flex items-center space-x-1 rounded bg-rn-panel px-2 py-0.5 text-[11px] text-rn-muted hover:text-rn-error hover:bg-rn-subpanel transition border border-rn-border"
                 title="Clear console buffer"
               >
                 <Trash2 className="h-3 w-3" />
@@ -713,7 +713,7 @@ export const MonitorDock: React.FC = () => {
           </div>
 
           {/* Console Output Area */}
-          <div className="flex-1 overflow-y-auto p-2.5 font-mono text-[11px] leading-relaxed text-neutral-300 space-y-0.5 select-text">
+          <div className="flex-1 overflow-y-auto p-2.5 font-mono text-[11px] leading-relaxed text-rn-text space-y-0.5 select-text">
             {filteredLogs.length > 0 ? (
               filteredLogs.map((line, idx) => {
                 const isError =

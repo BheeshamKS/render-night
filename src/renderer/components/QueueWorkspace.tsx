@@ -5,7 +5,7 @@ import { JobEditorDrawer } from './drawer/JobEditorDrawer';
 
 import React from 'react';
 
-import { CheckCircle2, FolderDown, Plus, UploadCloud } from 'lucide-react';
+import { CheckCircle2, FolderDown, Plus, Upload, UploadCloud } from 'lucide-react';
 
 export const QueueWorkspace: React.FC = () => {
   const {
@@ -20,6 +20,7 @@ export const QueueWorkspace: React.FC = () => {
     selectedJobId,
     isDrawerOpen,
     closeJobDrawer,
+    importQueue,
   } = useQueueStore();
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -98,15 +99,27 @@ export const QueueWorkspace: React.FC = () => {
               the render queue.
             </p>
 
-            {/* Primary Action Button */}
-            <button
-              type="button"
-              onClick={handleBrowseFiles}
-              className="mt-5 flex h-8 items-center space-x-2 rounded-lg bg-[#ededed] px-4 text-xs font-semibold text-[#141415] shadow-sm transition hover:bg-white active:opacity-90"
-            >
-              <Plus className="h-4 w-4 stroke-[2]" />
-              <span>Browse .blend Files</span>
-            </button>
+            {/* Primary Action Buttons */}
+            <div className="mt-5 flex items-center space-x-2">
+              <button
+                type="button"
+                onClick={handleBrowseFiles}
+                className="flex h-8 items-center space-x-2 rounded-lg bg-[#ededed] px-4 text-xs font-semibold text-[#141415] shadow-sm transition hover:bg-white active:opacity-90"
+              >
+                <Plus className="h-4 w-4 stroke-[2]" />
+                <span>Browse .blend Files</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void importQueue()}
+                className="flex h-8 items-center space-x-1.5 rounded-lg border border-rn-border bg-rn-subpanel px-3 text-xs font-medium text-rn-text shadow-sm transition hover:border-rn-muted hover:bg-rn-panel active:opacity-90"
+                title="Import existing queue (.json, .rnqueue)"
+              >
+                <Upload className="h-3.5 w-3.5 text-rn-muted" />
+                <span>Import Queue</span>
+              </button>
+            </div>
 
             {/* Detected Blender Versions List */}
             <div className="mt-6 w-full border-t border-rn-border/70 pt-4">
