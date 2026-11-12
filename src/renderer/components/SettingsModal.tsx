@@ -91,7 +91,7 @@ export const SettingsModal: React.FC = () => {
           <div className="flex items-center space-x-2">
             <span className="font-semibold text-rn-text text-sm">Application Settings & Audit</span>
             <span className="rounded bg-rn-input px-2 py-0.5 text-[11px] font-mono text-rn-muted">
-              v0.1.0-alpha.4
+              v0.1.0-alpha.5
             </span>
           </div>
           <button

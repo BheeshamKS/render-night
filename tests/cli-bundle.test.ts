@@ -38,6 +38,6 @@ describe('CLI Main Entry', () => {
     expect(helpOut).toMatch(/Usage:/i);
 
     const { stdout: verOut } = await execFileAsync('node', [cliBundle, '--version']);
-    expect(verOut).toMatch(/0\.1\.0-alpha\.4/);
+    expect(verOut).toMatch(/0\.1\.0-alpha\.5/);
   }, 15000);
 });

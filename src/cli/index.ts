@@ -12,7 +12,7 @@ import { runCliQueue } from './runner';
 
 import * as fs from 'node:fs';
 
-const VERSION = '0.1.0-alpha.4';
+const VERSION = '0.1.0-alpha.5';
 
 function printHelp(): void {
   console.log(`Night Render CLI v${VERSION}
