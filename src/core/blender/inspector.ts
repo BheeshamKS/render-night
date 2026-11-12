@@ -11,6 +11,8 @@ export interface InspectOptions {
   isolatedMode?: boolean;
   autoExec?: boolean;
   timeoutMs?: number;
+  resourcesPath?: string;
+  scriptPath?: string;
 }
 
 export class InspectorError extends Error {
@@ -23,17 +25,33 @@ export class InspectorError extends Error {
   }
 }
 
-function resolveScriptPath(): string {
-  // In dev / build environments
-  const possiblePaths = [
+/**
+ * Resolves the absolute path to inspect_blend.py on disk.
+ * Prioritizes packaged resources directory (process.resourcesPath/python/inspect_blend.py)
+ * and ensures no virtual app.asar path is ever passed to an external native process.
+ */
+export function resolveInspectScriptPath(
+  resourcesPath: string = process.resourcesPath || '',
+): string {
+  const candidates: string[] = [];
+  if (resourcesPath) {
+    candidates.push(join(resourcesPath, 'python', 'inspect_blend.py'));
+  }
+  candidates.push(
     resolve(__dirname, '../../../resources/python/inspect_blend.py'),
     resolve(__dirname, '../../resources/python/inspect_blend.py'),
     resolve(process.cwd(), 'resources/python/inspect_blend.py'),
-  ];
-  for (const p of possiblePaths) {
-    if (existsSync(p)) return p;
+  );
+
+  for (const p of candidates) {
+    const safePath =
+      p.includes('app.asar') && !p.includes('app.asar.unpacked')
+        ? p.replace('app.asar', 'app.asar.unpacked')
+        : p;
+    if (existsSync(safePath)) return safePath;
+    if (existsSync(p) && !p.includes('app.asar')) return p;
   }
-  return possiblePaths[0];
+  return candidates[0] || resolve(process.cwd(), 'resources/python/inspect_blend.py');
 }
 
 /**
@@ -59,7 +77,7 @@ export async function inspectBlend(
     // If header read fails, still proceed to let Blender attempt opening or fail with full error
   }
 
-  const script = resolveScriptPath();
+  const script = options.scriptPath || resolveInspectScriptPath(options.resourcesPath);
 
   // Use user cache dir on Linux/Unix so flatpak/sandboxed Blender with host permissions can access the temp file
   const baseTmpDir =

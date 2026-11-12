@@ -6,6 +6,8 @@ directories:
 files:
   - "out/**/*"
   - "resources/**/*"
+  - "!resources/python/**/*"
+  - "!resources/sounds/**/*"
   - "package.json"
   - "!**/*.map"
   - "!**/*.tsbuildinfo"
@@ -14,6 +16,14 @@ files:
   - "!tools/**/*"
   - "!**/*.test.*"
   - "!**/*.spec.*"
+
+extraResources:
+  - from: "resources/python"
+    to: "python"
+    filter: ["**/*"]
+  - from: "resources/sounds"
+    to: "sounds"
+    filter: ["**/*"]
 
 asar: true
 asarUnpack:

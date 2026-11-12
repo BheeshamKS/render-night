@@ -2,6 +2,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const args = process.argv.slice(2);
 
@@ -34,7 +35,7 @@ if (scriptPath.includes('inspect_blend.py') || (!scriptPath.includes('render_run
 
   // Load fixture inspect JSON
   const fixturePath = path.resolve(
-    path.dirname(new URL(import.meta.url).pathname),
+    path.dirname(fileURLToPath(import.meta.url)),
     '../../tests/fixtures/inspect-sample.json',
   );
   let fixtureData = {};

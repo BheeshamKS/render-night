@@ -5,7 +5,18 @@ import { SegmentedEnumToggle } from './controls/SegmentedEnumToggle';
 
 import React, { useState } from 'react';
 
-import { Cpu, HardDrive, Layers, Moon, RefreshCw, Shield, Volume2 } from 'lucide-react';
+import {
+  AlertTriangle,
+  Cpu,
+  FolderOpen,
+  HardDrive,
+  Layers,
+  Moon,
+  RefreshCw,
+  Shield,
+  Trash2,
+  Volume2,
+} from 'lucide-react';
 
 export const SettingsView: React.FC = () => {
   const {
@@ -13,6 +24,9 @@ export const SettingsView: React.FC = () => {
     selectedBlenderId,
     setSelectedBlenderId,
     loadBlenders,
+    browseAndAddBlender,
+    addCustomBlender,
+    removeCustomBlender,
     isolatedMode,
     setIsolatedMode,
     autoExec,
@@ -27,6 +41,27 @@ export const SettingsView: React.FC = () => {
     'blender' | 'rendering' | 'performance' | 'sound' | 'power' | 'safety' | 'retries'
   >('blender');
   const [isRescanning, setIsRescanning] = useState(false);
+  const [manualPath, setManualPath] = useState('');
+  const [customError, setCustomError] = useState<string | null>(null);
+
+  const handleBrowseBlender = async () => {
+    setCustomError(null);
+    const result = await browseAndAddBlender();
+    if (!result.success && result.error && result.error !== 'Selection cancelled') {
+      setCustomError(result.error);
+    }
+  };
+
+  const handleAddManual = async () => {
+    if (!manualPath.trim()) return;
+    setCustomError(null);
+    const result = await addCustomBlender(manualPath.trim());
+    if (result.success) {
+      setManualPath('');
+    } else {
+      setCustomError(result.error || 'Failed to validate custom Blender');
+    }
+  };
 
   const handleRescanBlenders = async () => {
     setIsRescanning(true);
@@ -87,51 +122,146 @@ export const SettingsView: React.FC = () => {
           {/* 1. Blender Versions */}
           {activeSection === 'blender' && (
             <div className="space-y-4 max-w-xl">
-              <div>
-                <h3 className="text-sm font-semibold text-rn-text">Blender Installations</h3>
-                <p className="text-xs text-rn-muted mt-0.5">
-                  Render Night automatically discovers system, Steam, Flatpak and Snap Blender
-                  installations.
-                </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-rn-text">Blender Installations</h3>
+                  <p className="text-xs text-rn-muted mt-0.5">
+                    Render Night probes PATH, standard directories, Snap, Flatpak, or allows custom
+                    selection.
+                  </p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    onClick={handleBrowseBlender}
+                    className="flex items-center space-x-1.5 rounded-md border border-rn-border bg-rn-subpanel px-2.5 py-1 text-xs text-rn-text hover:bg-rn-accent hover:text-[#0f0f10] transition"
+                    title="Select Blender executable (blender.exe or blender binary) from disk"
+                  >
+                    <FolderOpen className="h-3.5 w-3.5" />
+                    <span>Locate Blender...</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRescanBlenders}
+                    disabled={isRescanning}
+                    className="flex items-center space-x-1.5 rounded-md border border-rn-border bg-rn-subpanel px-2.5 py-1 text-xs text-rn-muted hover:text-rn-text transition disabled:opacity-50"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${isRescanning ? 'animate-spin' : ''}`} />
+                    <span>Rescan</span>
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-2">
-                {blenders.map((b) => (
-                  <div
-                    key={b.id}
-                    className={`flex items-center justify-between rounded-lg border p-3 text-xs transition ${
-                      selectedBlenderId === b.id
-                        ? 'border-rn-accent/60 bg-rn-accent/10'
-                        : 'border-rn-border bg-rn-subpanel/50'
-                    }`}
-                  >
+                {blenders.length === 0 ? (
+                  <div className="rounded-lg border border-rn-border bg-rn-input p-6 text-center space-y-3">
+                    <AlertTriangle className="h-7 w-7 text-rn-warning mx-auto" />
                     <div>
-                      <div className="flex items-center space-x-2">
-                        <span className="font-semibold text-rn-text tabular-nums">
-                          Blender {b.version}
-                        </span>
-                        <span className="rounded bg-rn-input px-1.5 py-0.5 text-[10px] font-mono text-rn-muted">
-                          {b.isPortable ? 'Portable' : b.source}
-                        </span>
+                      <div className="font-semibold text-rn-text">
+                        No Blender Installations Detected
                       </div>
-                      <p className="text-[11px] font-mono text-rn-muted mt-0.5 truncate max-w-md">
-                        {b.displayPath}
-                      </p>
+                      <div className="text-[11px] text-rn-muted mt-1 max-w-sm mx-auto">
+                        Auto-discovery could not find Blender on your system. You can manually
+                        locate blender.exe (or blender binary) on disk.
+                      </div>
                     </div>
-
                     <button
                       type="button"
-                      onClick={() => setSelectedBlenderId(b.id)}
-                      className={`rounded-md px-3 py-1 text-xs font-medium transition ${
-                        selectedBlenderId === b.id
-                          ? 'bg-rn-accent text-[#0f0f10] font-semibold'
-                          : 'border border-rn-border bg-rn-input text-rn-text hover:border-rn-muted'
-                      }`}
+                      onClick={handleBrowseBlender}
+                      className="inline-flex items-center space-x-1.5 rounded-md bg-rn-accent px-3 py-1.5 text-xs font-semibold text-[#0f0f10] hover:brightness-110 transition"
                     >
-                      {selectedBlenderId === b.id ? 'Default' : 'Set Default'}
+                      <FolderOpen className="h-3.5 w-3.5" />
+                      <span>Locate Blender Executable (blender.exe)</span>
                     </button>
                   </div>
-                ))}
+                ) : (
+                  blenders.map((b) => (
+                    <div
+                      key={b.id}
+                      className={`flex items-center justify-between rounded-lg border p-3 text-xs transition ${
+                        selectedBlenderId === b.id
+                          ? 'border-rn-accent/60 bg-rn-accent/10'
+                          : 'border-rn-border bg-rn-subpanel/50'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <span className="font-semibold text-rn-text tabular-nums">
+                            Blender {b.version}
+                          </span>
+                          <span className="rounded bg-rn-input px-1.5 py-0.5 text-[10px] font-mono text-rn-muted">
+                            {b.isPortable ? 'Portable' : b.source}
+                          </span>
+                        </div>
+                        <p className="text-[11px] font-mono text-rn-muted mt-0.5 truncate max-w-md">
+                          {b.displayPath}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center space-x-2">
+                        {b.source === 'custom' && (
+                          <button
+                            type="button"
+                            onClick={() => void removeCustomBlender(b.id)}
+                            className="p-1 text-rn-muted hover:text-rn-error transition"
+                            title="Remove custom Blender"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedBlenderId(b.id)}
+                          className={`rounded-md px-3 py-1 text-xs font-medium transition ${
+                            selectedBlenderId === b.id
+                              ? 'bg-rn-accent text-[#0f0f10] font-semibold'
+                              : 'border border-rn-border bg-rn-input text-rn-text hover:border-rn-muted'
+                          }`}
+                        >
+                          {selectedBlenderId === b.id ? 'Default' : 'Set Default'}
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Add custom path manually */}
+              <div className="rounded-lg border border-rn-border bg-rn-subpanel/50 p-3">
+                <span className="text-[11px] font-medium text-rn-text block mb-1.5">
+                  Add custom Blender executable:
+                </span>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="text"
+                    value={manualPath}
+                    onChange={(e) => {
+                      setManualPath(e.target.value);
+                      if (customError) setCustomError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') void handleAddManual();
+                    }}
+                    placeholder="e.g. C:\Blender\blender.exe or /usr/local/bin/blender"
+                    className="flex-1 rounded border border-rn-border bg-rn-input px-2.5 py-1 text-xs font-mono text-rn-text focus:border-rn-accent focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddManual}
+                    className="rounded border border-rn-border bg-rn-subpanel px-3 py-1 text-xs font-medium text-rn-text hover:bg-rn-accent hover:text-[#0f0f10] transition"
+                  >
+                    Add
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleBrowseBlender}
+                    className="flex items-center space-x-1 rounded border border-rn-border bg-rn-subpanel px-2.5 py-1 text-xs font-medium text-rn-text hover:bg-rn-accent hover:text-[#0f0f10] transition"
+                  >
+                    <FolderOpen className="h-3.5 w-3.5" />
+                    <span>Browse...</span>
+                  </button>
+                </div>
+                {customError && <p className="mt-1 text-[11px] text-rn-error">{customError}</p>}
               </div>
 
               <button

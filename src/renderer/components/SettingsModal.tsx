@@ -7,11 +7,13 @@ import React, { useState } from 'react';
 import {
   AlertTriangle,
   Cpu,
+  FolderOpen,
   HardDrive,
   Moon,
   RefreshCw,
   RotateCcw,
   Shield,
+  Trash2,
   Volume2,
   VolumeX,
   X,
@@ -25,6 +27,9 @@ export const SettingsModal: React.FC = () => {
     selectedBlenderId,
     setSelectedBlenderId,
     loadBlenders,
+    browseAndAddBlender,
+    addCustomBlender,
+    removeCustomBlender,
     isolatedMode,
     setIsolatedMode,
     autoExec,
@@ -41,8 +46,29 @@ export const SettingsModal: React.FC = () => {
     'blender' | 'process' | 'sound' | 'power' | 'stability'
   >('blender');
   const [isRescanning, setIsRescanning] = useState(false);
+  const [manualPath, setManualPath] = useState('');
+  const [customError, setCustomError] = useState<string | null>(null);
 
   if (!showSettingsModal) return null;
+
+  const handleBrowseBlender = async () => {
+    setCustomError(null);
+    const result = await browseAndAddBlender();
+    if (!result.success && result.error && result.error !== 'Selection cancelled') {
+      setCustomError(result.error);
+    }
+  };
+
+  const handleAddManual = async () => {
+    if (!manualPath.trim()) return;
+    setCustomError(null);
+    const result = await addCustomBlender(manualPath.trim());
+    if (result.success) {
+      setManualPath('');
+    } else {
+      setCustomError(result.error || 'Failed to validate custom Blender');
+    }
+  };
 
   const handleRescanBlenders = async () => {
     setIsRescanning(true);
@@ -65,7 +91,7 @@ export const SettingsModal: React.FC = () => {
           <div className="flex items-center space-x-2">
             <span className="font-semibold text-rn-text text-sm">Application Settings & Audit</span>
             <span className="rounded bg-rn-input px-2 py-0.5 text-[11px] font-mono text-rn-muted">
-              v0.1.0-alpha.2
+              v0.1.0-alpha.3
             </span>
           </div>
           <button
@@ -137,28 +163,54 @@ export const SettingsModal: React.FC = () => {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h4 className="font-semibold text-sm text-rn-text">
-                    Discovered Blender Installations
-                  </h4>
+                  <h4 className="font-semibold text-sm text-rn-text">Blender Installations</h4>
                   <p className="text-rn-muted text-[11px]">
-                    Render Night headlessly probes system PATH, standard directories, Snap, and
-                    Flatpak.
+                    Render Night probes PATH, standard directories, Snap, and Flatpak, or allows
+                    custom selection.
                   </p>
                 </div>
-                <button
-                  onClick={handleRescanBlenders}
-                  disabled={isRescanning}
-                  className="flex items-center space-x-1.5 rounded border border-rn-border bg-rn-subpanel px-2.5 py-1 text-xs text-rn-muted hover:text-rn-text transition disabled:opacity-50"
-                >
-                  <RefreshCw className={`h-3.5 w-3.5 ${isRescanning ? 'animate-spin' : ''}`} />
-                  <span>Rescan</span>
-                </button>
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    onClick={handleBrowseBlender}
+                    className="flex items-center space-x-1.5 rounded border border-rn-border bg-rn-subpanel px-2.5 py-1 text-xs text-rn-text hover:bg-rn-accent hover:text-[#0f0f10] transition"
+                    title="Select Blender executable (blender.exe or blender binary) from disk"
+                  >
+                    <FolderOpen className="h-3.5 w-3.5" />
+                    <span>Locate Blender...</span>
+                  </button>
+                  <button
+                    onClick={handleRescanBlenders}
+                    disabled={isRescanning}
+                    className="flex items-center space-x-1.5 rounded border border-rn-border bg-rn-subpanel px-2.5 py-1 text-xs text-rn-muted hover:text-rn-text transition disabled:opacity-50"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${isRescanning ? 'animate-spin' : ''}`} />
+                    <span>Rescan</span>
+                  </button>
+                </div>
               </div>
 
               <div className="rounded border border-rn-border bg-rn-input divide-y divide-rn-border/50 overflow-hidden">
                 {blenders.length === 0 ? (
-                  <div className="p-4 text-center text-rn-muted">
-                    No Blender installations detected on this machine.
+                  <div className="p-6 text-center space-y-3">
+                    <AlertTriangle className="h-7 w-7 text-rn-warning mx-auto" />
+                    <div>
+                      <div className="font-semibold text-rn-text">
+                        No Blender Installations Detected
+                      </div>
+                      <div className="text-[11px] text-rn-muted mt-1 max-w-sm mx-auto">
+                        Auto-discovery could not find Blender on your system. You can manually
+                        locate blender.exe (or blender binary) on disk.
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleBrowseBlender}
+                      className="inline-flex items-center space-x-1.5 rounded-md bg-rn-accent px-3 py-1.5 text-xs font-semibold text-[#0f0f10] hover:brightness-110 transition"
+                    >
+                      <FolderOpen className="h-3.5 w-3.5" />
+                      <span>Locate Blender Executable (blender.exe)</span>
+                    </button>
                   </div>
                 ) : (
                   blenders.map((b) => (
@@ -175,7 +227,7 @@ export const SettingsModal: React.FC = () => {
                         <div className="flex items-center space-x-2">
                           <span className="font-semibold text-rn-text">Blender {b.version}</span>
                           <span className="rounded bg-rn-subpanel px-1.5 py-0.5 text-[10px] font-mono text-rn-muted">
-                            {b.source}
+                            {b.isPortable ? 'Portable' : b.source}
                           </span>
                           {selectedBlenderId === b.id && (
                             <span className="rounded bg-rn-accent/20 px-1.5 py-0.5 text-[10px] font-semibold text-rn-accent">
@@ -187,16 +239,69 @@ export const SettingsModal: React.FC = () => {
                           {b.displayPath}
                         </p>
                       </div>
-                      <input
-                        type="radio"
-                        name="selected-blender"
-                        checked={selectedBlenderId === b.id}
-                        onChange={() => setSelectedBlenderId(b.id)}
-                        className="accent-rn-accent"
-                      />
+                      <div className="flex items-center space-x-2">
+                        {b.source === 'custom' && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void removeCustomBlender(b.id);
+                            }}
+                            className="p-1 text-rn-muted hover:text-rn-error transition"
+                            title="Remove custom Blender"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                        <input
+                          type="radio"
+                          name="selected-blender"
+                          checked={selectedBlenderId === b.id}
+                          onChange={() => setSelectedBlenderId(b.id)}
+                          className="accent-rn-accent"
+                        />
+                      </div>
                     </div>
                   ))
                 )}
+              </div>
+
+              {/* Add custom path manually */}
+              <div className="pt-2">
+                <span className="text-[11px] text-rn-muted block mb-1">
+                  Add custom Blender executable:
+                </span>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="text"
+                    value={manualPath}
+                    onChange={(e) => {
+                      setManualPath(e.target.value);
+                      if (customError) setCustomError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') void handleAddManual();
+                    }}
+                    placeholder="e.g. C:\Blender\blender.exe or /usr/local/bin/blender"
+                    className="flex-1 rounded border border-rn-border bg-rn-input px-2.5 py-1 text-xs font-mono text-rn-text focus:border-rn-accent focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddManual}
+                    className="rounded border border-rn-border bg-rn-subpanel px-3 py-1 text-xs font-medium text-rn-text hover:bg-rn-accent hover:text-[#0f0f10] transition"
+                  >
+                    Add
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleBrowseBlender}
+                    className="flex items-center space-x-1 rounded border border-rn-border bg-rn-subpanel px-2.5 py-1 text-xs font-medium text-rn-text hover:bg-rn-accent hover:text-[#0f0f10] transition"
+                  >
+                    <FolderOpen className="h-3.5 w-3.5" />
+                    <span>Browse...</span>
+                  </button>
+                </div>
+                {customError && <p className="mt-1 text-[11px] text-rn-error">{customError}</p>}
               </div>
             </div>
           )}

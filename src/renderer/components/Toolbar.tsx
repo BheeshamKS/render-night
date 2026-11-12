@@ -5,6 +5,7 @@ import { BlenderDropdown } from './controls/BlenderDropdown';
 import React, { useState } from 'react';
 
 import {
+  AlertTriangle,
   Calendar,
   HelpCircle,
   MoreHorizontal,
@@ -12,6 +13,7 @@ import {
   Play,
   Plus,
   Square,
+  Timer,
   Volume2,
   VolumeX,
 } from 'lucide-react';
@@ -22,6 +24,7 @@ export const Toolbar: React.FC = () => {
     blenders,
     selectedBlenderId,
     setSelectedBlenderId,
+    browseAndAddBlender,
     queueState,
     startQueueWithPreflight,
     pauseQueue,
@@ -30,6 +33,7 @@ export const Toolbar: React.FC = () => {
     postAction,
     setPostAction,
     soundSettings,
+    scheduleConfig,
     setShowSoundModal,
     setShowScheduleModal,
     setShowShortcutsModal,
@@ -92,7 +96,7 @@ export const Toolbar: React.FC = () => {
           <span>Add .blend</span>
         </button>
 
-        {/* Blender Selector: ONLY show when multiple Blenders are detected */}
+        {/* Blender Selector: show dropdown when multiple are detected, or a locate button if auto-detect found none */}
         {blenders.length > 1 && (
           <div className="flex items-center space-x-1.5">
             <span className="text-[11px] text-rn-muted font-medium">Blender:</span>
@@ -105,6 +109,18 @@ export const Toolbar: React.FC = () => {
               title="Select Blender version for jobs"
             />
           </div>
+        )}
+
+        {blenders.length === 0 && (
+          <button
+            type="button"
+            onClick={() => void browseAndAddBlender()}
+            className="flex h-7 items-center space-x-1.5 rounded border border-rn-warning/40 bg-rn-warning/15 px-2.5 text-xs font-medium text-rn-warning hover:bg-rn-warning/25 transition"
+            title="No Blender installations found. Click to locate blender.exe on your computer."
+          >
+            <AlertTriangle className="h-3.5 w-3.5" />
+            <span>Locate Blender...</span>
+          </button>
         )}
       </div>
 
@@ -176,9 +192,24 @@ export const Toolbar: React.FC = () => {
       </div>
 
       {/* ============================================================== */}
-      {/* 3. Right Group: Single Overflow Menu (MoreHorizontal)          */}
+      {/* 3. Right Group: Active Schedule Indicator & Overflow Menu      */}
       {/* ============================================================== */}
-      <div className="relative flex items-center">
+      <div className="relative flex items-center space-x-2">
+        {scheduleConfig.enabled && (
+          <button
+            type="button"
+            onClick={() => setShowScheduleModal(true)}
+            className="flex h-8 items-center space-x-1.5 rounded-lg border border-rn-accent/50 bg-rn-accent/15 px-2.5 text-xs font-medium text-rn-accent hover:brightness-110 transition shadow-sm"
+            title={`Active schedule: ${scheduleConfig.startImmediately ? 'Immediate start' : `Starts at ${scheduleConfig.time}`}${scheduleConfig.stopEnabled ? ` • Stops at ${scheduleConfig.stopTime} (${scheduleConfig.stopAction || 'shutdown'})` : ''}`}
+          >
+            <Timer className="h-3.5 w-3.5" />
+            <span className="font-mono tabular-nums">
+              {scheduleConfig.startImmediately ? 'Immediate' : scheduleConfig.time}
+              {scheduleConfig.stopEnabled ? ` → ${scheduleConfig.stopTime}` : ''}
+            </span>
+          </button>
+        )}
+
         <button
           type="button"
           onClick={() => setOverflowOpen(!overflowOpen)}

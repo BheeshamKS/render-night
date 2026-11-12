@@ -6,6 +6,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.0-alpha.3] - 2026-11-13
+
+### Fixed
+- **Packaged App Inspection (`inspect_blend.py` inside `app.asar`):**
+  - Moved `resources/python` and `resources/sounds` into `extraResources` in `electron-builder.yml` to ensure scripts and audio assets exist uncompressed on disk under `process.resourcesPath`.
+  - Updated `resolveInspectScriptPath()` in `src/core/blender/inspector.ts` to resolve disk-based python scripts and never pass virtual `app.asar` paths to external native Blender processes.
+  - Fixed Windows path resolution in `tools/mock-blender/index.js` (`fileURLToPath(import.meta.url)`).
+
+### Added
+- **Manual Blender Executable Selection:**
+  - Added native file picker (`dialog:selectBlenderExecutable`) allowing users to locate custom `blender.exe` (Windows) or binary/app paths (macOS/Linux) when auto-detection fails.
+  - Integrated "Locate Blender..." controls into Settings Modal, Settings View, Top Toolbar empty state, and Pre-flight warning dialogs (`BLENDER_NOT_FOUND`).
+  - Added persistence for custom Blender paths in `queue-state.ts` and `queueStore.ts`.
+- **Output Folder Selection & Path Preview:**
+  - Added "Browse Folder..." (`dialog:selectDirectory`) and "Open Folder" (`rnApi.openPath`) buttons to the Output Properties tab and Essentials panel in the Job Editor Drawer.
+  - Added live path evaluation preview showing evaluated destination paths for relative tokens and frame expressions.
+- **IRL Timeframe Scheduler & Automated Post-Render Actions:**
+  - Expanded `ScheduleModal.tsx` to support start mode (scheduled time vs immediately), stop time monitoring, duration preview, and sleep-blocker controls.
+  - Added automated post-render action selector (`shutdown`, `sleep`, `close_app`, or `stop_only`) with countdown dialog arming and cancellation support.
+  - Added active schedule timeframe pill indicator (`HH:MM → HH:MM`) in the top toolbar.
+
+---
+
 ## [0.1.0-alpha.2] - 2026-11-12
 
 ### Added

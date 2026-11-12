@@ -5,12 +5,14 @@ import { BlenderNumberField, CollapsiblePanel, PanelRow, SegmentedEnumToggle } f
 
 import React from 'react';
 
+import { ExternalLink, FolderOpen } from 'lucide-react';
+
 export interface OutputPropertiesTabProps {
   job: QueueJob;
 }
 
 export const OutputPropertiesTab: React.FC<OutputPropertiesTabProps> = ({ job }) => {
-  const { setJobOverride, resetJobOverride } = useQueueStore();
+  const { setJobOverride, resetJobOverride, updateJob } = useQueueStore();
 
   const currentScene = job.scenes.find((s) => s.name === job.selectedScene) || job.scenes[0];
 
@@ -57,8 +59,73 @@ export const OutputPropertiesTab: React.FC<OutputPropertiesTabProps> = ({ job })
   const ffmpegGopProp = getPropState('scene.render.ffmpeg.gopsize');
   const ffmpegAudioProp = getPropState('scene.render.ffmpeg.audio_codec');
 
+  const handleBrowseOutputDirectory = async () => {
+    if (typeof window === 'undefined' || !window.rnApi) return;
+    const selected = await window.rnApi.selectDirectory(job.outputPathPattern);
+    if (selected) {
+      const cur = (job.outputPathPattern || '').trim();
+      const lastSlash = Math.max(cur.lastIndexOf('/'), cur.lastIndexOf('\\'));
+      let filePart = lastSlash !== -1 ? cur.slice(lastSlash + 1) : '';
+      if (!filePart || (!filePart.includes('#') && !filePart.includes('.'))) {
+        filePart = '{project}_{scene}_{camera}_####.png';
+      }
+      const normalizedSep = selected.includes('\\') ? '\\' : '/';
+      const newPattern = `${selected.replace(/[/\\]+$/, '')}${normalizedSep}${filePart}`;
+      updateJob(job.id, { outputPathPattern: newPattern });
+    }
+  };
+
+  const handleOpenOutputFolder = async () => {
+    if (typeof window === 'undefined' || !window.rnApi) return;
+    await window.rnApi.openPath(job.outputPreview || job.outputPathPattern, job.filePath);
+  };
+
   return (
     <div className="space-y-3 p-3">
+      {/* 0. Output Directory & Path */}
+      <CollapsiblePanel title="Output Directory & File Path" defaultExpanded={true}>
+        <div className="space-y-2 py-1">
+          <div className="flex items-center space-x-1.5">
+            <input
+              type="text"
+              value={job.outputPathPattern || ''}
+              onChange={(e) => updateJob(job.id, { outputPathPattern: e.target.value })}
+              placeholder="e.g. //renders/{project}_{scene}_####.png or D:\Renders\shot1_####.png"
+              className="flex-1 rounded border border-rn-border bg-rn-input px-2.5 py-1 text-xs font-mono text-rn-text outline-none focus:border-rn-accent"
+              title="Render output file path or pattern"
+            />
+            <button
+              type="button"
+              onClick={handleBrowseOutputDirectory}
+              className="flex items-center space-x-1 rounded border border-rn-border bg-rn-subpanel px-2.5 py-1 text-xs font-medium text-rn-text hover:bg-rn-accent hover:text-[#0f0f10] transition flex-shrink-0"
+              title="Select folder for render output"
+            >
+              <FolderOpen className="h-3.5 w-3.5" />
+              <span>Browse Folder...</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleOpenOutputFolder}
+              className="flex h-6 w-6 items-center justify-center rounded border border-rn-border bg-rn-subpanel text-rn-muted hover:text-rn-text hover:bg-rn-subpanel/80 transition flex-shrink-0"
+              title="Open output folder in system file manager"
+            >
+              <ExternalLink className="h-3 w-3" />
+            </button>
+          </div>
+
+          {/* Evaluated Preview Path */}
+          <div className="rounded bg-rn-input/60 border border-rn-border/50 p-2 text-[10px]">
+            <span className="text-rn-muted block font-medium">Evaluated Output Destination:</span>
+            <span
+              className="font-mono text-rn-text break-all select-all block mt-0.5"
+              title={job.outputPreview || job.outputPathPattern}
+            >
+              {job.outputPreview || job.outputPathPattern || '(Not evaluated)'}
+            </span>
+          </div>
+        </div>
+      </CollapsiblePanel>
+
       {/* 1. Dimensions */}
       <CollapsiblePanel
         title="Dimensions"

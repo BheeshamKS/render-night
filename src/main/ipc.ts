@@ -424,6 +424,45 @@ export function registerIpcHandlers(mainWindowProvider: () => BrowserWindow | nu
     return result.filePaths[0];
   });
 
+  ipcMain.handle('dialog:selectBlenderExecutable', async () => {
+    const win = mainWindowProvider();
+    const isWin = process.platform === 'win32';
+    const isMac = process.platform === 'darwin';
+    const filters = isWin
+      ? [
+          { name: 'Blender Executable (blender.exe)', extensions: ['exe'] },
+          { name: 'All Files', extensions: ['*'] },
+        ]
+      : isMac
+        ? [
+            { name: 'Blender Application / Binary', extensions: ['app', '*'] },
+            { name: 'All Files', extensions: ['*'] },
+          ]
+        : [{ name: 'All Files', extensions: ['*'] }];
+
+    const result = win
+      ? await dialog.showOpenDialog(win, {
+          title: 'Select Blender Executable',
+          properties: ['openFile'],
+          filters,
+        })
+      : await dialog.showOpenDialog({
+          title: 'Select Blender Executable',
+          properties: ['openFile'],
+          filters,
+        });
+
+    if (result.canceled || result.filePaths.length === 0) return null;
+    let selected = result.filePaths[0];
+    if (isMac && selected.endsWith('.app')) {
+      const inner = path.join(selected, 'Contents', 'MacOS', 'Blender');
+      if (fs.existsSync(inner)) {
+        selected = inner;
+      }
+    }
+    return selected;
+  });
+
   ipcMain.handle('shell:openPath', async (_event, targetPath: string, blendFilePath?: string) => {
     try {
       await openPathNonBlocking(targetPath, blendFilePath);

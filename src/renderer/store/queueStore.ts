@@ -108,12 +108,17 @@ export interface ScheduleConfigState {
   enabled: boolean;
   time: string;
   blockSleep: boolean;
+  startImmediately?: boolean;
+  stopEnabled?: boolean;
+  stopTime?: string;
+  stopAction?: 'stop_only' | 'shutdown' | 'sleep' | 'close_app';
 }
 
 interface QueueStoreState {
   jobs: QueueJob[];
   blenders: BlenderInstallation[];
   selectedBlenderId: string | null;
+  customBlenderPaths: string[];
   isolatedMode: boolean;
   autoExec: boolean;
   isDraggingOver: boolean;
@@ -264,6 +269,11 @@ interface QueueStoreState {
   resumeFromCrash: () => Promise<void>;
   dismissCrashBanner: () => Promise<void>;
   autoSaveState: () => Promise<void>;
+  addCustomBlender: (
+    pathOrCommand: string,
+  ) => Promise<{ success: boolean; error?: string; blender?: BlenderInstallation }>;
+  removeCustomBlender: (blenderId: string) => Promise<void>;
+  browseAndAddBlender: () => Promise<{ success: boolean; error?: string }>;
 }
 
 function getFileName(filePath: string): string {
@@ -405,6 +415,7 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
   jobs: [],
   blenders: [],
   selectedBlenderId: null,
+  customBlenderPaths: [],
   isolatedMode: false,
   autoExec: false,
   isDraggingOver: false,
@@ -438,6 +449,10 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
     enabled: false,
     time: '23:00',
     blockSleep: true,
+    startImmediately: false,
+    stopEnabled: false,
+    stopTime: '06:00',
+    stopAction: 'shutdown',
   },
   activeSleepBlockId: null,
 
@@ -808,14 +823,23 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
     try {
       get().addLog('Probing system for Blender installations...');
       if (typeof window !== 'undefined' && window.rnApi) {
-        const blenders = await window.rnApi.discoverBlenders();
+        const blenders = await window.rnApi.discoverBlenders(get().customBlenderPaths);
+        const currentSelectedId = get().selectedBlenderId;
+        const validSelectedId =
+          currentSelectedId && blenders.some((b) => b.id === currentSelectedId)
+            ? currentSelectedId
+            : blenders.length > 0
+              ? blenders[0].id
+              : null;
         set({
           blenders,
-          selectedBlenderId: blenders.length > 0 ? blenders[0].id : null,
+          selectedBlenderId: validSelectedId,
         });
         if (blenders.length > 0) {
           get().addLog(
-            `Found ${blenders.length} Blender instance(s). Default: Blender ${blenders[0].version}`,
+            `Found ${blenders.length} Blender instance(s). Active: Blender ${
+              blenders.find((b) => b.id === validSelectedId)?.version || blenders[0].version
+            }`,
           );
         } else {
           get().addLog('Warning: No Blender installations detected on this system.');
@@ -823,6 +847,77 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
       }
     } catch (err) {
       get().addLog(`Error discovering Blender: ${(err as Error).message}`);
+    }
+  },
+
+  addCustomBlender: async (pathOrCommand: string) => {
+    const trimmed = pathOrCommand.trim();
+    if (!trimmed) {
+      return { success: false, error: 'Path cannot be empty' };
+    }
+    if (typeof window === 'undefined' || !window.rnApi) {
+      return { success: false, error: 'API unavailable' };
+    }
+    try {
+      get().addLog(`Validating custom Blender: ${trimmed}...`);
+      const installation = await window.rnApi.validateCustomBlender(trimmed);
+      const currentCustom = get().customBlenderPaths || [];
+      const updatedCustom = currentCustom.includes(trimmed)
+        ? currentCustom
+        : [...currentCustom, trimmed];
+
+      const existing = get().blenders.filter((b) => b.id !== installation.id);
+      const updatedBlenders = [installation, ...existing];
+      set({
+        customBlenderPaths: updatedCustom,
+        blenders: updatedBlenders,
+        selectedBlenderId: installation.id,
+      });
+      get().addLog(
+        `Successfully added Blender ${installation.version} (${installation.displayPath})`,
+      );
+      get().autoSaveState();
+      return { success: true, blender: installation };
+    } catch (err) {
+      const msg = (err as Error).message;
+      get().addLog(`Failed to validate Blender executable: ${msg}`);
+      return { success: false, error: msg };
+    }
+  },
+
+  removeCustomBlender: async (blenderId: string) => {
+    const target = get().blenders.find((b) => b.id === blenderId);
+    if (!target) return;
+    const targetPath = target.executable.join(' ');
+    const updatedCustom = (get().customBlenderPaths || []).filter(
+      (p) => p !== targetPath && p !== target.displayPath,
+    );
+    const updatedBlenders = get().blenders.filter((b) => b.id !== blenderId);
+    set({
+      customBlenderPaths: updatedCustom,
+      blenders: updatedBlenders,
+      selectedBlenderId:
+        get().selectedBlenderId === blenderId
+          ? updatedBlenders[0]?.id || null
+          : get().selectedBlenderId,
+    });
+    get().addLog(`Removed custom Blender: ${target.version} (${target.displayPath})`);
+    get().autoSaveState();
+  },
+
+  browseAndAddBlender: async () => {
+    if (typeof window === 'undefined' || !window.rnApi) {
+      return { success: false, error: 'API unavailable' };
+    }
+    try {
+      const selected = await window.rnApi.selectBlenderExecutable();
+      if (!selected) {
+        return { success: false, error: 'Selection cancelled' };
+      }
+      return await get().addCustomBlender(selected);
+    } catch (err) {
+      const msg = (err as Error).message;
+      return { success: false, error: msg };
     }
   },
 
@@ -1251,9 +1346,10 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
       return;
     }
 
-    // Cancel any active schedule since queue is starting now
-    if (get().scheduleConfig.enabled) {
-      get().cancelSchedule();
+    // If a schedule was set with only start time (no stop time), cancel it now that queue is starting.
+    // If stopEnabled is true, preserve the schedule so the stop trigger continues to monitor IRL time.
+    if (get().scheduleConfig.enabled && !get().scheduleConfig.stopEnabled) {
+      void get().cancelSchedule();
     }
 
     // HARD SAFETY RULE: When queue is manually started in a live session, post-action is ARMED
@@ -1418,8 +1514,16 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
       set({ activeSleepBlockId: null });
     }
     set({ scheduleConfig: config });
-    get().addLog(`One-shot schedule set: start queue at ${config.time}`);
+    const logDetails = config.stopEnabled
+      ? `IRL schedule set: ${
+          config.startImmediately ? 'start immediately' : `start at ${config.time}`
+        } -> stop at ${config.stopTime} (${config.stopAction || 'shutdown'})`
+      : `Schedule set: start queue at ${config.time}`;
+    get().addLog(logDetails);
     get().autoSaveState();
+    if (config.enabled && config.startImmediately && get().queueState === 'idle') {
+      void get().startQueue();
+    }
   },
 
   cancelSchedule: async () => {
@@ -1427,7 +1531,11 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
       await window.rnApi.releaseSleepBlock(get().activeSleepBlockId!);
     }
     set({
-      scheduleConfig: { enabled: false, time: get().scheduleConfig.time, blockSleep: false },
+      scheduleConfig: {
+        ...get().scheduleConfig,
+        enabled: false,
+        blockSleep: false,
+      },
       activeSleepBlockId: null,
     });
     get().addLog('Queue schedule cancelled.');
@@ -1616,6 +1724,7 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
           blockSleepWhileScheduled: globalSettings.blockSleepWhileScheduled,
           minFreeDiskSpaceMb: globalSettings.minFreeDiskSpaceMb,
           defaultCrashPolicy: globalSettings.defaultCrashPolicy,
+          customBlenderPaths: get().customBlenderPaths,
           sound: {
             enabled: !soundSettings.isMuted,
             volume: soundSettings.volume,
@@ -1626,6 +1735,10 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
                 enabled: true,
                 targetTime: scheduleConfig.time,
                 blockSleepWhileWaiting: scheduleConfig.blockSleep,
+                startImmediately: scheduleConfig.startImmediately,
+                stopEnabled: scheduleConfig.stopEnabled,
+                stopTime: scheduleConfig.stopTime,
+                stopAction: scheduleConfig.stopAction,
               }
             : undefined,
         },
@@ -1639,7 +1752,7 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
       return () => {};
     }
 
-    // Check unclean shutdown on startup
+    // Check unclean shutdown and restore custom Blenders on startup
     window.rnApi
       .checkUncleanShutdown()
       .then(({ isUnclean }) => {
@@ -1649,19 +1762,69 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
       })
       .catch(() => {});
 
-    // Scheduler tick check
+    window.rnApi
+      .loadSavedQueue()
+      .then((saved) => {
+        if (saved?.settings) {
+          const customPaths = saved.settings.customBlenderPaths || [];
+          if (customPaths.length > 0) {
+            set({ customBlenderPaths: customPaths });
+            void get().loadBlenders();
+          }
+        }
+      })
+      .catch(() => {});
+
+    // Scheduler tick check (handles start time, IRL timeframe, and stop + shutdown)
     if (scheduleCheckInterval) clearInterval(scheduleCheckInterval);
     scheduleCheckInterval = setInterval(() => {
-      const { scheduleConfig, queueState, startQueue } = get();
-      if (scheduleConfig.enabled && scheduleConfig.time && queueState === 'idle') {
-        const now = new Date();
-        const currentHHMM = `${String(now.getHours()).padStart(2, '0')}:${String(
-          now.getMinutes(),
-        ).padStart(2, '0')}`;
-        if (currentHHMM === scheduleConfig.time) {
-          get().setSchedule({ enabled: false, time: scheduleConfig.time, blockSleep: false });
-          startQueue();
+      const {
+        scheduleConfig,
+        queueState,
+        startQueue,
+        stopQueue,
+        startPostActionCountdown,
+        setPostAction,
+      } = get();
+      if (!scheduleConfig.enabled) return;
+
+      const now = new Date();
+      const currentHHMM = `${String(now.getHours()).padStart(2, '0')}:${String(
+        now.getMinutes(),
+      ).padStart(2, '0')}`;
+
+      // 1. Start trigger (if not running/paused and start time matches)
+      if (
+        !scheduleConfig.startImmediately &&
+        scheduleConfig.time &&
+        queueState === 'idle' &&
+        currentHHMM === scheduleConfig.time
+      ) {
+        get().addLog(`Scheduled start time reached (${scheduleConfig.time}). Starting queue.`);
+        if (!scheduleConfig.stopEnabled) {
+          void get().setSchedule({ ...scheduleConfig, enabled: false, blockSleep: false });
         }
+        void startQueue();
+      }
+
+      // 2. Stop trigger (if queue is active and stop time matches)
+      if (
+        scheduleConfig.stopEnabled &&
+        scheduleConfig.stopTime &&
+        (queueState === 'running' || queueState === 'paused') &&
+        currentHHMM === scheduleConfig.stopTime
+      ) {
+        get().addLog(`Scheduled stop time reached (${scheduleConfig.stopTime}). Stopping queue.`);
+        void get().setSchedule({ ...scheduleConfig, enabled: false, blockSleep: false });
+        void stopQueue().then(() => {
+          const action = scheduleConfig.stopAction || 'shutdown';
+          if (action !== 'stop_only') {
+            get().addLog(`Scheduled post-action triggered: ${action}`);
+            setPostAction(action as PostAction);
+            set({ postActionArmed: true });
+            startPostActionCountdown();
+          }
+        });
       }
     }, 1000);
 

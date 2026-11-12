@@ -100,6 +100,13 @@ export const scheduleConfigSchema = z.object({
   targetTime: z.string().optional(), // "HH:MM"
   targetTimestamp: z.number().optional(),
   blockSleepWhileWaiting: z.boolean().default(true),
+  startImmediately: z.boolean().default(false).optional(),
+  stopEnabled: z.boolean().default(false).optional(),
+  stopTime: z.string().optional(), // "HH:MM"
+  stopAction: z
+    .enum(['stop_only', 'shutdown', 'sleep', 'close_app'])
+    .default('shutdown')
+    .optional(),
 });
 
 export type ScheduleConfig = z.infer<typeof scheduleConfigSchema>;
@@ -130,6 +137,7 @@ export const queueSettingsSchema = z.object({
   blockSleepWhileScheduled: z.boolean().optional(),
   minFreeDiskSpaceMb: z.number().min(0).optional(),
   defaultCrashPolicy: crashPolicySchema.optional(),
+  customBlenderPaths: z.array(z.string()).optional(),
 });
 
 export type QueueSettings = z.infer<typeof queueSettingsSchema>;

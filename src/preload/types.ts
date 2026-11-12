@@ -102,6 +102,7 @@ export interface RenderNightApi {
   openInBlender(executable: string | string[], filePath: string): Promise<boolean>;
   selectBlendFiles(): Promise<string[]>;
   selectDirectory(defaultPath?: string): Promise<string | null>;
+  selectBlenderExecutable(): Promise<string | null>;
   openPath(targetPath: string, blendFilePath?: string): Promise<void>;
 
   // Queue controls & events

@@ -1,4 +1,8 @@
-import { inspectBlend, InspectorError } from '../src/core/blender/inspector';
+import {
+  inspectBlend,
+  InspectorError,
+  resolveInspectScriptPath,
+} from '../src/core/blender/inspector';
 
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -50,5 +54,25 @@ describe('Blender Inspector Bridge', () => {
     await expect(
       inspectBlend('/nonexistent/path/does_not_exist.blend', [process.execPath, mockBlenderPath]),
     ).rejects.toThrow();
+  });
+
+  describe('resolveInspectScriptPath', () => {
+    it('resolves python/inspect_blend.py when present in provided resourcesPath', () => {
+      const mockResources = path.join(tempDir, 'mock-resources');
+      const mockPythonDir = path.join(mockResources, 'python');
+      fs.mkdirSync(mockPythonDir, { recursive: true });
+      const targetScript = path.join(mockPythonDir, 'inspect_blend.py');
+      fs.writeFileSync(targetScript, '# mock script');
+
+      const resolved = resolveInspectScriptPath(mockResources);
+      expect(resolved).toBe(targetScript);
+    });
+
+    it('falls back to local resources/python/inspect_blend.py when resourcesPath does not contain it', () => {
+      const resolved = resolveInspectScriptPath(path.join(tempDir, 'empty-resources'));
+      expect(fs.existsSync(resolved)).toBe(true);
+      expect(resolved).toContain('inspect_blend.py');
+      expect(resolved).not.toContain('app.asar');
+    });
   });
 });

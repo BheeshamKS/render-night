@@ -15,7 +15,7 @@ import { RenderPropertiesTab } from './RenderPropertiesTab';
 
 import React, { useEffect, useMemo, useRef } from 'react';
 
-import { RefreshCw, RotateCcw, Sliders, X } from 'lucide-react';
+import { FolderOpen, RefreshCw, RotateCcw, Sliders, X } from 'lucide-react';
 
 export interface JobEditorDrawerProps {
   job: QueueJob;
@@ -429,6 +429,42 @@ export const JobEditorDrawer: React.FC<JobEditorDrawerProps> = ({ job, onClose }
               isOverridden={fileFormatProp.isOverridden}
               onChange={(val) => fileFormatProp.setValue(val)}
             />
+          </PanelRow>
+
+          {/* 9. Output Destination */}
+          <PanelRow label="Output Destination">
+            <div className="flex items-center space-x-1.5 w-full">
+              <input
+                type="text"
+                value={job.outputPathPattern || ''}
+                onChange={(e) => updateJob(job.id, { outputPathPattern: e.target.value })}
+                className="flex-1 rounded border border-rn-border bg-rn-input px-2 py-0.5 text-xs font-mono text-rn-text outline-none focus:border-rn-accent"
+                title={job.outputPreview || job.outputPathPattern}
+              />
+              <button
+                type="button"
+                onClick={async () => {
+                  if (typeof window === 'undefined' || !window.rnApi) return;
+                  const selected = await window.rnApi.selectDirectory(job.outputPathPattern);
+                  if (selected) {
+                    const cur = (job.outputPathPattern || '').trim();
+                    const lastSlash = Math.max(cur.lastIndexOf('/'), cur.lastIndexOf('\\'));
+                    let filePart = lastSlash !== -1 ? cur.slice(lastSlash + 1) : '';
+                    if (!filePart || (!filePart.includes('#') && !filePart.includes('.'))) {
+                      filePart = '{project}_{scene}_{camera}_####.png';
+                    }
+                    const normalizedSep = selected.includes('\\') ? '\\' : '/';
+                    const newPattern = `${selected.replace(/[/\\]+$/, '')}${normalizedSep}${filePart}`;
+                    updateJob(job.id, { outputPathPattern: newPattern });
+                  }
+                }}
+                className="flex items-center space-x-1 rounded border border-rn-border bg-rn-subpanel px-2 py-0.5 text-xs font-medium text-rn-text hover:bg-rn-accent hover:text-[#0f0f10] transition flex-shrink-0"
+                title="Select destination folder"
+              >
+                <FolderOpen className="h-3 w-3" />
+                <span>Browse...</span>
+              </button>
+            </div>
           </PanelRow>
         </CollapsiblePanel>
 

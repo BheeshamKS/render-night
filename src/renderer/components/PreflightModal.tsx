@@ -6,6 +6,7 @@ import {
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
+  FolderOpen,
   Play,
   ShieldAlert,
   ShieldCheck,
@@ -20,6 +21,8 @@ export const PreflightModal: React.FC = () => {
     preflightTargetJobId,
     closePreflightModal,
     applyQuickFix,
+    browseAndAddBlender,
+    runPreflightCheck,
     startQueue,
   } = useQueueStore();
 
@@ -151,6 +154,21 @@ export const PreflightModal: React.FC = () => {
                             <AlertCircle className="h-3.5 w-3.5 text-rn-error flex-shrink-0 mt-0.5" />
                             <span>{err.message}</span>
                           </div>
+                          {err.code === 'BLENDER_NOT_FOUND' && (
+                            <button
+                              onClick={async () => {
+                                const res = await browseAndAddBlender();
+                                if (res.success) {
+                                  await runPreflightCheck(preflightTargetJobId || undefined);
+                                }
+                              }}
+                              className="flex items-center space-x-1 rounded-md bg-rn-accent px-2.5 py-0.5 text-[11px] font-semibold text-[#0f0f10] hover:brightness-110 active:brightness-95 flex-shrink-0"
+                              title="Locate Blender executable on disk"
+                            >
+                              <FolderOpen className="h-3 w-3" />
+                              <span>Locate Blender...</span>
+                            </button>
+                          )}
                           {err.quickFix && (
                             <button
                               onClick={() => applyQuickFix(err)}

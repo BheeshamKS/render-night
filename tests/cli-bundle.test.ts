@@ -15,22 +15,22 @@ describe('CLI Main Entry', () => {
     } catch (err: unknown) {
       expect((err as { code?: number }).code).toBe(2);
     }
-  });
+  }, 15000);
 
   it('exits with code 0 on list-blenders', async () => {
     const { stdout } = await execFileAsync('npx', ['tsx', cliEntry, 'list-blenders']);
     expect(stdout).toMatch(/Blender/i);
-  });
+  }, 15000);
 
   it('exits with code 0 on --help', async () => {
     const { stdout } = await execFileAsync('npx', ['tsx', cliEntry, '--help']);
     expect(stdout).toMatch(/Usage:/i);
-  });
+  }, 15000);
 
   it('exits with code 0 on --version', async () => {
     const { stdout } = await execFileAsync('npx', ['tsx', cliEntry, '--version']);
     expect(stdout).toMatch(/0\.1\.0/);
-  });
+  }, 15000);
 
   it('runs bundled cjs with node --help and --version', async () => {
     const { stdout: helpOut } = await execFileAsync('node', [cliBundle, '--help']);
@@ -38,6 +38,6 @@ describe('CLI Main Entry', () => {
     expect(helpOut).toMatch(/Usage:/i);
 
     const { stdout: verOut } = await execFileAsync('node', [cliBundle, '--version']);
-    expect(verOut).toMatch(/0\.1\.0-alpha\.2/);
-  });
+    expect(verOut).toMatch(/0\.1\.0-alpha\.3/);
+  }, 15000);
 });

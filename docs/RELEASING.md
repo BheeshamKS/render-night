@@ -10,12 +10,12 @@ Render Night uses `electron-builder` to produce verified release binaries for Wi
 
 | Platform | Format / Target | Architecture | Output File Pattern |
 |:---|:---|:---|:---|
-| **Windows** | NSIS Installer | `x64` | `release/Render Night Setup 0.1.0-alpha.2.exe` |
-| **Windows** | Portable Executable | `x64` | `release/Render Night 0.1.0-alpha.2.exe` |
-| **macOS** | Apple Disk Image (`.dmg`) | `arm64` | `release/Render Night-0.1.0-alpha.2-arm64.dmg` |
-| **macOS** | Apple Disk Image (`.dmg`) | `x64` | `release/Render Night-0.1.0-alpha.2.dmg` |
-| **Linux** | AppImage | `x64` | `release/Render-Night-0.1.0-alpha.2.AppImage` |
-| **Linux** | Debian Package (`.deb`) | `x64` | `release/render-night_0.1.0-alpha.2_amd64.deb` |
+| **Windows** | NSIS Installer | `x64` | `release/Render Night Setup 0.1.0-alpha.3.exe` |
+| **Windows** | Portable Executable | `x64` | `release/Render Night 0.1.0-alpha.3.exe` |
+| **macOS** | Apple Disk Image (`.dmg`) | `arm64` | `release/Render Night-0.1.0-alpha.3-arm64.dmg` |
+| **macOS** | Apple Disk Image (`.dmg`) | `x64` | `release/Render Night-0.1.0-alpha.3.dmg` |
+| **Linux** | AppImage | `x64` | `release/Render-Night-0.1.0-alpha.3.AppImage` |
+| **Linux** | Debian Package (`.deb`) | `x64` | `release/render-night_0.1.0-alpha.3_amd64.deb` |
 
 > [!NOTE]
 > Per project specification, Linux packaging produces **AppImage + deb ONLY**. No `.tar.gz` archive is distributed.
@@ -110,7 +110,7 @@ npm run dist:mac     # DMG arm64 + x64 (macOS)
 ## 4. GitHub Actions CI/CD Release Workflow
 
 Releases are automated via `.github/workflows/release.yml`:
-1. Push a git tag matching `v*` (e.g., `git push origin v0.1.0-alpha.2`).
+1. Push a git tag matching `v*` (e.g., `git push origin v0.1.0-alpha.3`).
 2. The `verify` job runs `npm run lint`, `npm run typecheck`, `npm run build`, and `npm test`.
 3. GitHub Actions executes a matrix build across:
    - `windows-latest` $\to$ builds NSIS + Portable

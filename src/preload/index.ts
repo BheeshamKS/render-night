@@ -44,6 +44,10 @@ const api: RenderNightApi = {
     return ipcRenderer.invoke('dialog:selectDirectory', defaultPath);
   },
 
+  selectBlenderExecutable: (): Promise<string | null> => {
+    return ipcRenderer.invoke('dialog:selectBlenderExecutable');
+  },
+
   openPath: (targetPath: string, blendFilePath?: string): Promise<void> => {
     return ipcRenderer.invoke('shell:openPath', targetPath, blendFilePath);
   },
