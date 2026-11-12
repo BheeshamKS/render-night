@@ -32,6 +32,7 @@ npx night-render --queue queue.json
 ```bash
 night-render --queue <queue.json> [options]
 ```
+> **Tip:** You can export queues directly from the Render Night desktop app via `Ctrl+Shift+S` or the Toolbar menu ("Export Queue..."). These exported `.rnqueue.json` files can be passed directly to `night-render --queue`.
 
 **Options:**
 - `--blender <path|version|latest>`: Choose Blender executable. Accepts:

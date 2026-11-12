@@ -42,10 +42,14 @@ Render Night enables seamless background batch rendering for Blender. It operate
 - **Pre-flight Validation & Quick Fixes:**
   - Pre-render validation detecting missing textures/assets, unwritable paths, low disk space, missing cameras, newer file versions, and video range violations.
   - One-click quick fixes (e.g., switch to continuous range, switch compute device to CPU).
-- **Image Sequence Tools:**
+- **Image Sequence Tools & Sequence Player:**
   - Dedicated viewer tab: detect frame sequences, scrub timeline at custom fps, preview missing frame gaps.
+  - In/Out loop range marks (`I`, `O`, `Alt+X`) and playback speed multipliers (`0.25x`, `0.5x`, `1x`, `2x`).
   - Converter & stitcher: transcode image sequences to MP4 (H.264/H.265), WebM, or ProRes with resolution, quality, and audio muxing.
   - *Stitch to MP4 when finished* post-render job option.
+- **Queue Export & Import (`.rnqueue.json` / `.json`):**
+  - Export and import render queues directly from the UI (`Ctrl+Shift+S`, `Ctrl+Shift+O`).
+  - Seamlessly bridges the GUI and the headless `night-render` CLI—any exported queue can be run immediately via CLI.
 - **Headless CLI (`night-render`):**
   - Zero Electron dependencies; pure Node engine sharing `src/core`.
   - Full parity: runs pre-flight checks, crash recovery, sleep blocker, and safe post-actions.
