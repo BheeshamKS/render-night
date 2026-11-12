@@ -95,10 +95,15 @@ export function probeBlender(
     }
   }
 
+  // If candidate is a JavaScript tool/script (e.g. tools/mock-blender/index.js), run it with Node.js
+  const isJs = cmd.endsWith('.js') || cmd.endsWith('.mjs') || cmd.endsWith('.cjs');
+  const execCmd = isJs ? process.execPath : cmd;
+  const execArgs = isJs ? [cmd, ...args, '--version'] : [...args, '--version'];
+
   return new Promise((resolve, reject) => {
     execFile(
-      cmd,
-      [...args, '--version'],
+      execCmd,
+      execArgs,
       { timeout: 15_000, maxBuffer: 2 * 1024 * 1024 },
       (err, stdout, stderr) => {
         if (err) {

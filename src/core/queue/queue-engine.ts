@@ -371,6 +371,11 @@ export class QueueEngine extends EventEmitter {
         spawnArgs = execArgs;
       }
 
+      if (bin.endsWith('.js') || bin.endsWith('.mjs') || bin.endsWith('.cjs')) {
+        spawnArgs = [bin, ...spawnArgs];
+        bin = process.execPath;
+      }
+
       const stderrLines: string[] = [];
       let lastCompletedFrame: number | null = null;
       let processExitCode: number | null = null;

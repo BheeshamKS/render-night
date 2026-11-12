@@ -96,9 +96,12 @@ export async function inspectBlend(
 
   const argv = Array.isArray(blenderExecutable) ? [...blenderExecutable] : [blenderExecutable];
   const [cmd, ...baseArgs] = argv;
+  const isJs = cmd.endsWith('.js') || cmd.endsWith('.mjs') || cmd.endsWith('.cjs');
+  const execCmd = isJs ? process.execPath : cmd;
+  const initialArgs = isJs ? [cmd, ...baseArgs] : baseArgs;
 
   // Build command: blender -b "<file>" [--factory-startup] [--enable-autoexec | --disable-autoexec] -P inspect_blend.py -- <out.json>
-  const args: string[] = [...baseArgs, '-b', resolvedBlendPath];
+  const args: string[] = [...initialArgs, '-b', resolvedBlendPath];
 
   if (options.isolatedMode) {
     args.push('--factory-startup');
@@ -119,7 +122,7 @@ export async function inspectBlend(
     let stderr = '';
 
     const child = execFile(
-      cmd,
+      execCmd,
       args,
       {
         timeout: timeoutMs,
