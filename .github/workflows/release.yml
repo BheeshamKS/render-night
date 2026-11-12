@@ -45,14 +45,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+        os: [windows-latest, ubuntu-latest]
         include:
           - os: windows-latest
             artifact_name: windows
             dist_script: dist:win
-          - os: macos-latest
-            artifact_name: macos
-            dist_script: dist:mac
           - os: ubuntu-latest
             artifact_name: linux
             dist_script: dist:linux

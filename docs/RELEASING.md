@@ -8,17 +8,17 @@ This document specifies the distribution packaging targets, build procedures, an
 
 Render Night uses `electron-builder` to produce verified release binaries for Windows, macOS, and Linux:
 
-| Platform | Format / Target | Architecture | Output File Pattern |
-|:---|:---|:---|:---|
-| **Windows** | NSIS Installer | `x64` | `release/Render Night Setup 0.1.0-alpha.3.exe` |
-| **Windows** | Portable Executable | `x64` | `release/Render Night 0.1.0-alpha.3.exe` |
-| **macOS** | Apple Disk Image (`.dmg`) | `arm64` | `release/Render Night-0.1.0-alpha.3-arm64.dmg` |
-| **macOS** | Apple Disk Image (`.dmg`) | `x64` | `release/Render Night-0.1.0-alpha.3.dmg` |
-| **Linux** | AppImage | `x64` | `release/Render-Night-0.1.0-alpha.3.AppImage` |
-| **Linux** | Debian Package (`.deb`) | `x64` | `release/render-night_0.1.0-alpha.3_amd64.deb` |
+| Platform | Format / Target | Architecture | Output File Pattern | Distribution Channel |
+|:---|:---|:---|:---|:---|
+| **Windows** | NSIS Installer | `x64` | `release/Render Night Setup 0.1.0-alpha.3.exe` | GitHub Release (Automated) |
+| **Windows** | Portable Executable | `x64` | `release/Render Night 0.1.0-alpha.3.exe` | GitHub Release (Automated) |
+| **Linux** | AppImage | `x64` | `release/Render-Night-0.1.0-alpha.3.AppImage` | GitHub Release (Automated) |
+| **Linux** | Debian Package (`.deb`) | `x64` | `release/render-night_0.1.0-alpha.3_amd64.deb` | GitHub Release (Automated) |
+| **macOS** | Apple Disk Image (`.dmg`) | `arm64` / `x64` | `release/Render Night-0.1.0-alpha.3*.dmg` | Local Build (`npm run dist:mac`) |
 
 > [!NOTE]
 > Per project specification, Linux packaging produces **AppImage + deb ONLY**. No `.tar.gz` archive is distributed.
+> Automated macOS packaging in GitHub Actions is skipped; macOS users compile locally via `npm run dist:mac`.
 
 ---
 
@@ -114,6 +114,6 @@ Releases are automated via `.github/workflows/release.yml`:
 2. The `verify` job runs `npm run lint`, `npm run typecheck`, `npm run build`, and `npm test`.
 3. GitHub Actions executes a matrix build across:
    - `windows-latest` $\to$ builds NSIS + Portable
-   - `macos-latest` $\to$ builds DMG (arm64 + x64)
    - `ubuntu-latest` $\to$ builds AppImage + deb
+   *(macOS packages are compiled locally using `npm run dist:mac`)*
 4. The `release` job aggregates all installers and publishes the GitHub Release (marked as Pre-release for `-alpha` tags) with generated release notes.

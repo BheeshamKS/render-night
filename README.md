@@ -71,23 +71,48 @@ Render Night supports:
 
 ## Installation & Distribution Packages
 
-Releases are built for Windows, macOS, and Linux:
+Automated release packages are built for Windows and Linux:
 
 | OS | Distribution Format | Architecture | Notes |
 |:---|:---|:---|:---|
 | **Windows** | NSIS Installer (`.exe`) | `x64` | Standard installer; runs as non-admin (`asInvoker`). |
 | **Windows** | Portable (`.exe`) | `x64` | Standalone portable executable. |
-| **macOS** | DMG (`.dmg`) | `arm64` (Apple Silicon) + `x64` (Intel) | Drag-and-drop `.app` bundle. |
 | **Linux** | AppImage (`.AppImage`) | `x64` | Standalone executable (`chmod +x`). |
 | **Linux** | Debian (`.deb`) | `x64` | Installs system desktop entry under `Graphics`. |
+| **macOS** | Source Compilation | `arm64` / `x64` | Build locally from source (see instructions below). |
 
-### macOS Unsigned Alpha Notice (Gatekeeper Workaround)
+### Building for macOS from Source
 
-Render Night alpha builds are currently unsigned. When opening for the first time on macOS:
-1. Locate `Render Night.app` in `/Applications` using Finder.
+Pre-built macOS releases are currently skipped in automated GitHub Actions releases. macOS users can compile and package Render Night locally in three simple steps:
+
+```bash
+# 1. Clone the repository and enter the directory
+git clone https://github.com/BheeshamKS/render-night.git
+cd render-night
+
+# 2. Install dependencies (Node.js 20+ required)
+npm ci
+
+# 3. Build and package the macOS DMG (.dmg) and .app bundle
+npm run dist:mac
+```
+
+The compiled disk image will be generated in `release/`:
+- **Apple Silicon (M1/M2/M3/M4)**: `release/Render Night-<version>-arm64.dmg`
+- **Intel**: `release/Render Night-<version>.dmg`
+
+To run the application directly without packaging into a DMG:
+```bash
+npm run dev
+```
+
+#### macOS Unsigned App Launch (Gatekeeper Workaround)
+
+When opening locally built or unpackaged builds for the first time on macOS:
+1. Locate `Render Night.app` in `/Applications` or `release/mac` in Finder.
 2. **Right-click** (or Control-click) the application and select **Open**.
 3. In the security confirmation dialog, click **Open**.
-4. Subsequent launches can be performed normally from Spotlight or Launchpad without prompts.
+4. Subsequent launches can be performed normally from Spotlight or Launchpad.
 
 ---
 

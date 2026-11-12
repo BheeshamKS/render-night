@@ -27,6 +27,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added automated post-render action selector (`shutdown`, `sleep`, `close_app`, or `stop_only`) with countdown dialog arming and cancellation support.
   - Added active schedule timeframe pill indicator (`HH:MM → HH:MM`) in the top toolbar.
 
+### Changed
+- **CI/CD Distribution & macOS Notice:**
+  - Automated GitHub Actions releases now package Windows (`.exe` NSIS installer + Portable) and Linux (`.AppImage` + `.deb`) directly.
+  - Automated macOS release builds are skipped in CI/CD. macOS users can compile and package locally from source using `npm run dist:mac` as described in the `README.md`.
+
 ---
 
 ## [0.1.0-alpha.2] - 2026-11-12
