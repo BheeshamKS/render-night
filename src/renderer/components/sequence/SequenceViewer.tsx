@@ -14,6 +14,7 @@ import {
   RotateCcw,
   SkipBack,
   SkipForward,
+  X,
 } from 'lucide-react';
 
 export interface SequenceViewerProps {
@@ -30,7 +31,10 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
   const [currentFrame, setCurrentFrame] = useState<number>(sequence?.startFrame || 1);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [fps, setFps] = useState<number>(24);
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [loop, setLoop] = useState<boolean>(true);
+  const [inPoint, setInPoint] = useState<number | null>(null);
+  const [outPoint, setOutPoint] = useState<number | null>(null);
   const [proxyUrl, setProxyUrl] = useState<string | null>(null);
   const [proxyError, setProxyError] = useState<string | null>(null);
   const [isLoadingProxy, setIsLoadingProxy] = useState<boolean>(false);
@@ -42,6 +46,8 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
       setCurrentFrame(sequence.startFrame);
       setIsPlaying(false);
       setProxyError(null);
+      setInPoint(null);
+      setOutPoint(null);
     }
   }, [sequence]);
 
@@ -115,6 +121,32 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
     }
   }, [currentFrame, sequence, loop]);
 
+  const effectiveStart =
+    inPoint !== null && sequence && inPoint >= sequence.startFrame
+      ? inPoint
+      : sequence?.startFrame || 1;
+  const effectiveEnd =
+    outPoint !== null && sequence && outPoint <= sequence.endFrame
+      ? outPoint
+      : sequence?.endFrame || 100;
+
+  const handleSetInPoint = useCallback(() => {
+    if (!sequence) return;
+    const maxAllowed = outPoint ?? sequence.endFrame;
+    setInPoint(Math.min(currentFrame, maxAllowed));
+  }, [currentFrame, sequence, outPoint]);
+
+  const handleSetOutPoint = useCallback(() => {
+    if (!sequence) return;
+    const minAllowed = inPoint ?? sequence.startFrame;
+    setOutPoint(Math.max(currentFrame, minAllowed));
+  }, [currentFrame, sequence, inPoint]);
+
+  const handleClearInOut = useCallback(() => {
+    setInPoint(null);
+    setOutPoint(null);
+  }, []);
+
   // Step frame helper
   const handleStep = useCallback(
     (delta: number) => {
@@ -128,7 +160,7 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
     [sequence],
   );
 
-  // Playback timer
+  // Playback timer with speed multiplier and In/Out looping
   const playTimerRef = useRef<NodeJS.Timeout | null>(null);
   useEffect(() => {
     if (!isPlaying || !sequence) {
@@ -136,11 +168,11 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
       return;
     }
 
-    const intervalMs = Math.max(10, Math.round(1000 / fps));
+    const intervalMs = Math.max(10, Math.round(1000 / (fps * playbackSpeed)));
     playTimerRef.current = setInterval(() => {
       setCurrentFrame((prev) => {
-        if (prev >= sequence.endFrame) {
-          if (loop) return sequence.startFrame;
+        if (prev >= effectiveEnd) {
+          if (loop) return effectiveStart;
           setIsPlaying(false);
           return prev;
         }
@@ -151,7 +183,7 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
     return () => {
       if (playTimerRef.current) clearInterval(playTimerRef.current);
     };
-  }, [isPlaying, fps, loop, sequence]);
+  }, [isPlaying, fps, playbackSpeed, loop, sequence, effectiveStart, effectiveEnd]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -174,20 +206,37 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
       } else if (e.code === 'Home') {
         e.preventDefault();
         setIsPlaying(false);
-        setCurrentFrame(sequence.startFrame);
+        setCurrentFrame(effectiveStart);
       } else if (e.code === 'End') {
         e.preventDefault();
         setIsPlaying(false);
-        setCurrentFrame(sequence.endFrame);
+        setCurrentFrame(effectiveEnd);
       } else if (e.code === 'KeyL') {
         e.preventDefault();
         setLoop((l) => !l);
+      } else if (e.code === 'KeyI') {
+        e.preventDefault();
+        handleSetInPoint();
+      } else if (e.code === 'KeyO') {
+        e.preventDefault();
+        handleSetOutPoint();
+      } else if (e.code === 'KeyX' && (e.altKey || e.metaKey)) {
+        e.preventDefault();
+        handleClearInOut();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [sequence, handleStep]);
+  }, [
+    sequence,
+    handleStep,
+    effectiveStart,
+    effectiveEnd,
+    handleSetInPoint,
+    handleSetOutPoint,
+    handleClearInOut,
+  ]);
 
   const handleOpenFolder = async () => {
     if (typeof window !== 'undefined' && window.rnApi) {
@@ -466,14 +515,76 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
             >
               <RotateCcw className="w-4 h-4" />
             </button>
+
+            <div className="h-4 w-px bg-rn-border mx-1" />
+
+            {/* In / Out Points */}
+            <div className="flex items-center space-x-1">
+              <button
+                onClick={handleSetInPoint}
+                disabled={!sequence || isStill}
+                className={`px-1.5 py-0.5 rounded text-[11px] font-mono transition ${
+                  inPoint !== null
+                    ? 'bg-rn-accent/20 text-rn-accent border border-rn-accent/40 font-semibold'
+                    : 'text-rn-muted hover:text-rn-text hover:bg-rn-subpanel border border-rn-border/50'
+                } disabled:opacity-30`}
+                title="Set In Point (I)"
+              >
+                In{inPoint !== null ? ` ${inPoint}` : ''}
+              </button>
+
+              <button
+                onClick={handleSetOutPoint}
+                disabled={!sequence || isStill}
+                className={`px-1.5 py-0.5 rounded text-[11px] font-mono transition ${
+                  outPoint !== null
+                    ? 'bg-rn-accent/20 text-rn-accent border border-rn-accent/40 font-semibold'
+                    : 'text-rn-muted hover:text-rn-text hover:bg-rn-subpanel border border-rn-border/50'
+                } disabled:opacity-30`}
+                title="Set Out Point (O)"
+              >
+                Out{outPoint !== null ? ` ${outPoint}` : ''}
+              </button>
+
+              {(inPoint !== null || outPoint !== null) && (
+                <button
+                  onClick={handleClearInOut}
+                  className="p-1 rounded text-rn-muted hover:text-rn-text hover:bg-rn-subpanel transition"
+                  title="Clear In/Out Points (Alt+X)"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* Right Transport: FPS Selection & Keyboard Hints */}
+          {/* Right Transport: Speed, FPS Selection & Keyboard Hints */}
           <div className="flex items-center space-x-3 text-xs">
             <div className="hidden sm:flex items-center space-x-1 text-[10px] text-rn-muted font-mono">
               <span>[Space] Play</span>
               <span>·</span>
               <span>[←/→] Step</span>
+            </div>
+
+            {/* Speed Selection */}
+            <div className="flex items-center space-x-1.5">
+              <span className="text-rn-muted text-[11px]">Speed:</span>
+              <div className="flex items-center space-x-0.5 bg-rn-input p-0.5 rounded-md border border-rn-border">
+                {[0.25, 0.5, 1, 2].map((spd) => (
+                  <button
+                    key={spd}
+                    onClick={() => setPlaybackSpeed(spd)}
+                    disabled={isStill}
+                    className={`px-1.5 py-0.5 rounded text-[11px] font-mono tabular-nums transition ${
+                      playbackSpeed === spd
+                        ? 'bg-rn-accent text-[#0f0f10] font-semibold'
+                        : 'text-rn-muted hover:text-rn-text'
+                    } disabled:opacity-40`}
+                  >
+                    {spd}x
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="flex items-center space-x-1.5">

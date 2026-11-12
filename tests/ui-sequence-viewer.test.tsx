@@ -41,4 +41,28 @@ describe('SequenceViewer UI', () => {
     expect(screen.getByText(/Missing 1 frame/i)).toBeDefined();
     expect(screen.getByText(/Frame 1 \/ 5/i)).toBeDefined();
   });
+
+  it('renders In/Out point controls and playback speed buttons', () => {
+    const mockSeq = {
+      directory: '/renders',
+      baseName: 'render_',
+      extension: 'png',
+      pattern: '/renders/render_%04d.png',
+      padding: 4,
+      startFrame: 10,
+      endFrame: 50,
+      totalFrames: 41,
+      frames: Array.from({ length: 41 }, (_, i) => 10 + i),
+      filePaths: {},
+      missingFrames: [],
+      isNativeFormat: true,
+    };
+
+    render(<SequenceViewer sequence={mockSeq} onSelectSequence={() => {}} />);
+    expect(screen.getByTitle(/Set In Point/i)).toBeDefined();
+    expect(screen.getByTitle(/Set Out Point/i)).toBeDefined();
+    expect(screen.getByText(/Speed:/i)).toBeDefined();
+    expect(screen.getByText(/0\.5x/i)).toBeDefined();
+    expect(screen.getByText(/2x/i)).toBeDefined();
+  });
 });
