@@ -221,6 +221,12 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
 
   const handlePreview = async () => {
     const target = job.outputPreview || job.outputPathPattern;
+    if (job.isVideo) {
+      if (typeof window !== 'undefined' && window.rnApi) {
+        await window.rnApi.openPath(target, job.filePath);
+      }
+      return;
+    }
     await loadSequenceFromPath(target, job.filePath);
   };
 

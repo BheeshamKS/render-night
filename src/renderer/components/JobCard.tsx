@@ -100,9 +100,7 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
 
   const handleOpenOutputFolder = async () => {
     if (typeof window !== 'undefined' && window.rnApi) {
-      const preview = job.outputPreview;
-      const folder = preview.replace(/[/\\][^/\\]+$/, '');
-      await window.rnApi.openPath(folder);
+      await window.rnApi.openPath(job.outputPreview || job.outputPathPattern, job.filePath);
     }
   };
 

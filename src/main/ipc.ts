@@ -70,6 +70,74 @@ async function openPathNonBlocking(targetPath: string, blendFilePath?: string): 
 
   if (!existingPath) return;
 
+  if (process.platform === 'win32') {
+    const winPath = path.win32.normalize(existingPath);
+    const args = isFile ? [`/select,${winPath}`] : [winPath];
+    try {
+      const child = spawn('explorer.exe', args, {
+        detached: true,
+        stdio: 'ignore',
+      });
+      child.on('error', () => {
+        if (isFile) {
+          try {
+            shell.showItemInFolder(existingPath);
+          } catch {
+            void shell.openPath(path.dirname(existingPath)).catch(() => {});
+          }
+        } else {
+          void shell.openPath(existingPath).catch(() => {});
+        }
+      });
+      child.unref();
+      return;
+    } catch {
+      if (isFile) {
+        try {
+          shell.showItemInFolder(existingPath);
+        } catch {
+          void shell.openPath(path.dirname(existingPath)).catch(() => {});
+        }
+      } else {
+        void shell.openPath(existingPath).catch(() => {});
+      }
+      return;
+    }
+  }
+
+  if (process.platform === 'darwin') {
+    const args = isFile ? ['-R', existingPath] : [existingPath];
+    try {
+      const child = spawn('open', args, {
+        detached: true,
+        stdio: 'ignore',
+      });
+      child.on('error', () => {
+        void shell.openPath(existingPath).catch(() => {});
+      });
+      child.unref();
+      return;
+    } catch {
+      void shell.openPath(existingPath).catch(() => {});
+      return;
+    }
+  }
+
+  if (process.platform === 'linux') {
+    const targetToOpen = isFile ? path.dirname(existingPath) : existingPath;
+    const child = spawn('xdg-open', [targetToOpen], {
+      detached: true,
+      stdio: 'ignore',
+      env: buildSanitizedDesktopEnv(),
+    });
+    child.on('error', () => {
+      // Fallback only if xdg-open binary is unavailable
+      void shell.openPath(targetToOpen).catch(() => {});
+    });
+    child.unref();
+    return;
+  }
+
   if (isFile) {
     try {
       shell.showItemInFolder(existingPath);
@@ -77,20 +145,6 @@ async function openPathNonBlocking(targetPath: string, blendFilePath?: string): 
     } catch {
       existingPath = path.dirname(existingPath);
     }
-  }
-
-  if (process.platform === 'linux') {
-    const child = spawn('xdg-open', [existingPath], {
-      detached: true,
-      stdio: 'ignore',
-      env: buildSanitizedDesktopEnv(),
-    });
-    child.on('error', () => {
-      // Fallback only if xdg-open binary is unavailable
-      void shell.openPath(existingPath).catch(() => {});
-    });
-    child.unref();
-    return;
   }
 
   await Promise.race([

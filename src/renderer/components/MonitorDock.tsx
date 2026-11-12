@@ -1,4 +1,5 @@
 import { useQueueStore } from '../store/queueStore';
+import { toFileUrl } from '../utils/url';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -388,7 +389,7 @@ export const MonitorDock: React.FC = () => {
               >
                 {monitorStats.lastThumbnailPath && !thumbFailed ? (
                   <img
-                    src={encodeURI(`file://${monitorStats.lastThumbnailPath}`).replace(/#/g, '%23')}
+                    src={toFileUrl(monitorStats.lastThumbnailPath)}
                     alt="Last Rendered Frame"
                     className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
                     onError={() => setThumbFailed(true)}
@@ -558,7 +559,7 @@ export const MonitorDock: React.FC = () => {
               >
                 {monitorStats.lastThumbnailPath && !thumbFailed ? (
                   <img
-                    src={encodeURI(`file://${monitorStats.lastThumbnailPath}`).replace(/#/g, '%23')}
+                    src={toFileUrl(monitorStats.lastThumbnailPath)}
                     alt="Last Rendered Frame"
                     className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
                     onError={() => setThumbFailed(true)}

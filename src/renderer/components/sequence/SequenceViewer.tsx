@@ -1,4 +1,5 @@
 import type { ImageSequenceInfo } from '../../../core/schemas/sequence';
+import { toFileUrl } from '../../utils/url';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -59,7 +60,7 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
     }
 
     if (sequence.isNativeFormat) {
-      setProxyUrl(encodeURI(`file://${currentFilePath}`).replace(/#/g, '%23'));
+      setProxyUrl(toFileUrl(currentFilePath));
       setProxyError(null);
       return;
     }
@@ -73,7 +74,7 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
           if (!isCancelled) {
             setIsLoadingProxy(false);
             if (res.proxyPath) {
-              setProxyUrl(`file://${res.proxyPath}`);
+              setProxyUrl(toFileUrl(res.proxyPath));
               setProxyError(null);
             } else {
               setProxyUrl(null);
@@ -109,7 +110,7 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
       const p = sequence.filePaths[f];
       if (p) {
         const img = new Image();
-        img.src = `file://${p}`;
+        img.src = toFileUrl(p);
       }
     }
   }, [currentFrame, sequence, loop]);
