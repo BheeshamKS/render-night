@@ -17,7 +17,7 @@ export const CopyPasteOverridesModal: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 select-none">
-      <div className="w-full max-w-lg rounded border border-rn-border bg-rn-panel shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+      <div className="w-full max-w-lg rounded-xl border border-rn-border bg-rn-panel shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-rn-border bg-rn-subpanel px-4 py-2.5">
           <div className="flex items-center space-x-2">
@@ -25,7 +25,7 @@ export const CopyPasteOverridesModal: React.FC = () => {
               Overrides Applied to {reports.length} Job{reports.length === 1 ? '' : 's'}
             </span>
             {totalSkipped > 0 && (
-              <span className="flex items-center space-x-1 rounded bg-yellow-500/20 px-2 py-0.5 text-xs text-yellow-400">
+              <span className="flex items-center space-x-1 rounded bg-rn-warning/15 border border-rn-warning/35 px-2 py-0.5 text-xs text-rn-warning font-medium">
                 <AlertTriangle className="w-3 h-3" />
                 <span>{totalSkipped} skipped</span>
               </span>
@@ -35,6 +35,7 @@ export const CopyPasteOverridesModal: React.FC = () => {
             type="button"
             onClick={closePasteReportModal}
             className="p-1 rounded text-rn-muted hover:bg-rn-panel hover:text-rn-text transition"
+            title="Close"
           >
             <X className="w-4 h-4" />
           </button>
@@ -44,13 +45,13 @@ export const CopyPasteOverridesModal: React.FC = () => {
         <div className="p-4 overflow-y-auto space-y-3 flex-1 text-xs">
           <div className="text-rn-muted">
             Total {totalApplied} override{totalApplied === 1 ? '' : 's'} applied across{' '}
-            {reports.length} job(s).
+            {reports.length} job{reports.length === 1 ? '' : 's'}.
           </div>
 
           {reports.map((report) => (
             <div
               key={report.jobId}
-              className="rounded border border-rn-border bg-rn-subpanel/50 p-3 space-y-2"
+              className="rounded-lg border border-rn-border bg-rn-subpanel/50 p-3 space-y-2"
             >
               <div className="font-medium text-rn-text flex items-center justify-between">
                 <span>{report.jobName}</span>
@@ -64,7 +65,7 @@ export const CopyPasteOverridesModal: React.FC = () => {
               {report.applied.length > 0 && (
                 <div className="space-y-1">
                   <div className="text-[10px] text-rn-muted flex items-center space-x-1">
-                    <CheckCircle className="w-3 h-3 text-green-400" />
+                    <CheckCircle className="w-3 h-3 text-rn-success" />
                     <span>Applied Properties:</span>
                   </div>
                   <div className="flex flex-wrap gap-1 font-mono text-[11px]">
@@ -83,7 +84,7 @@ export const CopyPasteOverridesModal: React.FC = () => {
               {/* Skipped list */}
               {report.skipped.length > 0 && (
                 <div className="space-y-1 pt-1 border-t border-rn-border/50">
-                  <div className="text-[10px] text-yellow-400 flex items-center space-x-1 font-semibold">
+                  <div className="text-[10px] text-rn-warning flex items-center space-x-1 font-semibold">
                     <AlertTriangle className="w-3 h-3" />
                     <span>Skipped (Incompatible engine or unsupported schema):</span>
                   </div>
@@ -91,10 +92,10 @@ export const CopyPasteOverridesModal: React.FC = () => {
                     {report.skipped.map((item, idx) => (
                       <div
                         key={idx}
-                        className="rounded bg-yellow-500/10 border border-yellow-500/20 px-2 py-1 text-[11px] text-yellow-300 font-mono"
+                        className="rounded bg-rn-warning/10 border border-rn-warning/25 px-2 py-1 text-[11px] text-rn-warning font-mono"
                       >
-                        <span className="font-semibold text-yellow-400">{item.rnaPath}</span>
-                        <div className="text-[10px] text-yellow-300/80 font-sans">
+                        <span className="font-semibold text-rn-warning">{item.rnaPath}</span>
+                        <div className="text-[10px] text-rn-warning/80 font-sans">
                           {item.reason}
                         </div>
                       </div>

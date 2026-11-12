@@ -111,7 +111,7 @@ export const HistoryView: React.FC = () => {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search history"
+                placeholder="Search history..."
                 className="h-8 rounded-md border border-rn-border bg-rn-input pl-8 pr-3 text-xs text-rn-text placeholder-rn-muted focus:border-rn-accent focus:outline-none w-48"
               />
             </div>
@@ -142,7 +142,7 @@ export const HistoryView: React.FC = () => {
                 title="Clear all past render history"
               >
                 <Trash2 className="h-3.5 w-3.5" />
-                <span>Clear All</span>
+                <span>Clear History</span>
               </button>
             )}
           </div>
@@ -157,9 +157,9 @@ export const HistoryView: React.FC = () => {
           ) : entries.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center text-center text-rn-muted">
               <Clock className="h-12 w-12 stroke-[1.2] opacity-30 mb-2" />
-              <p className="text-xs font-medium text-rn-text">No Render History Found</p>
-              <p className="text-[11px] text-rn-muted mt-1">
-                Completed, failed, and cancelled render jobs will automatically record here.
+              <p className="text-xs font-semibold text-rn-text">No Render History Yet</p>
+              <p className="text-[11px] text-rn-muted mt-1 max-w-sm">
+                Completed, failed, and canceled render jobs will be recorded here automatically.
               </p>
             </div>
           ) : (

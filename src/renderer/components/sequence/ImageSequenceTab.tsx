@@ -99,7 +99,7 @@ export const ImageSequenceTab: React.FC = () => {
             title="Browse any folder on disk"
           >
             <FolderOpen className="w-3.5 h-3.5 text-rn-muted" />
-            <span>Browse...</span>
+            <span>Browse Folder...</span>
           </button>
         </div>
       )}
@@ -122,7 +122,7 @@ export const ImageSequenceTab: React.FC = () => {
         >
           <div className="flex items-center space-x-2">
             <Video className="w-4 h-4 text-rn-accent" />
-            <span>Export / Stitch Sequence to Video (MP4 / ProRes)</span>
+            <span>Export Sequence to Video (MP4 / ProRes)</span>
           </div>
           <div className="flex items-center space-x-1 text-rn-muted text-[11px]">
             <span>{showConverter ? 'Hide Options' : 'Export Options'}</span>

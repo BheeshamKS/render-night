@@ -167,11 +167,11 @@ export const HistoryModal: React.FC = () => {
                   <div className="flex items-start justify-between">
                     <div className="flex items-center space-x-2">
                       {isSuccess && (
-                        <CheckCircle2 className="h-4 w-4 text-green-400 flex-shrink-0" />
+                        <CheckCircle2 className="h-4 w-4 text-rn-success flex-shrink-0" />
                       )}
                       {isFailed && <XCircle className="h-4 w-4 text-rn-error flex-shrink-0" />}
                       {entry.result === 'canceled' && (
-                        <AlertCircle className="h-4 w-4 text-yellow-400 flex-shrink-0" />
+                        <AlertCircle className="h-4 w-4 text-rn-warning flex-shrink-0" />
                       )}
                       <span className="font-semibold text-sm text-rn-text">{entry.fileName}</span>
                       <span className="rounded bg-rn-input px-2 py-0.5 text-[10px] font-mono text-rn-muted">
@@ -182,7 +182,7 @@ export const HistoryModal: React.FC = () => {
                     <div className="flex items-center space-x-1.5">
                       <button
                         onClick={() => handleReAddToQueue(entry)}
-                        className="flex items-center space-x-1 rounded bg-rn-accent/20 border border-rn-accent/40 px-2.5 py-1 text-[11px] font-medium text-rn-accent hover:bg-rn-accent hover:text-white transition"
+                        className="flex items-center space-x-1 rounded bg-rn-accent/15 border border-rn-accent/40 px-2.5 py-1 text-[11px] font-medium text-rn-accent hover:bg-rn-accent hover:text-[#0f0f10] transition"
                         title="Re-add file to queue"
                       >
                         <PlusCircle className="h-3 w-3" />

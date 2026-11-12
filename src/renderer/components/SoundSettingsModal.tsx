@@ -20,11 +20,12 @@ export const SoundSettingsModal: React.FC = () => {
         <div className="flex items-center justify-between border-b border-rn-border pb-3 mb-4">
           <div className="flex items-center space-x-2">
             <Bell className="h-4 w-4 text-rn-accent" />
-            <h2 className="text-sm font-semibold text-rn-text">Finish Sound ("to-DUNG")</h2>
+            <h2 className="text-sm font-semibold text-rn-text">Completion Sound ("To-Dung")</h2>
           </div>
           <button
             onClick={() => setShowSoundModal(false)}
             className="rounded p-1 text-rn-muted hover:bg-rn-subpanel hover:text-rn-text transition"
+            title="Close"
           >
             <X className="h-4 w-4" />
           </button>
@@ -33,7 +34,7 @@ export const SoundSettingsModal: React.FC = () => {
         <div className="space-y-4">
           {/* Mute toggle */}
           <div className="flex items-center justify-between">
-            <span className="text-xs text-rn-text">Enable finish sound</span>
+            <span className="text-xs text-rn-text">Enable completion sound</span>
             <button
               onClick={() => setSoundSettings({ isMuted: !soundSettings.isMuted })}
               className={`flex items-center space-x-1.5 rounded px-2.5 py-1 text-xs font-medium transition ${

@@ -505,8 +505,8 @@ export const RenderPropertiesTab: React.FC<RenderPropertiesTabProps> = ({ job })
         onResetAll={() => setJobPreRenderHook(job.id, '')}
       >
         <div className="space-y-2 p-2">
-          <div className="flex items-center space-x-1.5 text-[11px] text-yellow-400 font-medium">
-            <ShieldAlert className="h-3.5 w-3.5 text-yellow-400 flex-shrink-0" />
+          <div className="flex items-center space-x-1.5 text-[11px] text-rn-warning font-medium">
+            <ShieldAlert className="h-3.5 w-3.5 text-rn-warning flex-shrink-0" />
             <span>Advanced: Trusted Code Only</span>
           </div>
           <p className="text-[11px] text-rn-muted leading-tight">

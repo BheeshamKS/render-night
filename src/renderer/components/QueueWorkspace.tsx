@@ -92,10 +92,10 @@ export const QueueWorkspace: React.FC = () => {
               <FolderDown className="h-6 w-6 stroke-[1.5]" />
             </div>
 
-            <h2 className="text-base font-semibold text-rn-text">Drop .blend files here</h2>
+            <h2 className="text-base font-semibold text-rn-text">Drop Blender files here</h2>
             <p className="mt-1.5 text-xs text-rn-muted max-w-sm leading-relaxed">
-              Drag and drop Blender files directly into the window, or browse to add shots to your
-              render queue.
+              Drag and drop .blend files directly into this window, or click browse to add jobs to
+              the render queue.
             </p>
 
             {/* Primary Action Button */}
@@ -111,7 +111,7 @@ export const QueueWorkspace: React.FC = () => {
             {/* Detected Blender Versions List */}
             <div className="mt-6 w-full border-t border-rn-border/70 pt-4">
               <span className="text-[11px] font-medium text-rn-muted block mb-2.5">
-                Detected Blender Installations
+                Detected Blender Versions
               </span>
 
               {blenders.length > 0 ? (
@@ -143,7 +143,7 @@ export const QueueWorkspace: React.FC = () => {
                 </div>
               ) : (
                 <p className="text-xs text-rn-error">
-                  No local Blender installation found in system PATH or standard folders.
+                  No local Blender installations found. Click Locate Blender to add an executable.
                 </p>
               )}
             </div>

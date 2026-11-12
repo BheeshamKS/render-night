@@ -29,6 +29,7 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
   const shortcuts = [
     { key: `${modKey}+O`, desc: 'Add .blend files to queue' },
     { key: `${modKey}+Enter`, desc: 'Start or Pause queue render' },
+    { key: `${modKey}+S`, desc: 'Open Queue Schedule modal' },
     { key: `${modKey}+A`, desc: 'Select all jobs in queue' },
     { key: `${modKey}+D`, desc: 'Duplicate selected job(s)' },
     { key: 'Delete / Backspace', desc: 'Remove selected job(s) from queue' },

@@ -166,14 +166,15 @@ export const PresetToolbar: React.FC<PresetToolbarProps> = ({ job }) => {
               <span>Save Overrides as Preset</span>
             </h3>
             <p className="text-xs text-rn-muted mb-3">
-              Will save {overrideCount} modified property diff(s) under a preset name.
+              Save {overrideCount} modified {overrideCount === 1 ? 'property' : 'properties'} as a
+              reusable preset.
             </p>
 
             <input
               type="text"
               value={newPresetName}
               onChange={(e) => setNewPresetName(e.target.value)}
-              placeholder='e.g. "1080p / 256 samples / PNG 16-bit"'
+              placeholder="e.g. 1080p / 256 samples / PNG 16-bit"
               className="w-full h-8 rounded border border-rn-border bg-rn-input px-2.5 text-xs text-rn-text outline-none focus:border-rn-accent mb-4"
               autoFocus
               onKeyDown={(e) => {
@@ -196,7 +197,7 @@ export const PresetToolbar: React.FC<PresetToolbarProps> = ({ job }) => {
                 disabled={!newPresetName.trim()}
                 className="px-3 py-1 rounded bg-rn-accent text-xs text-[#0f0f10] font-semibold hover:bg-rn-accent/90 disabled:opacity-40"
               >
-                Save
+                Save Preset
               </button>
             </div>
           </div>

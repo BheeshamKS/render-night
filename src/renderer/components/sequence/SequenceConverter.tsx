@@ -140,7 +140,7 @@ export const SequenceConverter: React.FC<SequenceConverterProps> = ({ sequence }
       <div className="flex items-center justify-between pb-3 border-b border-rn-border mb-4">
         <div className="flex items-center space-x-2">
           <Film className="w-4 h-4 text-rn-accent" />
-          <h3 className="text-xs font-semibold text-rn-text">Convert / Stitch Sequence to Video</h3>
+          <h3 className="text-xs font-semibold text-rn-text">Export Sequence to Video</h3>
         </div>
         {sequence && (
           <span className="text-[11px] font-mono text-rn-muted">

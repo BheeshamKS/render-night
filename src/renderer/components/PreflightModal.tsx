@@ -41,16 +41,16 @@ export const PreflightModal: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm select-none">
-      <div className="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-lg border border-rn-border bg-rn-panel shadow-2xl">
+      <div className="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-xl border border-rn-border bg-rn-panel shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-rn-border px-5 py-3">
+        <div className="flex items-center justify-between border-b border-rn-border px-5 py-3 bg-rn-subpanel">
           <div className="flex items-center space-x-2">
             {hasErrors ? (
-              <ShieldAlert className="h-5 w-5 text-red-400" />
+              <ShieldAlert className="h-5 w-5 text-rn-error" />
             ) : hasWarnings ? (
-              <AlertTriangle className="h-5 w-5 text-yellow-400" />
+              <AlertTriangle className="h-5 w-5 text-rn-warning" />
             ) : (
-              <ShieldCheck className="h-5 w-5 text-green-400" />
+              <ShieldCheck className="h-5 w-5 text-rn-success" />
             )}
             <h2 className="text-sm font-semibold text-rn-text">
               Pre-Flight Validation Report
@@ -59,7 +59,7 @@ export const PreflightModal: React.FC = () => {
           </div>
           <button
             onClick={closePreflightModal}
-            className="rounded p-1 text-rn-muted hover:bg-rn-subpanel hover:text-rn-text transition"
+            className="rounded p-1 text-rn-muted hover:bg-rn-panel hover:text-rn-text transition"
             title="Close report"
           >
             <X className="h-4 w-4" />
@@ -69,33 +69,33 @@ export const PreflightModal: React.FC = () => {
         {/* Status Summary Banner */}
         <div className="px-5 pt-4">
           {hasErrors ? (
-            <div className="flex items-start space-x-2 rounded border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">
-              <AlertCircle className="h-4 w-4 text-red-400 flex-shrink-0 mt-0.5" />
+            <div className="flex items-start space-x-2 rounded-lg border border-rn-error/35 bg-rn-error/10 p-3 text-xs text-red-300">
+              <AlertCircle className="h-4 w-4 text-rn-error flex-shrink-0 mt-0.5" />
               <div>
                 <div className="font-semibold text-red-200">Execution Blocked</div>
-                <div>
+                <div className="mt-0.5 leading-relaxed">
                   One or more critical errors will prevent rendering. Resolve the errors or apply
                   the quick fixes below to start the queue.
                 </div>
               </div>
             </div>
           ) : hasWarnings ? (
-            <div className="flex items-start space-x-2 rounded border border-yellow-500/30 bg-yellow-500/10 p-3 text-xs text-yellow-300">
-              <AlertTriangle className="h-4 w-4 text-yellow-400 flex-shrink-0 mt-0.5" />
+            <div className="flex items-start space-x-2 rounded-lg border border-rn-warning/35 bg-rn-warning/10 p-3 text-xs text-yellow-300">
+              <AlertTriangle className="h-4 w-4 text-rn-warning flex-shrink-0 mt-0.5" />
               <div>
                 <div className="font-semibold text-yellow-200">Warnings Detected</div>
-                <div>
+                <div className="mt-0.5 leading-relaxed">
                   No fatal errors were found, but potential issues may degrade performance or visual
                   output. You may apply quick fixes or continue anyway.
                 </div>
               </div>
             </div>
           ) : (
-            <div className="flex items-start space-x-2 rounded border border-green-500/30 bg-green-500/10 p-3 text-xs text-green-300">
-              <CheckCircle2 className="h-4 w-4 text-green-400 flex-shrink-0 mt-0.5" />
+            <div className="flex items-start space-x-2 rounded-lg border border-rn-success/35 bg-rn-success/10 p-3 text-xs text-green-300">
+              <CheckCircle2 className="h-4 w-4 text-rn-success flex-shrink-0 mt-0.5" />
               <div>
                 <div className="font-semibold text-green-200">All Checks Passed</div>
-                <div>
+                <div className="mt-0.5 leading-relaxed">
                   No errors or warnings found. Output paths, versions, ranges, and camera bindings
                   are verified.
                 </div>

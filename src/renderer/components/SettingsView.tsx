@@ -168,10 +168,10 @@ export const SettingsView: React.FC = () => {
                     <button
                       type="button"
                       onClick={handleBrowseBlender}
-                      className="inline-flex items-center space-x-1.5 rounded-md bg-rn-accent px-3 py-1.5 text-xs font-semibold text-[#0f0f10] hover:brightness-110 transition"
+                      className="inline-flex items-center space-x-1.5 rounded-md bg-rn-accent px-3 py-1.5 text-xs font-semibold text-[#0f0f10] hover:brightness-110 transition shadow-sm"
                     >
                       <FolderOpen className="h-3.5 w-3.5" />
-                      <span>Locate Blender Executable (blender.exe)</span>
+                      <span>Locate Blender Executable</span>
                     </button>
                   </div>
                 ) : (
@@ -383,9 +383,11 @@ export const SettingsView: React.FC = () => {
           {activeSection === 'sound' && (
             <div className="space-y-4 max-w-xl">
               <div>
-                <h3 className="text-sm font-semibold text-rn-text">Finish Sound Notification</h3>
+                <h3 className="text-sm font-semibold text-rn-text">
+                  Completion Sound Notification
+                </h3>
                 <p className="text-xs text-rn-muted mt-0.5">
-                  Plays a chime when the overnight render queue finishes.
+                  Plays an audio alert when the render queue completes.
                 </p>
               </div>
 
@@ -398,7 +400,7 @@ export const SettingsView: React.FC = () => {
                     className="h-4 w-4 rounded border-rn-border bg-rn-input accent-rn-accent focus:ring-0"
                   />
                   <span className="text-xs font-semibold text-rn-text">
-                    Play finish sound on queue completion
+                    Play completion sound on queue completion
                   </span>
                 </label>
 
@@ -474,7 +476,7 @@ export const SettingsView: React.FC = () => {
                       Prevent sleep while waiting for schedule
                     </span>
                     <p className="text-[11px] text-rn-muted mt-0.5">
-                      Keeps the system awake if a queue is scheduled to start at a future hour.
+                      Keeps the system awake if a queue is scheduled to start at a future time.
                     </p>
                   </div>
                 </label>

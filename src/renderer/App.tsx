@@ -42,6 +42,7 @@ export default function App() {
     addFiles,
     showShortcutsModal,
     setShowShortcutsModal,
+    setShowScheduleModal,
   } = useQueueStore();
 
   useEffect(() => {
@@ -118,6 +119,11 @@ export default function App() {
             e.preventDefault();
             pasteOverrides(selectedJobIds.length > 0 ? selectedJobIds : undefined);
           }
+        } else if (e.key === 's' || e.key === 'S') {
+          if (!isInput) {
+            e.preventDefault();
+            setShowScheduleModal(true);
+          }
         }
       } else if ((e.key === 'Delete' || e.key === 'Backspace') && !isInput) {
         if (selectedJobIds.length > 1) {
@@ -151,6 +157,7 @@ export default function App() {
     resumeQueue,
     setActiveTab,
     setShowShortcutsModal,
+    setShowScheduleModal,
   ]);
 
   return (

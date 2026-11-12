@@ -286,7 +286,7 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
                 await handlePreview();
               }}
               className="flex items-center space-x-1 rounded bg-rn-accent/15 border border-rn-accent/35 px-2 py-0.5 text-[11px] font-medium text-rn-accent hover:bg-rn-accent hover:text-[#0f0f10] transition"
-              title="1-click playable preview of image sequence / render output"
+              title="Preview rendered frames in sequence player"
             >
               <Film className="h-3 w-3" />
               <span>Preview</span>
@@ -302,8 +302,8 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
                 e.stopPropagation();
                 openJobDrawer(job.id);
               }}
-              className="flex h-6 w-6 items-center justify-center rounded text-rn-muted hover:bg-rn-subpanel hover:text-white transition"
-              title="Edit render settings in drawer"
+              className="flex h-6 w-6 items-center justify-center rounded text-rn-muted hover:bg-rn-subpanel hover:text-rn-text transition"
+              title="Edit job settings"
             >
               <Pencil className="h-3 w-3" />
             </button>
@@ -320,8 +320,8 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
                   );
                 }
               }}
-              className="flex h-6 w-6 items-center justify-center rounded text-rn-muted hover:bg-rn-subpanel hover:text-white transition"
-              title="Open output directory"
+              className="flex h-6 w-6 items-center justify-center rounded text-rn-muted hover:bg-rn-subpanel hover:text-rn-text transition"
+              title="Open output folder"
             >
               <FolderOpen className="h-3 w-3" />
             </button>
@@ -333,7 +333,7 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
                 e.stopPropagation();
                 removeJob(job.id);
               }}
-              className="flex h-6 w-6 items-center justify-center rounded text-rn-muted hover:bg-rose-500/20 hover:text-rose-400 transition"
+              className="flex h-6 w-6 items-center justify-center rounded text-rn-muted hover:bg-rn-error/15 hover:text-rn-error transition"
               title="Remove job from queue"
             >
               <Trash2 className="h-3 w-3" />
