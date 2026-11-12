@@ -16,6 +16,7 @@ import {
   Timer,
   Volume2,
   VolumeX,
+  X,
 } from 'lucide-react';
 
 export const Toolbar: React.FC = () => {
@@ -34,6 +35,7 @@ export const Toolbar: React.FC = () => {
     setPostAction,
     soundSettings,
     scheduleConfig,
+    cancelSchedule,
     setShowSoundModal,
     setShowScheduleModal,
     setShowShortcutsModal,
@@ -125,16 +127,16 @@ export const Toolbar: React.FC = () => {
       </div>
 
       {/* ============================================================== */}
-      {/* 2. Centre Group: Big Start Queue & Post-Action Selector        */}
+      {/* 2. Centre Group: Queue Controls, Schedule & Post-Action        */}
       {/* ============================================================== */}
-      <div className="flex items-center space-x-3">
+      <div className="flex items-center space-x-2.5">
         {/* Render Control (Big Start vs Segmented Pause/Stop) */}
         {!isBusy ? (
           <button
             type="button"
             onClick={startQueueWithPreflight}
             disabled={!hasEligibleJobs}
-            className="flex h-8 items-center space-x-2 rounded-lg bg-rn-accent px-5 text-xs font-semibold text-[#0f0f10] shadow-sm transition-colors hover:brightness-110 active:brightness-95 disabled:bg-rn-input disabled:text-rn-muted disabled:border disabled:border-rn-border disabled:shadow-none disabled:hover:brightness-100 disabled:cursor-not-allowed"
+            className="flex h-8 items-center space-x-2 rounded-lg bg-rn-accent px-4 text-xs font-semibold text-[#0f0f10] shadow-sm transition hover:brightness-110 active:brightness-95 disabled:bg-rn-input disabled:text-rn-muted disabled:border disabled:border-rn-border disabled:shadow-none disabled:hover:brightness-100 disabled:cursor-not-allowed"
             title="Start batch render queue (Ctrl+Enter)"
           >
             <Play className="h-3.5 w-3.5 fill-current" />
@@ -170,13 +172,55 @@ export const Toolbar: React.FC = () => {
               type="button"
               onClick={stopQueue}
               className="flex h-7 items-center space-x-1.5 rounded-md px-3 text-xs font-semibold text-rn-error transition hover:bg-rn-error/15 active:bg-rn-error/25"
-              title="Stop queue cleanly (kills current Blender process and saves progress)"
+              title="Stop queue cleanly (saves completed frames and terminates active process)"
             >
               <Square className="h-3.5 w-3.5 fill-current" />
               <span>Stop</span>
             </button>
           </div>
         )}
+
+        {/* Prominent Scheduling Button / Active Timeframe Badge */}
+        {scheduleConfig.enabled ? (
+          <div className="flex h-8 items-center rounded-lg border border-rn-accent/50 bg-rn-accent/15 pl-2.5 pr-1 text-xs font-medium text-rn-accent shadow-sm transition hover:bg-rn-accent/20">
+            <button
+              type="button"
+              onClick={() => setShowScheduleModal(true)}
+              className="flex items-center space-x-1.5 hover:brightness-125 transition mr-1"
+              title={`Active schedule: ${scheduleConfig.startImmediately ? 'Immediate start' : `Starts at ${scheduleConfig.time}`}${scheduleConfig.stopEnabled ? ` • Stops at ${scheduleConfig.stopTime} (${scheduleConfig.stopAction || 'shutdown'})` : ''}. Click to edit schedule.`}
+            >
+              <Timer className="h-3.5 w-3.5 flex-shrink-0 animate-pulse text-rn-accent" />
+              <span className="font-mono tabular-nums font-semibold">
+                {scheduleConfig.startImmediately ? 'Now' : scheduleConfig.time}
+                {scheduleConfig.stopEnabled ? ` → ${scheduleConfig.stopTime}` : ''}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                void cancelSchedule();
+              }}
+              className="flex h-6 w-6 items-center justify-center rounded text-rn-accent/70 hover:bg-rn-accent/25 hover:text-rn-accent transition"
+              title="Cancel active schedule"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowScheduleModal(true)}
+            disabled={isBusy}
+            className="flex h-8 items-center space-x-1.5 rounded-lg border border-rn-border bg-rn-panel px-3 text-xs font-medium text-rn-text shadow-sm transition hover:border-rn-muted hover:bg-rn-subpanel active:bg-rn-subpanel/80 disabled:opacity-40 disabled:cursor-not-allowed"
+            title="Set overnight render schedule or automatic stop window"
+          >
+            <Calendar className="h-3.5 w-3.5 text-rn-muted" />
+            <span>Schedule</span>
+          </button>
+        )}
+
+        <div className="h-4 w-px bg-rn-border/80 mx-1" />
 
         {/* Post-Queue Action Selector */}
         <div className="flex items-center space-x-1.5">
@@ -192,33 +236,47 @@ export const Toolbar: React.FC = () => {
       </div>
 
       {/* ============================================================== */}
-      {/* 3. Right Group: Active Schedule Indicator & Overflow Menu      */}
+      {/* 3. Right Group: Sound, Shortcuts & Overflow Menu               */}
       {/* ============================================================== */}
-      <div className="relative flex items-center space-x-2">
-        {scheduleConfig.enabled && (
-          <button
-            type="button"
-            onClick={() => setShowScheduleModal(true)}
-            className="flex h-8 items-center space-x-1.5 rounded-lg border border-rn-accent/50 bg-rn-accent/15 px-2.5 text-xs font-medium text-rn-accent hover:brightness-110 transition shadow-sm"
-            title={`Active schedule: ${scheduleConfig.startImmediately ? 'Immediate start' : `Starts at ${scheduleConfig.time}`}${scheduleConfig.stopEnabled ? ` • Stops at ${scheduleConfig.stopTime} (${scheduleConfig.stopAction || 'shutdown'})` : ''}`}
-          >
-            <Timer className="h-3.5 w-3.5" />
-            <span className="font-mono tabular-nums">
-              {scheduleConfig.startImmediately ? 'Immediate' : scheduleConfig.time}
-              {scheduleConfig.stopEnabled ? ` → ${scheduleConfig.stopTime}` : ''}
-            </span>
-          </button>
-        )}
+      <div className="relative flex items-center space-x-1.5">
+        {/* Completion Sound Quick Toggle / Status */}
+        <button
+          type="button"
+          onClick={() => setShowSoundModal(true)}
+          className="flex h-8 w-8 items-center justify-center rounded-lg border border-rn-border bg-rn-panel text-rn-muted hover:border-rn-muted hover:text-rn-text transition shadow-sm"
+          title={
+            soundSettings.isMuted
+              ? 'Completion sound is muted. Click to configure.'
+              : `Completion sound active (${soundSettings.volume}% volume). Click to configure.`
+          }
+        >
+          {soundSettings.isMuted ? (
+            <VolumeX className="h-3.5 w-3.5 text-rn-muted" />
+          ) : (
+            <Volume2 className="h-3.5 w-3.5 text-rn-success" />
+          )}
+        </button>
 
+        {/* Keyboard Shortcuts Quick Sheet Button */}
+        <button
+          type="button"
+          onClick={() => setShowShortcutsModal(true)}
+          className="flex h-8 w-8 items-center justify-center rounded-lg border border-rn-border bg-rn-panel text-rn-muted hover:border-rn-muted hover:text-rn-text transition shadow-sm"
+          title="Keyboard shortcuts (?)"
+        >
+          <HelpCircle className="h-3.5 w-3.5" />
+        </button>
+
+        {/* More Options Overflow Button */}
         <button
           type="button"
           onClick={() => setOverflowOpen(!overflowOpen)}
-          className={`flex h-8 w-8 items-center justify-center rounded-lg border transition ${
+          className={`flex h-8 w-8 items-center justify-center rounded-lg border transition shadow-sm ${
             overflowOpen
               ? 'border-rn-accent bg-rn-subpanel text-rn-text'
               : 'border-rn-border bg-rn-panel text-rn-muted hover:border-rn-muted hover:text-rn-text'
           }`}
-          title="More tools & settings"
+          title="More tools & options"
         >
           <MoreHorizontal className="h-4 w-4" />
         </button>
@@ -253,7 +311,7 @@ export const Toolbar: React.FC = () => {
                 ) : (
                   <Volume2 className="h-3.5 w-3.5 text-rn-success" />
                 )}
-                <span>Finish Sound Settings...</span>
+                <span>Completion Sound Settings...</span>
               </button>
 
               <div className="my-1 h-px bg-rn-border/60" />

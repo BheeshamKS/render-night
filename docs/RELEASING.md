@@ -8,13 +8,13 @@ This document specifies the distribution packaging targets, build procedures, an
 
 Render Night uses `electron-builder` to produce verified release binaries for Windows, macOS, and Linux:
 
-| Platform | Format / Target | Architecture | Output File Pattern | Distribution Channel |
-|:---|:---|:---|:---|:---|
-| **Windows** | NSIS Installer | `x64` | `release/Render Night Setup 0.1.0-alpha.3.exe` | GitHub Release (Automated) |
-| **Windows** | Portable Executable | `x64` | `release/Render Night 0.1.0-alpha.3.exe` | GitHub Release (Automated) |
-| **Linux** | AppImage | `x64` | `release/Render-Night-0.1.0-alpha.3.AppImage` | GitHub Release (Automated) |
-| **Linux** | Debian Package (`.deb`) | `x64` | `release/render-night_0.1.0-alpha.3_amd64.deb` | GitHub Release (Automated) |
-| **macOS** | Apple Disk Image (`.dmg`) | `arm64` / `x64` | `release/Render Night-0.1.0-alpha.3*.dmg` | Local Build (`npm run dist:mac`) |
+| Platform    | Format / Target           | Architecture    | Output File Pattern                            | Distribution Channel             |
+| :---------- | :------------------------ | :-------------- | :--------------------------------------------- | :------------------------------- |
+| **Windows** | NSIS Installer            | `x64`           | `release/Render Night Setup 0.1.0-alpha.4.exe` | GitHub Release (Automated)       |
+| **Windows** | Portable Executable       | `x64`           | `release/Render Night 0.1.0-alpha.4.exe`       | GitHub Release (Automated)       |
+| **Linux**   | AppImage                  | `x64`           | `release/Render-Night-0.1.0-alpha.4.AppImage`  | GitHub Release (Automated)       |
+| **Linux**   | Debian Package (`.deb`)   | `x64`           | `release/render-night_0.1.0-alpha.4_amd64.deb` | GitHub Release (Automated)       |
+| **macOS**   | Apple Disk Image (`.dmg`) | `arm64` / `x64` | `release/Render Night-0.1.0-alpha.4*.dmg`      | Local Build (`npm run dist:mac`) |
 
 > [!NOTE]
 > Per project specification, Linux packaging produces **AppImage + deb ONLY**. No `.tar.gz` archive is distributed.
@@ -44,6 +44,7 @@ npm run dist:mac     # DMG arm64 + x64 (macOS)
 ### Linux (AppImage & Debian Package)
 
 #### AppImage Smoke Test:
+
 1. Make executable:
    ```bash
    chmod +x release/Render-Night-*.AppImage
@@ -59,6 +60,7 @@ npm run dist:mac     # DMG arm64 + x64 (macOS)
    - Run a test render and confirm progress streaming and completion sound ("to-DUNG").
 
 #### Debian Package Smoke Test:
+
 1. Install package:
    ```bash
    sudo dpkg -i release/render-night_*_amd64.deb
@@ -92,6 +94,7 @@ npm run dist:mac     # DMG arm64 + x64 (macOS)
 ### Windows (NSIS Installer & Portable EXE)
 
 #### NSIS Installer Smoke Test:
+
 1. Double-click `Render Night Setup *.exe`.
 2. Select installation directory and complete installation.
 3. Launch via Start Menu / Desktop shortcut.
@@ -101,6 +104,7 @@ npm run dist:mac     # DMG arm64 + x64 (macOS)
    - Run uninstaller from Windows Settings / Add or Remove Programs and verify clean removal.
 
 #### Portable Executable Smoke Test:
+
 1. Place `Render Night *.exe` into an arbitrary folder or USB drive.
 2. Launch executable directly without running an installer.
 3. Verify persistent queue state is created in `%APPDATA%\Render Night`.
@@ -110,10 +114,11 @@ npm run dist:mac     # DMG arm64 + x64 (macOS)
 ## 4. GitHub Actions CI/CD Release Workflow
 
 Releases are automated via `.github/workflows/release.yml`:
+
 1. Push a git tag matching `v*` (e.g., `git push origin v0.1.0-alpha.3`).
 2. The `verify` job runs `npm run lint`, `npm run typecheck`, `npm run build`, and `npm test`.
 3. GitHub Actions executes a matrix build across:
    - `windows-latest` $\to$ builds NSIS + Portable
    - `ubuntu-latest` $\to$ builds AppImage + deb
-   *(macOS packages are compiled locally using `npm run dist:mac`)*
+     _(macOS packages are compiled locally using `npm run dist:mac`)_
 4. The `release` job aggregates all installers and publishes the GitHub Release (marked as Pre-release for `-alpha` tags) with generated release notes.

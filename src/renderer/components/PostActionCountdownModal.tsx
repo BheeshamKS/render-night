@@ -22,7 +22,7 @@ export const PostActionCountdownModal: React.FC = () => {
     restart: 'Restarting System',
     sleep: 'Putting System to Sleep',
     hibernate: 'Hibernating System',
-    close_app: 'Closing Night Render',
+    close_app: 'Closing Render Night',
   };
 
   const title = actionLabels[postAction] || 'Executing Post-Queue Action';

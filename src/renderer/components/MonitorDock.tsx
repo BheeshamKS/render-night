@@ -17,6 +17,7 @@ import {
   Play,
   Search,
   Terminal,
+  Timer,
   Trash2,
 } from 'lucide-react';
 
@@ -45,6 +46,8 @@ export const MonitorDock: React.FC = () => {
     setActiveTab,
     queueState,
     loadSequenceFromPath,
+    scheduleConfig,
+    setShowScheduleModal,
   } = useQueueStore();
 
   const [filterText, setFilterText] = useState('');
@@ -153,6 +156,24 @@ export const MonitorDock: React.FC = () => {
             </>
           ) : (
             <span className="text-rn-muted">Queue empty</span>
+          )}
+
+          {scheduleConfig.enabled && (
+            <>
+              <span>·</span>
+              <button
+                type="button"
+                onClick={() => setShowScheduleModal(true)}
+                className="flex items-center space-x-1 text-rn-accent hover:underline font-mono"
+                title="Active schedule armed. Click to view or edit."
+              >
+                <Timer className="h-3 w-3" />
+                <span>
+                  Schedule: {scheduleConfig.startImmediately ? 'Immediate' : scheduleConfig.time}
+                  {scheduleConfig.stopEnabled ? ` → ${scheduleConfig.stopTime}` : ''}
+                </span>
+              </button>
+            </>
           )}
         </div>
 

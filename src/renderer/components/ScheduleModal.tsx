@@ -82,8 +82,8 @@ export const ScheduleModal: React.FC = () => {
   };
 
   const actionLabels: Record<string, string> = {
-    shutdown: 'Shutdown PC',
-    sleep: 'Put PC to Sleep',
+    shutdown: 'Shut Down Computer',
+    sleep: 'Put Computer to Sleep',
     close_app: 'Close Render Night',
     stop_only: 'Stop Queue Only',
   };
@@ -95,11 +95,12 @@ export const ScheduleModal: React.FC = () => {
         <div className="flex items-center justify-between border-b border-rn-border pb-3 mb-4">
           <div className="flex items-center space-x-2">
             <Calendar className="h-4 w-4 text-rn-accent" />
-            <h2 className="text-sm font-semibold text-rn-text">Queue Scheduler & IRL Timeframe</h2>
+            <h2 className="text-sm font-semibold text-rn-text">Queue Scheduling</h2>
           </div>
           <button
             onClick={() => setShowScheduleModal(false)}
             className="rounded p-1 text-rn-muted hover:bg-rn-subpanel hover:text-rn-text transition"
+            title="Close"
           >
             <X className="h-4 w-4" />
           </button>
@@ -110,11 +111,11 @@ export const ScheduleModal: React.FC = () => {
           <div className="space-y-4">
             <div className="rounded-lg bg-rn-subpanel p-4 border border-rn-accent/40 text-center space-y-2">
               <Timer className="h-6 w-6 text-rn-accent mx-auto" />
-              <div className="text-xs font-semibold text-rn-text">Active Schedule Armed</div>
+              <div className="text-xs font-semibold text-rn-text">Active Schedule Configured</div>
 
               <div className="grid grid-cols-2 gap-2 text-left bg-rn-input/60 rounded p-3 border border-rn-border/50 text-xs">
                 <div>
-                  <span className="text-rn-muted block text-[10px]">Start Condition:</span>
+                  <span className="text-rn-muted block text-[10px]">Start Time:</span>
                   <span className="font-semibold text-rn-text font-mono">
                     {scheduleConfig.startImmediately
                       ? queueState === 'running'
@@ -124,7 +125,7 @@ export const ScheduleModal: React.FC = () => {
                   </span>
                 </div>
                 <div>
-                  <span className="text-rn-muted block text-[10px]">Stop Condition:</span>
+                  <span className="text-rn-muted block text-[10px]">Stop Time:</span>
                   <span className="font-semibold text-rn-accent font-mono">
                     {scheduleConfig.stopEnabled
                       ? `At ${scheduleConfig.stopTime}`
@@ -156,7 +157,7 @@ export const ScheduleModal: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleStartNow}
-                  className="flex-1 flex items-center justify-center space-x-1.5 rounded-md bg-rn-accent px-3 py-2 text-xs font-semibold text-[#0f0f10] hover:brightness-110 transition"
+                  className="flex-1 flex items-center justify-center space-x-1.5 rounded-md bg-rn-accent px-3 py-2 text-xs font-semibold text-[#0f0f10] hover:brightness-110 transition shadow-sm"
                 >
                   <Play className="h-3 w-3 fill-current" />
                   <span>Start Queue Now</span>
@@ -178,7 +179,7 @@ export const ScheduleModal: React.FC = () => {
             <div className="rounded-lg border border-rn-border bg-rn-subpanel/50 p-3 space-y-2">
               <span className="text-xs font-semibold text-rn-text flex items-center space-x-1.5">
                 <Clock className="h-3.5 w-3.5 text-rn-accent" />
-                <span>1. Queue Start Time (IRL)</span>
+                <span>1. Queue Start Time</span>
               </span>
 
               <div className="flex items-center space-x-4 text-xs pt-1">
@@ -224,7 +225,7 @@ export const ScheduleModal: React.FC = () => {
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-rn-text flex items-center space-x-1.5">
                   <Power className="h-3.5 w-3.5 text-rn-rendering" />
-                  <span>2. Stop Time & Auto-Shutdown (IRL)</span>
+                  <span>2. Stop Time & Automatic Action</span>
                 </span>
                 <input
                   type="checkbox"
@@ -248,7 +249,7 @@ export const ScheduleModal: React.FC = () => {
                     />
                     {calculatedDuration && (
                       <p className="text-[10px] text-rn-accent mt-1 font-medium">
-                        Rendering timeframe: ~{calculatedDuration}
+                        Rendering window: ~{calculatedDuration}
                       </p>
                     )}
                   </div>
@@ -259,9 +260,9 @@ export const ScheduleModal: React.FC = () => {
                     </label>
                     <div className="grid grid-cols-2 gap-1.5">
                       {[
-                        { id: 'shutdown' as const, label: 'Shutdown PC', icon: Power },
-                        { id: 'sleep' as const, label: 'Put PC to Sleep', icon: Moon },
-                        { id: 'close_app' as const, label: 'Close App', icon: X },
+                        { id: 'shutdown' as const, label: 'Shut Down Computer', icon: Power },
+                        { id: 'sleep' as const, label: 'Put Computer to Sleep', icon: Moon },
+                        { id: 'close_app' as const, label: 'Close Render Night', icon: X },
                         { id: 'stop_only' as const, label: 'Stop Queue Only', icon: Square },
                       ].map((act) => {
                         const Icon = act.icon;
@@ -292,7 +293,7 @@ export const ScheduleModal: React.FC = () => {
             <div className="flex items-center justify-between px-1">
               <div>
                 <div className="text-xs text-rn-text">
-                  Block system sleep while waiting / rendering
+                  Prevent computer sleep while waiting or rendering
                 </div>
                 <div className="text-[10px] text-rn-muted">
                   Keeps system awake until scheduled stop or completion
@@ -320,7 +321,7 @@ export const ScheduleModal: React.FC = () => {
                 onClick={handleApplySchedule}
                 className="rounded-md bg-rn-accent px-4 py-1.5 text-xs font-semibold text-[#0f0f10] hover:brightness-110 transition shadow-sm"
               >
-                Arm Schedule
+                Activate Schedule
               </button>
             </div>
           </div>
