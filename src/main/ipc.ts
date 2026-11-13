@@ -17,6 +17,7 @@ import {
   type PostAction,
   queueStateSchema,
 } from '../core/schemas/queue-state';
+import { readImageAsDataUrl } from '../core/sequence/image-reader';
 import { generateFrameProxy } from '../core/sequence/proxy-generator';
 import { detectSequence } from '../core/sequence/sequence-detector';
 
@@ -532,6 +533,10 @@ export function registerIpcHandlers(mainWindowProvider: () => BrowserWindow | nu
   // Image Sequence Tools & FFmpeg
   ipcMain.handle('sequence:detect', async (_event, dirOrPath: string, blendFilePath?: string) => {
     return detectSequence(dirOrPath, blendFilePath);
+  });
+
+  ipcMain.handle('sequence:readImageDataUrl', async (_event, filePath: string) => {
+    return readImageAsDataUrl(filePath);
   });
 
   ipcMain.handle('sequence:generateProxy', async (_event, sourcePath: string) => {

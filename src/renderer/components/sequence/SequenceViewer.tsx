@@ -37,6 +37,8 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
   const [outPoint, setOutPoint] = useState<number | null>(null);
   const [proxyUrl, setProxyUrl] = useState<string | null>(null);
   const [proxyError, setProxyError] = useState<string | null>(null);
+  const [resolvedDiskPath, setResolvedDiskPath] = useState<string | null>(null);
+  const [imgLoadError, setImgLoadError] = useState<string | null>(null);
   const [isLoadingProxy, setIsLoadingProxy] = useState<boolean>(false);
   const [fitActual, setFitActual] = useState<boolean>(false);
 
@@ -46,6 +48,7 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
       setCurrentFrame(sequence.startFrame);
       setIsPlaying(false);
       setProxyError(null);
+      setImgLoadError(null);
       setInPoint(null);
       setOutPoint(null);
     }
@@ -54,18 +57,23 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
   // Load proxy if current frame is non-native format
   useEffect(() => {
     let isCancelled = false;
+    setImgLoadError(null);
+
     if (!sequence) {
       setProxyUrl(null);
+      setResolvedDiskPath(null);
       return;
     }
 
     const currentFilePath = sequence.filePaths[currentFrame];
     if (!currentFilePath) {
       setProxyUrl(null);
+      setResolvedDiskPath(null);
       return;
     }
 
     if (sequence.isNativeFormat) {
+      setResolvedDiskPath(currentFilePath);
       setProxyUrl(toFileUrl(currentFilePath));
       setProxyError(null);
       return;
@@ -80,9 +88,11 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
           if (!isCancelled) {
             setIsLoadingProxy(false);
             if (res.proxyPath) {
+              setResolvedDiskPath(res.proxyPath);
               setProxyUrl(toFileUrl(res.proxyPath));
               setProxyError(null);
             } else {
+              setResolvedDiskPath(null);
               setProxyUrl(null);
               setProxyError(res.error || 'Preview could not be generated for this format.');
             }
@@ -91,6 +101,7 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
         .catch((err) => {
           if (!isCancelled) {
             setIsLoadingProxy(false);
+            setResolvedDiskPath(null);
             setProxyUrl(null);
             setProxyError(err instanceof Error ? err.message : String(err));
           }
@@ -365,6 +376,12 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
               <span className="text-xs font-medium text-rn-error">Preview Limitation Notice</span>
               <span className="text-[11px] text-rn-muted mt-1">{proxyError}</span>
             </div>
+          ) : imgLoadError ? (
+            <div className="flex flex-col items-center justify-center p-6 text-center max-w-md">
+              <AlertTriangle className="w-8 h-8 text-rn-error mb-2" />
+              <span className="text-xs font-medium text-rn-error">Failed to Load Frame Image</span>
+              <span className="text-[11px] text-rn-muted mt-1 break-all">{imgLoadError}</span>
+            </div>
           ) : proxyUrl ? (
             <div
               className={`relative flex items-center justify-center w-full h-full p-2 ${fitActual ? 'overflow-auto' : ''}`}
@@ -372,6 +389,34 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
               <img
                 src={proxyUrl}
                 alt={`Frame ${currentFrame}`}
+                onLoad={() => setImgLoadError(null)}
+                onError={() => {
+                  const targetPath = resolvedDiskPath || sequence.filePaths[currentFrame];
+                  if (
+                    targetPath &&
+                    proxyUrl &&
+                    !proxyUrl.startsWith('data:') &&
+                    typeof window !== 'undefined' &&
+                    window.rnApi?.readImageDataUrl
+                  ) {
+                    window.rnApi
+                      .readImageDataUrl(targetPath)
+                      .then((dataUrl) => {
+                        if (dataUrl) {
+                          setProxyUrl(dataUrl);
+                        } else {
+                          setImgLoadError(`Failed to load or decode image from: ${targetPath}`);
+                        }
+                      })
+                      .catch(() => {
+                        setImgLoadError(`Failed to read image file from disk: ${targetPath}`);
+                      });
+                  } else {
+                    setImgLoadError(
+                      `Unable to render frame ${currentFrame}${targetPath ? ` (${targetPath})` : ''}`,
+                    );
+                  }
+                }}
                 className={`${
                   fitActual
                     ? 'max-h-none max-w-none object-none'

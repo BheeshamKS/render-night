@@ -179,6 +179,10 @@ const api: RenderNightApi = {
     return ipcRenderer.invoke('sequence:generateProxy', sourcePath);
   },
 
+  readImageDataUrl: (filePath) => {
+    return ipcRenderer.invoke('sequence:readImageDataUrl', filePath);
+  },
+
   stitchSequence: (options) => {
     return ipcRenderer.invoke('sequence:stitch', options);
   },

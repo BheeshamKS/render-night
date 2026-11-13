@@ -44,6 +44,7 @@ function createWindow(): BrowserWindow {
       preload: getPreloadPath(),
       sandbox: false,
       backgroundThrottling: false,
+      webSecurity: false,
     },
   });
 

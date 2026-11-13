@@ -3,9 +3,9 @@ import { SequenceViewer } from '../src/renderer/components/sequence/SequenceView
 
 import React from 'react';
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 describe('SequenceViewer UI', () => {
   it('renders open sequence button and playback controls', () => {
@@ -64,5 +64,81 @@ describe('SequenceViewer UI', () => {
     expect(screen.getByText(/Speed:/i)).toBeDefined();
     expect(screen.getByText(/0\.5x/i)).toBeDefined();
     expect(screen.getByText(/2x/i)).toBeDefined();
+  });
+
+  it('displays frame image and falls back to readImageDataUrl if file:// image loading fails', async () => {
+    const mockReadDataUrl = vi
+      .fn()
+      .mockResolvedValue('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAE=');
+    // @ts-expect-error mock window.rnApi
+    window.rnApi = {
+      readImageDataUrl: mockReadDataUrl,
+    };
+
+    const mockSeq = {
+      directory: '/renders',
+      baseName: 'shot_',
+      extension: 'png',
+      pattern: '/renders/shot_%04d.png',
+      padding: 4,
+      startFrame: 1,
+      endFrame: 1,
+      totalFrames: 1,
+      frames: [1],
+      filePaths: {
+        1: '/renders/shot_0001.png',
+      },
+      missingFrames: [],
+      isNativeFormat: true,
+    };
+
+    render(<SequenceViewer sequence={mockSeq} onSelectSequence={() => {}} />);
+    const img = screen.getByRole('img', { name: /Frame 1/i });
+    expect(img).toBeDefined();
+    expect(img.getAttribute('src')).toContain('/renders/shot_0001.png');
+
+    // Simulate image error event (e.g. file:/// local resource blocked or error)
+    fireEvent.error(img);
+
+    await waitFor(() => {
+      expect(mockReadDataUrl).toHaveBeenCalledWith('/renders/shot_0001.png');
+      expect(img.getAttribute('src')).toBe('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAE=');
+    });
+  });
+
+  it('displays clear error notice if both file URL and readImageDataUrl fail', async () => {
+    const mockReadDataUrl = vi.fn().mockResolvedValue(null);
+    // @ts-expect-error mock window.rnApi
+    window.rnApi = {
+      readImageDataUrl: mockReadDataUrl,
+    };
+
+    const mockSeq = {
+      directory: '/renders',
+      baseName: 'shot_',
+      extension: 'png',
+      pattern: '/renders/shot_%04d.png',
+      padding: 4,
+      startFrame: 1,
+      endFrame: 1,
+      totalFrames: 1,
+      frames: [1],
+      filePaths: {
+        1: '/renders/shot_0001.png',
+      },
+      missingFrames: [],
+      isNativeFormat: true,
+    };
+
+    render(<SequenceViewer sequence={mockSeq} onSelectSequence={() => {}} />);
+    const img = screen.getByRole('img', { name: /Frame 1/i });
+
+    // Trigger error on image
+    fireEvent.error(img);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Failed to Load Frame Image/i)).toBeDefined();
+      expect(screen.getByText(/\/renders\/shot_0001\.png/i)).toBeDefined();
+    });
   });
 });

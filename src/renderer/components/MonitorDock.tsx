@@ -54,11 +54,35 @@ export const MonitorDock: React.FC = () => {
   const [autoScroll, setAutoScroll] = useState(true);
   const [copied, setCopied] = useState(false);
   const [thumbFailed, setThumbFailed] = useState(false);
+  const [thumbFallbackUrl, setThumbFallbackUrl] = useState<string | null>(null);
   const consoleBottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setThumbFailed(false);
+    setThumbFallbackUrl(null);
   }, [monitorStats.lastThumbnailPath]);
+
+  const handleThumbError = () => {
+    const p = monitorStats.lastThumbnailPath;
+    if (p && !thumbFallbackUrl && typeof window !== 'undefined' && window.rnApi?.readImageDataUrl) {
+      window.rnApi
+        .readImageDataUrl(p)
+        .then((dataUrl) => {
+          if (dataUrl) {
+            setThumbFallbackUrl(dataUrl);
+          } else {
+            setThumbFailed(true);
+          }
+        })
+        .catch(() => setThumbFailed(true));
+    } else {
+      setThumbFailed(true);
+    }
+  };
+
+  const displayedThumbUrl =
+    thumbFallbackUrl ||
+    (monitorStats.lastThumbnailPath ? toFileUrl(monitorStats.lastThumbnailPath) : null);
 
   const activeJob = jobs.find((j) => j.id === activeJobId);
   const isRunning = queueState === 'running';
@@ -408,12 +432,12 @@ export const MonitorDock: React.FC = () => {
                 className="group relative flex h-full w-48 flex-shrink-0 cursor-pointer flex-col items-center justify-center rounded-lg border border-rn-border bg-rn-panel overflow-hidden hover:border-rn-accent transition-colors"
                 title="Click to open Sequence Viewer"
               >
-                {monitorStats.lastThumbnailPath && !thumbFailed ? (
+                {displayedThumbUrl && !thumbFailed ? (
                   <img
-                    src={toFileUrl(monitorStats.lastThumbnailPath)}
+                    src={displayedThumbUrl}
                     alt="Last Rendered Frame"
                     className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
-                    onError={() => setThumbFailed(true)}
+                    onError={handleThumbError}
                   />
                 ) : (
                   <div className="flex flex-col items-center text-rn-muted p-2 text-center">
@@ -578,12 +602,12 @@ export const MonitorDock: React.FC = () => {
                 className="group relative flex h-full w-48 flex-shrink-0 cursor-pointer flex-col items-center justify-center rounded-lg border border-rn-border bg-rn-panel overflow-hidden hover:border-rn-accent transition-colors"
                 title="Click to open Sequence Viewer"
               >
-                {monitorStats.lastThumbnailPath && !thumbFailed ? (
+                {displayedThumbUrl && !thumbFailed ? (
                   <img
-                    src={toFileUrl(monitorStats.lastThumbnailPath)}
+                    src={displayedThumbUrl}
                     alt="Last Rendered Frame"
                     className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
-                    onError={() => setThumbFailed(true)}
+                    onError={handleThumbError}
                   />
                 ) : (
                   <div className="flex flex-col items-center text-rn-muted p-2 text-center">
