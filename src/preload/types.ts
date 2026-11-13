@@ -157,6 +157,13 @@ export interface RenderNightApi {
   // Image Sequence Tools & FFmpeg
   detectSequence(dirOrPath: string, blendFilePath?: string): Promise<ImageSequenceInfo | null>;
   generateProxy(sourcePath: string): Promise<ProxyResult>;
+  getVideoProxy(
+    sequence: ImageSequenceInfo,
+  ): Promise<{ proxyPath: string; isCached: boolean; isToneMapped: boolean }>;
+  clearVideoProxies(): Promise<number>;
+  onVideoProxyProgress(
+    listener: (data: { directory: string; progress: number }) => void,
+  ): () => void;
   readImageDataUrl(filePath: string): Promise<string | null>;
   stitchSequence(options: StitchOptions): Promise<string>;
   cancelStitch(): Promise<void>;

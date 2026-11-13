@@ -3,11 +3,28 @@ import { SequenceViewer } from '../src/renderer/components/sequence/SequenceView
 
 import React from 'react';
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeAll } from 'vitest';
 
 describe('SequenceViewer UI', () => {
+  beforeAll(() => {
+    HTMLCanvasElement.prototype.getContext = vi.fn().mockReturnValue({
+      fillRect: vi.fn(),
+      clearRect: vi.fn(),
+      drawImage: vi.fn(),
+      save: vi.fn(),
+      restore: vi.fn(),
+    });
+    HTMLCanvasElement.prototype.getBoundingClientRect = vi.fn().mockReturnValue({
+      width: 800,
+      height: 600,
+      top: 0,
+      left: 0,
+      bottom: 600,
+      right: 800,
+    });
+  });
   it('renders open sequence button and playback controls', () => {
     render(<SequenceViewer sequence={null} onSelectSequence={() => {}} />);
     expect(screen.getByRole('button', { name: /Open Sequence/i })).toBeDefined();
@@ -66,53 +83,36 @@ describe('SequenceViewer UI', () => {
     expect(screen.getByText(/2x/i)).toBeDefined();
   });
 
-  it('displays frame image and falls back to readImageDataUrl if file:// image loading fails', async () => {
-    const mockReadDataUrl = vi
-      .fn()
-      .mockResolvedValue('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAE=');
-    // @ts-expect-error mock window.rnApi
-    window.rnApi = {
-      readImageDataUrl: mockReadDataUrl,
-    };
-
+  it('renders canvas element and mode toggle buttons', () => {
     const mockSeq = {
       directory: '/renders',
-      baseName: 'shot_',
+      baseName: 'render_',
       extension: 'png',
-      pattern: '/renders/shot_%04d.png',
+      pattern: '/renders/render_%04d.png',
       padding: 4,
       startFrame: 1,
-      endFrame: 1,
-      totalFrames: 1,
-      frames: [1],
-      filePaths: {
-        1: '/renders/shot_0001.png',
-      },
+      endFrame: 24,
+      totalFrames: 24,
+      frames: Array.from({ length: 24 }, (_, i) => 1 + i),
+      filePaths: { 1: '/renders/render_0001.png' },
       missingFrames: [],
       isNativeFormat: true,
     };
 
-    render(<SequenceViewer sequence={mockSeq} onSelectSequence={() => {}} />);
-    const img = screen.getByRole('img', { name: /Frame 1/i });
-    expect(img).toBeDefined();
-    expect(img.getAttribute('src')).toContain('/renders/shot_0001.png');
+    const { container } = render(<SequenceViewer sequence={mockSeq} onSelectSequence={() => {}} />);
+    // Main canvas and cache bar canvas
+    const canvases = container.querySelectorAll('canvas');
+    expect(canvases.length).toBeGreaterThanOrEqual(1);
 
-    // Simulate image error event (e.g. file:/// local resource blocked or error)
-    fireEvent.error(img);
+    // Mode toggle buttons
+    expect(screen.getByRole('button', { name: /Realtime/i })).toBeDefined();
+    expect(screen.getByRole('button', { name: /Every frame/i })).toBeDefined();
 
-    await waitFor(() => {
-      expect(mockReadDataUrl).toHaveBeenCalledWith('/renders/shot_0001.png');
-      expect(img.getAttribute('src')).toBe('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAE=');
-    });
+    // Toggle mode
+    fireEvent.click(screen.getByRole('button', { name: /Every frame/i }));
   });
 
-  it('displays clear error notice if both file URL and readImageDataUrl fail', async () => {
-    const mockReadDataUrl = vi.fn().mockResolvedValue(null);
-    // @ts-expect-error mock window.rnApi
-    window.rnApi = {
-      readImageDataUrl: mockReadDataUrl,
-    };
-
+  it('toggles performance stats HUD overlay', () => {
     const mockSeq = {
       directory: '/renders',
       baseName: 'shot_',
@@ -120,25 +120,17 @@ describe('SequenceViewer UI', () => {
       pattern: '/renders/shot_%04d.png',
       padding: 4,
       startFrame: 1,
-      endFrame: 1,
-      totalFrames: 1,
-      frames: [1],
-      filePaths: {
-        1: '/renders/shot_0001.png',
-      },
+      endFrame: 10,
+      totalFrames: 10,
+      frames: Array.from({ length: 10 }, (_, i) => 1 + i),
+      filePaths: { 1: '/renders/shot_0001.png' },
       missingFrames: [],
       isNativeFormat: true,
     };
 
     render(<SequenceViewer sequence={mockSeq} onSelectSequence={() => {}} />);
-    const img = screen.getByRole('img', { name: /Frame 1/i });
-
-    // Trigger error on image
-    fireEvent.error(img);
-
-    await waitFor(() => {
-      expect(screen.getByText(/Failed to Load Frame Image/i)).toBeDefined();
-      expect(screen.getByText(/\/renders\/shot_0001\.png/i)).toBeDefined();
-    });
+    const statsBtn = screen.getByTitle(/Toggle Performance HUD/i);
+    expect(statsBtn).toBeDefined();
+    fireEvent.click(statsBtn);
   });
 });

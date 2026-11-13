@@ -28,3 +28,12 @@ export function toFileUrl(filePath: string): string {
   // because Chromium treats '#' as URL fragment and '?' as query string in file:// URLs
   return encodeURI(`file://${normalized}`).replace(/#/g, '%23').replace(/\?/g, '%3F');
 }
+
+/**
+ * Converts any local filesystem path into an `rn-media://` streaming URL.
+ * Handled via `protocol.handle('rn-media')` which streams files directly off disk.
+ */
+export function toRnMediaUrl(filePath: string): string {
+  if (!filePath || typeof filePath !== 'string') return '';
+  return `rn-media://local/file?path=${encodeURIComponent(filePath)}`;
+}

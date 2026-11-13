@@ -179,6 +179,25 @@ const api: RenderNightApi = {
     return ipcRenderer.invoke('sequence:generateProxy', sourcePath);
   },
 
+  getVideoProxy: (sequence) => {
+    return ipcRenderer.invoke('sequence:getVideoProxy', sequence);
+  },
+
+  clearVideoProxies: () => {
+    return ipcRenderer.invoke('sequence:clearVideoProxies');
+  },
+
+  onVideoProxyProgress: (listener) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      data: { directory: string; progress: number },
+    ) => listener(data);
+    ipcRenderer.on('sequence:videoProxyProgress', handler);
+    return () => {
+      ipcRenderer.removeListener('sequence:videoProxyProgress', handler);
+    };
+  },
+
   readImageDataUrl: (filePath) => {
     return ipcRenderer.invoke('sequence:readImageDataUrl', filePath);
   },

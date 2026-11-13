@@ -1,9 +1,24 @@
 import { isQueueActive, registerIpcHandlers, stopQueueCleanly } from './ipc';
 
-import { app, BrowserWindow, dialog, nativeTheme } from 'electron';
+import { app, BrowserWindow, dialog, nativeTheme, net, protocol } from 'electron';
 
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'rn-media',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      stream: true,
+      corsEnabled: true,
+      bypassCSP: true,
+    },
+  },
+]);
 
 let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
@@ -91,6 +106,19 @@ function createWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
+  protocol.handle('rn-media', (request) => {
+    try {
+      const url = new URL(request.url);
+      const filePath = url.searchParams.get('path');
+      if (!filePath || !existsSync(filePath)) {
+        return new Response('Not Found', { status: 404 });
+      }
+      return net.fetch(pathToFileURL(filePath).toString());
+    } catch {
+      return new Response('Internal Server Error', { status: 500 });
+    }
+  });
+
   registerIpcHandlers(() => mainWindow);
   createWindow();
 

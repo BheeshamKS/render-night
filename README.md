@@ -42,8 +42,12 @@ Render Night enables seamless background batch rendering for Blender. It operate
 - **Pre-flight Validation & Quick Fixes:**
   - Pre-render validation detecting missing textures/assets, unwritable paths, low disk space, missing cameras, newer file versions, and video range violations.
   - One-click quick fixes (e.g., switch to continuous range, switch compute device to CPU).
-- **Image Sequence Tools & Sequence Player:**
-  - Dedicated viewer tab: detect frame sequences, scrub timeline at custom fps, preview missing frame gaps.
+- **Image Sequence Tools & Smooth Realtime Sequence Player:**
+  - High-performance playback engine: clock-driven rendering (`performance.now()`), off-main-thread Web Worker decode pool (`createImageBitmap`), and direct Canvas 2D drawing (`desynchronized: true`) eliminating main-thread UI stalls.
+  - Adaptive read-ahead ring buffer and LRU RAM cache with strict memory budgeting and explicit `bitmap.close()` resource disposal.
+  - Realtime vs. Every-frame playback toggle; shuttle controls (`J`/`K`/`L`), timeline scrubbing (<100ms response), zoom & pan (`F` to fit, `1` for 100%), and Performance HUD overlay (`S`).
+  - Automated Intra-frame (GOP 1) H.264 video proxy fallback for heavy EXR/HDR/16-bit/4K footage with sRGB tone-mapping and frame-accurate playback.
+  - Live render mode: automatically tracks and extends timeline as new frames are written to disk without restarting playback.
   - In/Out loop range marks (`I`, `O`, `Alt+X`) and playback speed multipliers (`0.25x`, `0.5x`, `1x`, `2x`).
   - Converter & stitcher: transcode image sequences to MP4 (H.264/H.265), WebM, or ProRes with resolution, quality, and audio muxing.
   - *Stitch to MP4 when finished* post-render job option.

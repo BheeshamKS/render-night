@@ -17,9 +17,11 @@ import {
   type PostAction,
   queueStateSchema,
 } from '../core/schemas/queue-state';
+import type { ImageSequenceInfo } from '../core/schemas/sequence';
 import { readImageAsDataUrl } from '../core/sequence/image-reader';
 import { generateFrameProxy } from '../core/sequence/proxy-generator';
 import { detectSequence } from '../core/sequence/sequence-detector';
+import { clearVideoProxyCache, generateVideoProxy } from '../core/sequence/video-proxy';
 
 import { app, dialog, ipcMain, powerSaveBlocker, shell, type BrowserWindow } from 'electron';
 
@@ -542,6 +544,24 @@ export function registerIpcHandlers(mainWindowProvider: () => BrowserWindow | nu
   ipcMain.handle('sequence:generateProxy', async (_event, sourcePath: string) => {
     const cacheDir = path.join(app.getPath('userData'), 'cache', 'proxies');
     return generateFrameProxy(sourcePath, cacheDir);
+  });
+
+  ipcMain.handle('sequence:getVideoProxy', async (_event, sequence: ImageSequenceInfo) => {
+    const cacheDir = path.join(app.getPath('userData'), 'cache', 'video-proxies');
+    const ffmpegInfo = await getFfmpegPath();
+    const ffmpegBin = ffmpegInfo?.path || 'ffmpeg';
+    const win = mainWindowProvider();
+    return generateVideoProxy(sequence, cacheDir, ffmpegBin, (progress) => {
+      win?.webContents.send('sequence:videoProxyProgress', {
+        directory: sequence.directory,
+        progress,
+      });
+    });
+  });
+
+  ipcMain.handle('sequence:clearVideoProxies', async () => {
+    const cacheDir = path.join(app.getPath('userData'), 'cache', 'video-proxies');
+    return clearVideoProxyCache(cacheDir);
   });
 
   ipcMain.handle('sequence:stitch', async (_event, options: StitchOptions) => {
