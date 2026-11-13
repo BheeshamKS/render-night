@@ -43,3 +43,6 @@ vitest.config.ts.tmp
 __pycache__/
 *.pyc
 *.pyo
+
+# Test sequences
+test-sequences/
