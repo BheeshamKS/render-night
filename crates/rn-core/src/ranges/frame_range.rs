@@ -21,11 +21,22 @@ pub struct SimpleRange {
     pub step: i32,
 }
 
+impl Default for SimpleRange {
+    fn default() -> Self {
+        Self {
+            start: 1,
+            end: 1,
+            step: 1,
+        }
+    }
+}
+
 fn default_step() -> i32 {
     1
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct FrameRangeConfig {
     #[serde(default)]
     pub mode: FrameRangeMode,

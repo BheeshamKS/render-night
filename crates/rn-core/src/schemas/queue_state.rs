@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use super::override_schema::{CrashPolicy, OverrideMap};
-use crate::ranges::{FrameRangeConfig, SimpleRange};
+pub use crate::ranges::{FrameRangeConfig, SimpleRange};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
@@ -261,4 +261,14 @@ pub struct QueueState {
     pub version: u32,
     pub jobs: Vec<Job>,
     pub settings: QueueSettings,
+}
+
+impl Default for QueueState {
+    fn default() -> Self {
+        Self {
+            version: 1,
+            jobs: Vec::new(),
+            settings: QueueSettings::default(),
+        }
+    }
 }
