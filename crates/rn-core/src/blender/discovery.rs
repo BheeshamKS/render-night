@@ -703,7 +703,6 @@ pub fn resolve_blender_for_cli(
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -718,22 +717,19 @@ mod tests {
         assert_eq!(min, 2);
         assert_eq!(pat, 0);
 
-        let (v, maj, min, pat) =
-            parse_blender_version_output("Blender 3.6.12 (sub 0)\n").unwrap();
+        let (v, maj, min, pat) = parse_blender_version_output("Blender 3.6.12 (sub 0)\n").unwrap();
         assert_eq!(v, "3.6.12");
         assert_eq!(maj, 3);
         assert_eq!(min, 6);
         assert_eq!(pat, 12);
 
-        let (v, maj, min, pat) =
-            parse_blender_version_output("Blender 5.0 (sub 0)\n").unwrap();
+        let (v, maj, min, pat) = parse_blender_version_output("Blender 5.0 (sub 0)\n").unwrap();
         assert_eq!(v, "5.0.0");
         assert_eq!(maj, 5);
         assert_eq!(min, 0);
         assert_eq!(pat, 0);
 
-        let (v, maj, min, pat) =
-            parse_blender_version_output("Blender 5.0.0 Alpha\n").unwrap();
+        let (v, maj, min, pat) = parse_blender_version_output("Blender 5.0.0 Alpha\n").unwrap();
         assert_eq!(v, "5.0.0");
         assert_eq!(maj, 5);
         assert_eq!(min, 0);
@@ -795,15 +791,17 @@ mod tests {
     fn test_candidate_paths_linux() {
         let mock_fs = MockBlenderFs::default();
         let mock_env = MockEnv::default();
-        let candidates =
-            candidate_executables_for_platform(Platform::Linux, &mock_fs, &mock_env);
+        let candidates = candidate_executables_for_platform(Platform::Linux, &mock_fs, &mock_env);
 
-        assert!(candidates.iter().any(|c| c == &vec![
-            "flatpak".to_string(),
-            "run".to_string(),
-            "org.blender.Blender".to_string()
-        ]));
-        assert!(candidates.iter().any(|c| c == &vec!["/usr/bin/blender".to_string()]));
+        assert!(candidates.iter().any(|c| c
+            == &vec![
+                "flatpak".to_string(),
+                "run".to_string(),
+                "org.blender.Blender".to_string()
+            ]));
+        assert!(candidates
+            .iter()
+            .any(|c| c == &vec!["/usr/bin/blender".to_string()]));
         assert!(candidates.iter().any(|c| c == &vec!["blender".to_string()]));
     }
 
@@ -811,25 +809,28 @@ mod tests {
     fn test_candidate_paths_windows() {
         let mock_fs = MockBlenderFs::default();
         let mut mock_env = MockEnv::default();
-        mock_env.vars.insert(
-            "ProgramFiles".into(),
-            "C:\\Program Files".into(),
-        );
-        let candidates =
-            candidate_executables_for_platform(Platform::Windows, &mock_fs, &mock_env);
+        mock_env
+            .vars
+            .insert("ProgramFiles".into(), "C:\\Program Files".into());
+        let candidates = candidate_executables_for_platform(Platform::Windows, &mock_fs, &mock_env);
 
-        assert!(candidates.iter().any(|c| c[0].contains("Blender Foundation")));
-        assert!(candidates.iter().any(|c| c == &vec!["blender.exe".to_string()]));
+        assert!(candidates
+            .iter()
+            .any(|c| c[0].contains("Blender Foundation")));
+        assert!(candidates
+            .iter()
+            .any(|c| c == &vec!["blender.exe".to_string()]));
     }
 
     #[test]
     fn test_candidate_paths_macos() {
         let mock_fs = MockBlenderFs::default();
         let mock_env = MockEnv::default();
-        let candidates =
-            candidate_executables_for_platform(Platform::MacOS, &mock_fs, &mock_env);
+        let candidates = candidate_executables_for_platform(Platform::MacOS, &mock_fs, &mock_env);
 
-        assert!(candidates.iter().any(|c| c[0] == "/Applications/Blender.app/Contents/MacOS/Blender"));
+        assert!(candidates
+            .iter()
+            .any(|c| c[0] == "/Applications/Blender.app/Contents/MacOS/Blender"));
         assert!(candidates.iter().any(|c| c == &vec!["blender".to_string()]));
     }
 
@@ -856,13 +857,8 @@ mod tests {
         let mock_env = MockEnv::default();
         let custom = vec![vec!["/opt/blender-5.0/blender".into()]];
 
-        let discovered = discover_all_blenders_with(
-            &custom,
-            &mock_fs,
-            &mock_prober,
-            &mock_env,
-            Platform::Linux,
-        );
+        let discovered =
+            discover_all_blenders_with(&custom, &mock_fs, &mock_prober, &mock_env, Platform::Linux);
 
         assert_eq!(discovered.len(), 2);
         assert_eq!(discovered[0].version, "5.0.0");
