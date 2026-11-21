@@ -22,6 +22,7 @@ chrono = { workspace = true }
 notify = { workspace = true }
 rodio = { workspace = true }
 keepawake = { workspace = true }
+tempfile = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 libc = { workspace = true }

@@ -75,6 +75,7 @@ pub struct QueueEngineOptions {
     pub blender_executable: Vec<String>,
 }
 
+#[derive(Clone)]
 pub struct QueueEngineHandle {
     cmd_tx: mpsc::Sender<QueueCommand>,
     event_rx_factory: broadcast::Sender<QueueEvent>,
@@ -116,6 +117,13 @@ impl QueueEngineHandle {
             .await
             .map_err(|e| e.to_string())?;
         rx.await.map_err(|e| e.to_string())
+    }
+
+    pub async fn update_state(&self, state: QueueState) -> Result<(), String> {
+        self.cmd_tx
+            .send(QueueCommand::UpdateState(Box::new(state)))
+            .await
+            .map_err(|e| e.to_string())
     }
 
     pub fn subscribe(&self) -> broadcast::Receiver<QueueEvent> {

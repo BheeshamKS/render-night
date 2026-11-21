@@ -1,3 +1,4 @@
+pub mod cli;
 pub mod history;
 pub mod inspect;
 pub mod override_schema;
@@ -6,6 +7,7 @@ pub mod preset;
 pub mod queue_state;
 pub mod runner_event;
 
+pub use cli::*;
 pub use history::*;
 pub use inspect::*;
 pub use override_schema::*;
