@@ -2519,6 +2519,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rn-app"
+version = "0.1.0"
+dependencies = [
+ "rn-core",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "rn-cli"
 version = "0.1.0"
 dependencies = [

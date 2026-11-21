@@ -16,7 +16,9 @@ import { runnerPayloadSchema } from '../src/core/schemas/override';
 import { historyEntrySchema } from '../src/core/schemas/history';
 
 describe('Golden Fixtures Validation', () => {
-  const goldenDir = path.resolve(__dirname, 'golden');
+  const goldenDir = fs.existsSync(path.resolve(__dirname, 'golden'))
+    ? path.resolve(__dirname, 'golden')
+    : path.resolve(__dirname, '../../tests/golden');
 
   describe('range_parser_cases.json', () => {
     const fixturePath = path.join(goldenDir, 'range_parser_cases.json');
