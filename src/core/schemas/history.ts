@@ -1,6 +1,12 @@
 import { z } from 'zod';
 
-export const historyResultSchema = z.enum(['completed', 'failed', 'canceled']);
+export const historyResultSchema = z.enum([
+  'completed',
+  'completed_with_warnings',
+  'completed_with_errors',
+  'failed',
+  'canceled',
+]);
 
 export type HistoryResult = z.infer<typeof historyResultSchema>;
 

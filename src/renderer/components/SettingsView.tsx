@@ -14,6 +14,7 @@ import {
   Moon,
   RefreshCw,
   Shield,
+  ShieldCheck,
   Trash2,
   Volume2,
 } from 'lucide-react';
@@ -35,10 +36,14 @@ export const SettingsView: React.FC = () => {
     setSoundSettings,
     globalSettings,
     setGlobalSettings,
+    preflightMode,
+    setPreflightMode,
+    preflightCountdownSeconds,
+    setPreflightCountdownSeconds,
   } = useQueueStore();
 
   const [activeSection, setActiveSection] = useState<
-    'blender' | 'rendering' | 'performance' | 'sound' | 'power' | 'safety' | 'retries'
+    'blender' | 'rendering' | 'performance' | 'sound' | 'power' | 'safety' | 'retries' | 'preflight'
   >('blender');
   const [isRescanning, setIsRescanning] = useState(false);
   const [manualPath, setManualPath] = useState('');
@@ -84,6 +89,7 @@ export const SettingsView: React.FC = () => {
     { id: 'power' as const, label: 'Power & Sleep', icon: Moon },
     { id: 'safety' as const, label: 'Safety & Disk Space', icon: HardDrive },
     { id: 'retries' as const, label: 'Crash Recovery Policy', icon: Shield },
+    { id: 'preflight' as const, label: 'Pre-flight Validation', icon: ShieldCheck },
   ];
 
   return (
@@ -597,6 +603,66 @@ export const SettingsView: React.FC = () => {
                     Automatically fallback to CPU rendering after GPU crashes
                   </span>
                 </label>
+              </div>
+            </div>
+          )}
+
+          {/* Pre-flight Validation Policy */}
+          {activeSection === 'preflight' && (
+            <div className="space-y-6 max-w-2xl">
+              <div>
+                <h3 className="text-base font-semibold text-rn-text">Pre-flight Validation Mode</h3>
+                <p className="text-xs text-rn-muted mt-1 leading-relaxed">
+                  Controls how pre-flight checks handle potential issues such as missing textures,
+                  newer Blender versions, or no active camera. Only 3 conditions can ever block a
+                  job: missing/unexecutable Blender, missing .blend file, or zero frames.
+                </p>
+              </div>
+
+              <div className="space-y-4 rounded-xl border border-rn-border bg-rn-subpanel/40 p-4">
+                <div>
+                  <span className="text-xs font-semibold text-rn-text block mb-2">
+                    Pre-flight Enforcement Mode
+                  </span>
+                  <SegmentedEnumToggle
+                    value={preflightMode}
+                    options={[
+                      { value: 'never_block', label: 'Never block (Default)' },
+                      { value: 'ask', label: 'Ask when warnings exist' },
+                      { value: 'strict', label: 'Strict (Opt-in)' },
+                    ]}
+                    onChange={(val) => setPreflightMode(val as 'never_block' | 'ask' | 'strict')}
+                  />
+                  <p className="text-[11px] text-rn-muted mt-2">
+                    {preflightMode === 'never_block' &&
+                      'Start proceeds immediately, warnings are logged to the console. No popup modal will ever interrupt an overnight queue.'}
+                    {preflightMode === 'ask' &&
+                      'Shows a top countdown banner before auto-continuing, allowing unattended queues to run while offering a quick review.'}
+                    {preflightMode === 'strict' &&
+                      'Blocks start until warnings or errors are manually acknowledged or fixed.'}
+                  </p>
+                </div>
+
+                {preflightMode === 'ask' && (
+                  <div className="pt-3 border-t border-rn-border/60">
+                    <span className="text-xs font-semibold text-rn-text block mb-1.5">
+                      Auto-continue Countdown
+                    </span>
+                    <p className="text-[11px] text-rn-muted mb-2">
+                      Seconds to wait on warnings before automatically continuing execution.
+                    </p>
+                    <div className="w-48">
+                      <BlenderNumberField
+                        value={preflightCountdownSeconds}
+                        min={5}
+                        max={300}
+                        step={5}
+                        onChange={(val) => setPreflightCountdownSeconds(val)}
+                        unit="s"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

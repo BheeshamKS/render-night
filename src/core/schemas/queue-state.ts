@@ -72,6 +72,12 @@ export const jobSchema = z.object({
   lastFrame: z.number().optional(),
   inspect: z.unknown().optional(),
   preRenderHook: z.string().optional(),
+  isBasicMode: z.boolean().default(false).optional(),
+  basicModeReason: z.string().optional(),
+  ignoreAllWarnings: z.boolean().default(false).optional(),
+  ignoredWarningCodes: z.array(z.string()).default([]).optional(),
+  ignoredWarningIds: z.array(z.string()).default([]).optional(),
+  missingPathRemaps: z.record(z.string(), z.string()).optional(),
 });
 
 export type Job = z.infer<typeof jobSchema>;
@@ -126,6 +132,8 @@ export const queueSettingsSchema = z.object({
   postAction: postActionSchema.default('none'),
   sound: soundSettingsSchema.default({}),
   schedule: scheduleConfigSchema.optional(),
+  preflightMode: z.enum(['never_block', 'ask', 'strict']).default('never_block').optional(),
+  preflightCountdownSeconds: z.number().min(0).default(30).optional(),
 
   // Audited global application settings
   defaultBlenderId: z.string().optional(),

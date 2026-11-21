@@ -4,6 +4,7 @@ import { type QueueJob, useQueueStore } from '../store/queueStore';
 import React, { useMemo, useState } from 'react';
 
 import {
+  AlertTriangle,
   Camera,
   CheckCircle2,
   Clock,
@@ -49,7 +50,11 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
     openJobDrawer,
     reinspectJob,
     loadSequenceFromPath,
+    preflightReport,
   } = useQueueStore();
+
+  const jobReport = preflightReport?.jobReports.find((r) => r.jobId === job.id);
+  const jobWarningsCount = job.ignoreAllWarnings ? 0 : jobReport?.warnings.length || 0;
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null);
@@ -117,6 +122,20 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
           icon: CheckCircle2,
           iconClass: '',
         };
+      case 'Completed with warnings':
+        return {
+          label: 'Warnings',
+          className: 'bg-rn-warning/15 text-rn-warning border border-rn-warning/30 font-medium',
+          icon: AlertTriangle,
+          iconClass: '',
+        };
+      case 'Completed with errors':
+        return {
+          label: `Errors (${job.failedFrames?.length || 0})`,
+          className: 'bg-rn-warning/15 text-rn-warning border border-rn-warning/30 font-medium',
+          icon: AlertTriangle,
+          iconClass: '',
+        };
       case 'Failed':
         return {
           label: 'Failed',
@@ -140,7 +159,7 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
           iconClass: '',
         };
     }
-  }, [job.status, job.completedFrames, job.totalFrames]);
+  }, [job.status, job.completedFrames, job.totalFrames, job.failedFrames?.length]);
 
   // Derived effective settings summary string
   const currentScene = job.scenes.find((s) => s.name === job.selectedScene) || job.scenes[0];
@@ -273,6 +292,39 @@ export const JobRow: React.FC<JobRowProps> = ({ job, index: _index }) => {
           >
             {job.fileName}
           </span>
+
+          {/* Basic Mode Badge */}
+          {job.isBasicMode && (
+            <span
+              className="rounded bg-rn-warning/15 border border-rn-warning/30 px-1.5 py-0.5 text-[10px] font-medium text-rn-warning flex-shrink-0"
+              title={
+                job.basicModeReason
+                  ? `Basic mode: ${job.basicModeReason}`
+                  : 'Basic mode: Using internal .blend settings'
+              }
+            >
+              Basic mode
+            </span>
+          )}
+
+          {/* Warnings Chip */}
+          {jobWarningsCount > 0 && (
+            <button
+              type="button"
+              onClick={async (e) => {
+                e.stopPropagation();
+                await runPreflightCheck(job.id);
+                setShowPreflightModal(true);
+              }}
+              className="flex items-center space-x-1 rounded bg-rn-warning/15 border border-rn-warning/30 px-1.5 py-0.5 text-[10px] font-medium text-rn-warning hover:bg-rn-warning/25 flex-shrink-0 transition"
+              title="View pre-flight warnings for this job"
+            >
+              <AlertTriangle className="h-3 w-3" />
+              <span>
+                {jobWarningsCount} warning{jobWarningsCount === 1 ? '' : 's'}
+              </span>
+            </button>
+          )}
         </div>
 
         {/* Right side of Line 1: Quick Hover Actions, Status Chip, More Menu */}

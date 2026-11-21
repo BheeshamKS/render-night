@@ -44,6 +44,8 @@ export interface QueueEngineJob {
   crashConfig?: CrashConfig;
   renderMissingOnly?: boolean;
   preRenderHook?: string;
+  pathRemaps?: Record<string, string>;
+  makePathsAbsolute?: boolean;
 }
 
 export interface QueueEngineOptions {
@@ -346,6 +348,8 @@ export class QueueEngine extends EventEmitter {
         crashConfig: job.crashConfig,
         renderMissingOnly: false,
         preRenderHook: job.preRenderHook,
+        pathRemaps: job.pathRemaps,
+        makePathsAbsolute: job.makePathsAbsolute,
       };
       fs.writeFileSync(payloadPath, JSON.stringify(runnerPayload, null, 2), 'utf8');
 
@@ -694,7 +698,9 @@ export class QueueEngine extends EventEmitter {
       ? 'canceled'
       : failedFramesList.length > 0 && completedFramesSet.size === 0
         ? 'failed'
-        : 'completed';
+        : failedFramesList.length > 0
+          ? 'completed_with_errors'
+          : 'completed';
 
     const historyEntry: HistoryEntry = {
       id: randomUUID(),

@@ -27,6 +27,9 @@ export interface PreflightJobInput {
     requestedGpu?: boolean;
     engine?: string;
   };
+  ignoredWarningCodes?: string[];
+  ignoredWarningIds?: string[];
+  ignoreAllWarnings?: boolean;
 }
 
 export interface PreflightOptions {
@@ -91,17 +94,98 @@ export class PreflightChecker {
 
     const currentScene = job.scenes?.find((s) => s.name === job.selectedScene) || job.scenes?.[0];
 
-    // 1. Missing external files (textures, sounds, libraries)
+    // =========================================================================
+    // BLOCKING CHECKS (Only 3 conditions can block a job: Principle 1)
+    // =========================================================================
+
+    // Block Condition 1: The Blender executable is missing or can't run
+    if (selectedBlender?.executable && !isExecutableAvailable(selectedBlender.executable)) {
+      errors.push({
+        id: `pf-${job.id}-blender-missing`,
+        jobId: job.id,
+        jobName: job.fileName,
+        code: 'BLENDER_NOT_FOUND',
+        severity: 'error',
+        isBlocking: true,
+        message: `The selected Blender executable "${selectedBlender.executable}" does not exist or was not found on disk.`,
+      });
+    }
+
+    // Block Condition 2: The .blend path doesn't exist or can't be read
+    if (job.filePath) {
+      if (!fs.existsSync(job.filePath)) {
+        errors.push({
+          id: `pf-${job.id}-blend-not-found`,
+          jobId: job.id,
+          jobName: job.fileName,
+          code: 'BLEND_NOT_FOUND',
+          severity: 'error',
+          isBlocking: true,
+          message: `The .blend file "${job.filePath}" does not exist on disk.`,
+        });
+      } else if (options.checkDiskAccess !== false) {
+        try {
+          fs.accessSync(job.filePath, fs.constants.R_OK);
+        } catch (accessErr) {
+          errors.push({
+            id: `pf-${job.id}-blend-not-readable`,
+            jobId: job.id,
+            jobName: job.fileName,
+            code: 'BLEND_NOT_READABLE',
+            severity: 'error',
+            isBlocking: true,
+            message: `The .blend file "${job.filePath}" cannot be read (access denied).`,
+            details: (accessErr as Error).message,
+          });
+        }
+      }
+    }
+
+    // Block Condition 3: Zero frames to render
+    const sceneDefaults = {
+      start: currentScene?.frameStart ?? 1,
+      end: currentScene?.frameEnd ?? 250,
+      step: currentScene?.frameStep ?? 1,
+    };
+    const rangeConfig = job.rangeConfig || { mode: 'scene_default' };
+    const resolved = resolveFrameRange(rangeConfig, sceneDefaults);
+
+    if (resolved.error || resolved.frames.length === 0) {
+      errors.push({
+        id: `pf-${job.id}-invalid-range`,
+        jobId: job.id,
+        jobName: job.fileName,
+        code: 'ZERO_FRAMES_TO_RENDER',
+        severity: 'error',
+        isBlocking: true,
+        message: resolved.error || 'The resolved frame range contains zero frames to render.',
+      });
+    }
+
+    // =========================================================================
+    // WARNING CHECKS (Everything else is a warning, never a block)
+    // =========================================================================
+
+    // 1. Missing external files (textures, sounds, libraries) - Classified by relevance
     const missingFiles = job.inspectData?.missingFiles || [];
-    if (missingFiles.length > 0) {
+    const usedOrUnknown = missingFiles.filter(
+      (m) => m.relevance === 'used' || m.relevance === 'unknown' || !m.relevance,
+    );
+    const unusedCount = missingFiles.filter((m) => m.relevance === 'unused').length;
+
+    if (usedOrUnknown.length > 0) {
       warnings.push({
         id: `pf-${job.id}-missing-assets`,
         jobId: job.id,
         jobName: job.fileName,
         code: 'MISSING_ASSETS',
         severity: 'warning',
-        message: `Found ${missingFiles.length} missing external asset(s) (e.g. ${missingFiles[0].path}).`,
-        details: missingFiles.map((m) => `[${m.type}] ${m.path} (${m.datablock || ''})`).join('\n'),
+        isBlocking: false,
+        relevance: usedOrUnknown.some((m) => m.relevance === 'used') ? 'used' : 'unknown',
+        message: `Found ${usedOrUnknown.length} missing external asset(s) in use (e.g. ${usedOrUnknown[0].path}).`,
+        details: usedOrUnknown
+          .map((m) => `[${m.type}] ${m.path} (${m.datablock || ''})`)
+          .join('\n'),
       });
     }
 
@@ -119,12 +203,13 @@ export class PreflightChecker {
           }
           fs.accessSync(outputDir, fs.constants.W_OK);
         } catch (err) {
-          errors.push({
+          warnings.push({
             id: `pf-${job.id}-dir-unwritable`,
             jobId: job.id,
             jobName: job.fileName,
             code: 'OUTPUT_DIR_NOT_WRITABLE',
-            severity: 'error',
+            severity: 'warning',
+            isBlocking: false,
             message: `Output directory "${outputDir}" is not writable or access is denied.`,
             details: (err as Error).message,
             quickFix: {
@@ -148,6 +233,7 @@ export class PreflightChecker {
               jobName: job.fileName,
               code: 'LOW_DISK_SPACE',
               severity: 'warning',
+              isBlocking: false,
               message: `Available free disk space (${freeMb} MB) is below safe threshold (${minSpaceMb} MB).`,
               details: `Path: ${outputDir}`,
             });
@@ -158,93 +244,77 @@ export class PreflightChecker {
       }
     }
 
-    // 0. File inspection failure check
+    // 3. File inspection failure check (Enters Basic Mode, warning)
     if (job.inspectError) {
-      errors.push({
+      warnings.push({
         id: `pf-${job.id}-inspection-failed`,
         jobId: job.id,
         jobName: job.fileName,
         code: 'INSPECTION_FAILED',
-        severity: 'error',
-        message: `File inspection failed for "${job.fileName}": ${job.inspectError}`,
+        severity: 'warning',
+        isBlocking: false,
+        message: `File inspection failed for "${job.fileName}": ${job.inspectError}. Job will render in Basic Mode with file internal settings.`,
       });
     }
 
-    // 3. File saved with newer Blender version than selected executable
+    // 4. File saved with newer Blender version than selected executable
     const savedVer = job.savedWithVersion || job.inspectData?.savedWithVersion;
     if (savedVer && selectedBlender?.version) {
       if (isBlendVersionNewer(savedVer, selectedBlender.version)) {
-        errors.push({
+        warnings.push({
           id: `pf-${job.id}-newer-version`,
           jobId: job.id,
           jobName: job.fileName,
           code: 'NEWER_BLENDER_VERSION',
-          severity: 'error',
+          severity: 'warning',
+          isBlocking: false,
           message: `File was saved with a newer version of Blender (v${savedVer}) than the selected executable (v${selectedBlender.version}). Forward compatibility is not supported and may fail.`,
         });
       }
     }
 
-    // 4. Camera & Selected Blender checks
+    // 5. Camera check
     if (!job.inspectError) {
       if (!job.selectedCamera || (job.availableCameras && job.availableCameras.length === 0)) {
-        errors.push({
+        warnings.push({
           id: `pf-${job.id}-no-camera`,
           jobId: job.id,
           jobName: job.fileName,
           code: 'NO_ACTIVE_CAMERA',
-          severity: 'error',
+          severity: 'warning',
+          isBlocking: false,
           message: `No active camera selected for rendering in scene "${job.selectedScene || 'Scene'}".`,
+          quickFix:
+            job.availableCameras && job.availableCameras.length > 0
+              ? {
+                  label: `Select Camera (${job.availableCameras[0]})`,
+                  action: 'select_camera',
+                  data: { camera: job.availableCameras[0] },
+                }
+              : undefined,
         });
       }
     }
 
-    if (selectedBlender?.executable && !isExecutableAvailable(selectedBlender.executable)) {
-      errors.push({
-        id: `pf-${job.id}-blender-missing`,
-        jobId: job.id,
-        jobName: job.fileName,
-        code: 'BLENDER_NOT_FOUND',
-        severity: 'error',
-        message: `The selected Blender executable "${selectedBlender.executable}" does not exist or was not found on disk.`,
-      });
-    }
-
-    // 5. Frame range & Video format continuous rule
-    const sceneDefaults = {
-      start: currentScene?.frameStart ?? 1,
-      end: currentScene?.frameEnd ?? 250,
-      step: currentScene?.frameStep ?? 1,
-    };
-    const rangeConfig = job.rangeConfig || { mode: 'scene_default' };
-    const resolved = resolveFrameRange(rangeConfig, sceneDefaults);
-
-    if (resolved.error) {
-      errors.push({
-        id: `pf-${job.id}-invalid-range`,
-        jobId: job.id,
-        jobName: job.fileName,
-        code: 'INVALID_FRAME_RANGE',
-        severity: 'error',
-        message: resolved.error,
-      });
-    }
-
-    // Format check (image vs video)
+    // 6. Video format continuous rule check (warning)
     const rawFormat =
       job.overrides?.['scene.render.image_settings.file_format'] ||
-      currentScene?.imageSettings?.file_format?.value;
+      currentScene?.imageSettings?.file_format?.value ||
+      (job.outputPathPattern && /\.(mp4|mkv|mov|avi|webm)$/i.test(job.outputPathPattern)
+        ? 'FFMPEG'
+        : undefined);
     const formatStr = typeof rawFormat === 'string' ? rawFormat : undefined;
     const isVideo = isFormatVideo(formatStr);
     const rangeValidation = validateRangeForFormat(resolved, formatStr);
 
     if (!rangeValidation.valid) {
-      errors.push({
+      warnings.push({
         id: `pf-${job.id}-video-range-rule`,
         jobId: job.id,
         jobName: job.fileName,
         code: 'VIDEO_RANGE_RULE_VIOLATION',
-        severity: 'error',
+        severity: 'warning',
+        isBlocking: false,
         message: rangeValidation.reason || 'Video containers require continuous frame ranges.',
         quickFix: {
           label: 'Switch to Continuous Range',
@@ -253,7 +323,7 @@ export class PreflightChecker {
       });
     }
 
-    // 6. GPU device check
+    // 7. GPU device check
     const requestedGpu =
       job.overrides?.['scene.cycles.device'] === 'GPU' || job.deviceReport?.requestedGpu === true;
 
@@ -269,6 +339,7 @@ export class PreflightChecker {
           jobName: job.fileName,
           code: 'NO_COMPATIBLE_GPU',
           severity: 'warning',
+          isBlocking: false,
           message:
             'GPU rendering was requested, but no compatible Cycles GPU devices were detected. Render will fall back to CPU.',
           quickFix: {
@@ -279,7 +350,7 @@ export class PreflightChecker {
       }
     }
 
-    // 7. Windows long-path risk (> 250 characters)
+    // 8. Windows long-path risk (> 250 characters)
     if (platform === 'win32' && preview.length > 250) {
       warnings.push({
         id: `pf-${job.id}-windows-long-path`,
@@ -287,15 +358,39 @@ export class PreflightChecker {
         jobName: job.fileName,
         code: 'WINDOWS_LONG_PATH',
         severity: 'warning',
+        isBlocking: false,
         message: `Output path exceeds 250 characters (${preview.length} chars). On Windows, paths exceeding 260 characters may fail to write.`,
       });
     }
 
+    // =========================================================================
+    // WARNING SUPPRESSION (Ignore single, ignore code, ignore all)
+    // =========================================================================
+    let activeWarnings = warnings;
+    if (job.ignoreAllWarnings) {
+      activeWarnings = [];
+    } else {
+      if (job.ignoredWarningCodes && job.ignoredWarningCodes.length > 0) {
+        const codeSet = new Set(job.ignoredWarningCodes);
+        activeWarnings = activeWarnings.filter((w) => !codeSet.has(w.code));
+      }
+      if (job.ignoredWarningIds && job.ignoredWarningIds.length > 0) {
+        const idSet = new Set(job.ignoredWarningIds);
+        activeWarnings = activeWarnings.filter((w) => !idSet.has(w.id));
+      }
+    }
+
+    const isBlocked = errors.some((e) => e.isBlocking);
+    const blockReasons = errors.filter((e) => e.isBlocking).map((e) => e.message);
+
     return {
       jobId: job.id,
       jobName: job.fileName,
+      isBlocked,
+      blockReasons,
       errors,
-      warnings,
+      warnings: activeWarnings,
+      unusedMissingCount: unusedCount,
     };
   }
 
@@ -314,10 +409,15 @@ export class PreflightChecker {
       jobReports.push(jobReport);
     }
 
+    const isBlocked = jobReports.some((j) => j.isBlocked);
+    const blockReasons = allErrors.filter((e) => e.isBlocking).map((e) => e.message);
+
     return {
       timestamp: Date.now(),
       hasErrors: allErrors.length > 0,
       hasWarnings: allWarnings.length > 0,
+      isBlocked,
+      blockReasons,
       errors: allErrors,
       warnings: allWarnings,
       jobReports,

@@ -232,6 +232,29 @@ def apply_overrides(scene, overrides):
     return {"type": "overrides_report", "applied": applied, "skipped": skipped}
 
 
+def remap_paths_in_memory(path_remaps=None, make_absolute=False):
+    """Remap filepaths in memory only before render. NEVER saves mainfile."""
+    if not bpy:
+        return
+    remaps = path_remaps or {}
+    for coll in (getattr(bpy.data, "images", []), getattr(bpy.data, "libraries", []), getattr(bpy.data, "sounds", [])):
+        for item in coll:
+            try:
+                fp = getattr(item, "filepath", "")
+                if not fp:
+                    continue
+                abs_fp = bpy.path.abspath(fp)
+                base = os.path.basename(abs_fp)
+
+                new_path = remaps.get(fp) or remaps.get(abs_fp) or remaps.get(base)
+                if new_path and os.path.exists(new_path):
+                    item.filepath = new_path
+                elif make_absolute and fp.startswith("//"):
+                    item.filepath = abs_fp
+            except Exception:
+                pass
+
+
 def run_pre_render_hook(scene, hook):
     """Run an optional per-job pre-render Python hook before rendering frames."""
     if not hook or not str(hook).strip():
@@ -302,7 +325,13 @@ def main():
     overrides_report = apply_overrides(scene, payload.get("overrides", {}))
     emit_event(overrides_report)
 
-    # 5b. Pre-Render Hook (trusted code)
+    # 5b. In-memory path remapping (Locate missing files & Make paths absolute)
+    path_remaps = payload.get("pathRemaps")
+    make_absolute = payload.get("makePathsAbsolute", False)
+    if path_remaps or make_absolute:
+        remap_paths_in_memory(path_remaps, make_absolute)
+
+    # 5c. Pre-Render Hook (trusted code)
     pre_render_hook = payload.get("preRenderHook")
     if pre_render_hook:
         run_pre_render_hook(scene, pre_render_hook)
@@ -400,14 +429,23 @@ def main():
                             actual_saved = abs_filepath + ext
                             break
 
-                emit_event({
-                    "type": "frame_done",
-                    "frame": frame,
-                    "scene": scene.name,
-                    "saved": actual_saved,
-                    "timeSeconds": round(dt, 2)
-                })
-                completed_count += 1
+                # Frame success condition: file exists and is non-empty (>0 bytes)
+                if os.path.exists(actual_saved) and os.path.getsize(actual_saved) > 0:
+                    emit_event({
+                        "type": "frame_done",
+                        "frame": frame,
+                        "scene": scene.name,
+                        "saved": actual_saved,
+                        "timeSeconds": round(dt, 2)
+                    })
+                    completed_count += 1
+                else:
+                    emit_event({
+                        "type": "frame_error",
+                        "frame": frame,
+                        "message": f"Render output file missing or empty: {actual_saved}"
+                    })
+                    failed_count += 1
             except Exception as err:
                 emit_event({"type": "frame_error", "frame": frame, "message": str(err)})
                 failed_count += 1

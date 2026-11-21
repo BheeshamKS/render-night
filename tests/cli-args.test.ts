@@ -15,6 +15,8 @@ describe('CLI Args Parser', () => {
       '--resume',
       '--preset',
       'Draft',
+      '--strict',
+      '--fail-on-warning',
     ]);
     expect(cmd.kind).toBe('queue');
     if (cmd.kind === 'queue') {
@@ -24,6 +26,8 @@ describe('CLI Args Parser', () => {
       expect(cmd.dryRun).toBe(true);
       expect(cmd.resume).toBe(true);
       expect(cmd.preset).toBe('Draft');
+      expect(cmd.strict).toBe(true);
+      expect(cmd.failOnWarning).toBe(true);
     }
   });
 

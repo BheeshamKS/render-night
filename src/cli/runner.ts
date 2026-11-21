@@ -27,6 +27,8 @@ export interface CliRunOptions {
   resume?: boolean;
   preset?: string;
   dryRun?: boolean;
+  strict?: boolean;
+  failOnWarning?: boolean;
   runnerScriptPath?: string;
   skipCountdownForTesting?: boolean;
   baseDir?: string;
@@ -183,7 +185,9 @@ export async function runCliQueue(options: CliRunOptions): Promise<CliRunResult>
   }
 
   // 6. Run Pre-flight Checks
-  let hasPreflightErrors = false;
+  let isQueueBlocked = false;
+  let hasPreflightWarnings = false;
+
   for (const preflightJob of preflightInputs) {
     const report = preflightChecker.checkJob(preflightJob, {
       selectedBlender: {
@@ -192,16 +196,29 @@ export async function runCliQueue(options: CliRunOptions): Promise<CliRunResult>
       },
     });
 
-    if (report.errors.length > 0) {
-      hasPreflightErrors = true;
-      console.error(`\nPre-flight error(s) for job "${preflightJob.fileName}":`);
-      for (const err of report.errors) {
+    if (report.isBlocked) {
+      isQueueBlocked = true;
+      console.error(`\nPre-flight blocking error(s) for job "${preflightJob.fileName}":`);
+      for (const err of report.errors.filter((e) => e.isBlocking)) {
         console.error(`  - [${err.code}] ${err.message}`);
+      }
+    }
+
+    if (report.warnings.length > 0) {
+      hasPreflightWarnings = true;
+      console.warn(`\nPre-flight warning(s) for job "${preflightJob.fileName}":`);
+      for (const warn of report.warnings) {
+        console.warn(`  ⚠️ [${warn.code}] ${warn.message}`);
       }
     }
   }
 
-  if (hasPreflightErrors) {
+  if (isQueueBlocked || (options.strict && hasPreflightWarnings)) {
+    if (options.strict && hasPreflightWarnings && !isQueueBlocked) {
+      console.error(
+        '\nQueue stopped: --strict mode was specified and pre-flight warnings were detected.',
+      );
+    }
     summary.durationSeconds = (Date.now() - startTime) / 1000;
     return { exitCode: 1, summary };
   }
@@ -332,6 +349,7 @@ export async function runCliQueue(options: CliRunOptions): Promise<CliRunResult>
     }
   }
 
-  const exitCode = summary.failedJobs > 0 || summary.failedFrames > 0 ? 1 : 0;
+  const hasFailures = summary.failedJobs > 0 || summary.failedFrames > 0;
+  const exitCode = hasFailures || (options.failOnWarning && hasPreflightWarnings) ? 1 : 0;
   return { exitCode, summary };
 }

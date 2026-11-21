@@ -14,6 +14,17 @@ describe('PreflightChecker', () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rn-preflight-test-'));
     testExecutable = path.join(tmpDir, 'mock-blender');
     fs.writeFileSync(testExecutable, '#!/bin/sh\nexit 0', { mode: 0o755 });
+
+    // Write placeholder blend files so checkDiskAccess sees real files unless intentionally missing
+    fs.writeFileSync(path.join(tmpDir, 'valid.blend'), 'dummy');
+    fs.writeFileSync(path.join(tmpDir, 'assets.blend'), 'dummy');
+    fs.writeFileSync(path.join(tmpDir, 'newer.blend'), 'dummy');
+    fs.writeFileSync(path.join(tmpDir, 'nocam.blend'), 'dummy');
+    fs.writeFileSync(path.join(tmpDir, 'video.blend'), 'dummy');
+    fs.writeFileSync(path.join(tmpDir, 'nogpu.blend'), 'dummy');
+    fs.writeFileSync(path.join(tmpDir, 'long.blend'), 'dummy');
+    fs.writeFileSync(path.join(tmpDir, 'good.blend'), 'dummy');
+    fs.writeFileSync(path.join(tmpDir, 'relevance.blend'), 'dummy');
   });
 
   afterEach(() => {
@@ -74,6 +85,7 @@ describe('PreflightChecker', () => {
 
     expect(report.errors).toHaveLength(0);
     expect(report.warnings).toHaveLength(0);
+    expect(report.isBlocked).toBe(false);
   });
 
   it('detects missing texture, sound, or library assets as a warning', () => {
@@ -120,11 +132,80 @@ describe('PreflightChecker', () => {
     );
 
     expect(report.errors).toHaveLength(0);
+    expect(report.isBlocked).toBe(false);
     expect(report.warnings.some((w) => w.code === 'MISSING_ASSETS')).toBe(true);
     expect(report.warnings[0].message).toContain('2 missing external asset');
   });
 
-  it('detects file saved by a newer Blender than the selected executable as an error', () => {
+  it('classifies asset relevance: used missing triggers warning, unused missing becomes info count', () => {
+    const checker = new PreflightChecker();
+    const outputDir = path.join(tmpDir, 'renders');
+    fs.mkdirSync(outputDir, { recursive: true });
+
+    const report = checker.checkJob(
+      {
+        id: 'job-relevance',
+        fileName: 'relevance.blend',
+        filePath: path.join(tmpDir, 'relevance.blend'),
+        selectedScene: 'Scene',
+        selectedCamera: 'Camera',
+        scenes: [createDummyScene()],
+        availableCameras: ['Camera'],
+        outputPathPattern: path.join(outputDir, 'shot_####.png'),
+        outputPreview: path.join(outputDir, 'shot_0001.png'),
+        rangeConfig: { mode: 'scene_default' },
+        overrides: {},
+        inspectData: {
+          schemaVersion: 1,
+          blenderVersion: '4.2.0',
+          savedWithVersion: '4.2.0',
+          blendPath: '/path/test.blend',
+          activeScene: 'Scene',
+          scenes: [],
+          missingFiles: [
+            {
+              path: '/used/wood.png',
+              type: 'image',
+              datablock: 'WoodMat',
+              relevance: 'used',
+            },
+            {
+              path: '/unused/scratch.png',
+              type: 'image',
+              datablock: 'UnusedMat',
+              relevance: 'unused',
+            },
+            {
+              path: '/unused/old_lib.blend',
+              type: 'library',
+              datablock: 'OldLib',
+              relevance: 'unused',
+            },
+          ],
+          cyclesDevices: [],
+          engineItems: [],
+          formatItems: [],
+          codecItems: [],
+          viewTransformItems: [],
+          lookItems: [],
+          deviceItems: [],
+        },
+      },
+      {
+        selectedBlender: { version: '4.2.0', executable: testExecutable },
+      },
+    );
+
+    // Only 1 used asset produces a warning
+    expect(report.warnings.some((w) => w.code === 'MISSING_ASSETS')).toBe(true);
+    const missingWarn = report.warnings.find((w) => w.code === 'MISSING_ASSETS');
+    expect(missingWarn?.message).toContain('1 missing external asset');
+    // 2 unused missing files are tracked in unusedMissingCount, not as warnings
+    expect(report.unusedMissingCount).toBe(2);
+    expect(report.isBlocked).toBe(false);
+  });
+
+  it('detects file saved by a newer Blender than the selected executable as a warning', () => {
     const checker = new PreflightChecker();
     const outputDir = path.join(tmpDir, 'renders');
     fs.mkdirSync(outputDir, { recursive: true });
@@ -149,13 +230,15 @@ describe('PreflightChecker', () => {
       },
     );
 
-    expect(report.errors.some((e) => e.code === 'NEWER_BLENDER_VERSION')).toBe(true);
-    const err = report.errors.find((e) => e.code === 'NEWER_BLENDER_VERSION');
-    expect(err?.message).toContain('v4.2.0');
-    expect(err?.message).toContain('v3.6.0');
+    expect(report.warnings.some((w) => w.code === 'NEWER_BLENDER_VERSION')).toBe(true);
+    const warn = report.warnings.find((w) => w.code === 'NEWER_BLENDER_VERSION');
+    expect(warn?.message).toContain('v4.2.0');
+    expect(warn?.message).toContain('v3.6.0');
+    expect(warn?.isBlocking).toBe(false);
+    expect(report.isBlocked).toBe(false);
   });
 
-  it('detects missing camera and non-existent Blender executable as errors', () => {
+  it('detects non-existent Blender executable as blocking error and missing camera as warning', () => {
     const checker = new PreflightChecker();
     const outputDir = path.join(tmpDir, 'renders');
     fs.mkdirSync(outputDir, { recursive: true });
@@ -179,11 +262,12 @@ describe('PreflightChecker', () => {
       },
     );
 
-    expect(report.errors.some((e) => e.code === 'NO_ACTIVE_CAMERA')).toBe(true);
+    expect(report.warnings.some((w) => w.code === 'NO_ACTIVE_CAMERA')).toBe(true);
     expect(report.errors.some((e) => e.code === 'BLENDER_NOT_FOUND')).toBe(true);
+    expect(report.isBlocked).toBe(true);
   });
 
-  it('detects video format combined with custom discontinuous range as error with quick fix', () => {
+  it('detects video format combined with custom discontinuous range as warning with quick fix', () => {
     const checker = new PreflightChecker();
     const outputDir = path.join(tmpDir, 'renders');
     fs.mkdirSync(outputDir, { recursive: true });
@@ -213,9 +297,57 @@ describe('PreflightChecker', () => {
       },
     );
 
-    expect(report.errors.some((e) => e.code === 'VIDEO_RANGE_RULE_VIOLATION')).toBe(true);
-    const issue = report.errors.find((e) => e.code === 'VIDEO_RANGE_RULE_VIOLATION');
+    expect(report.warnings.some((w) => w.code === 'VIDEO_RANGE_RULE_VIOLATION')).toBe(true);
+    const issue = report.warnings.find((w) => w.code === 'VIDEO_RANGE_RULE_VIOLATION');
     expect(issue?.quickFix?.action).toBe('switch_range_to_continuous');
+    expect(report.isBlocked).toBe(false);
+  });
+
+  it('supports warning suppression: ignore single warning, ignore code, ignore all', () => {
+    const checker = new PreflightChecker();
+    const outputDir = path.join(tmpDir, 'renders');
+    fs.mkdirSync(outputDir, { recursive: true });
+
+    // Base job with 2 warnings (Newer version + No camera)
+    const baseJob = {
+      id: 'job-suppress',
+      fileName: 'newer.blend',
+      filePath: path.join(tmpDir, 'newer.blend'),
+      selectedScene: 'Scene',
+      selectedCamera: '',
+      scenes: [createDummyScene({ cameras: [] })],
+      availableCameras: [],
+      outputPathPattern: path.join(outputDir, 'shot_####.png'),
+      outputPreview: path.join(outputDir, 'shot_0001.png'),
+      rangeConfig: { mode: 'scene_default' as const },
+      overrides: {},
+      savedWithVersion: '5.0.0',
+    };
+
+    const opt = { selectedBlender: { version: '4.2.0', executable: testExecutable } };
+
+    // 1. Without suppression: 2 warnings
+    const r1 = checker.checkJob(baseJob, opt);
+    expect(r1.warnings).toHaveLength(2);
+
+    // 2. Suppress single warning by ID
+    const noCamIssue = r1.warnings.find((w) => w.code === 'NO_ACTIVE_CAMERA');
+    expect(noCamIssue).toBeDefined();
+    const r2 = checker.checkJob({ ...baseJob, ignoredWarningIds: [noCamIssue!.id] }, opt);
+    expect(r2.warnings).toHaveLength(1);
+    expect(r2.warnings[0].code).toBe('NEWER_BLENDER_VERSION');
+
+    // 3. Suppress all warnings of code NEWER_BLENDER_VERSION
+    const r3 = checker.checkJob(
+      { ...baseJob, ignoredWarningCodes: ['NEWER_BLENDER_VERSION'] },
+      opt,
+    );
+    expect(r3.warnings).toHaveLength(1);
+    expect(r3.warnings[0].code).toBe('NO_ACTIVE_CAMERA');
+
+    // 4. Suppress all warnings
+    const r4 = checker.checkJob({ ...baseJob, ignoreAllWarnings: true }, opt);
+    expect(r4.warnings).toHaveLength(0);
   });
 
   it('detects GPU request without compatible devices as warning', () => {
@@ -259,6 +391,7 @@ describe('PreflightChecker', () => {
     );
 
     expect(report.warnings.some((w) => w.code === 'NO_COMPATIBLE_GPU')).toBe(true);
+    expect(report.isBlocked).toBe(false);
   });
 
   it('detects Windows long path risk as warning', () => {
@@ -288,6 +421,7 @@ describe('PreflightChecker', () => {
     );
 
     expect(report.warnings.some((w) => w.code === 'WINDOWS_LONG_PATH')).toBe(true);
+    expect(report.isBlocked).toBe(false);
   });
 
   it('aggregates multiple jobs into a complete report', () => {
@@ -309,10 +443,11 @@ describe('PreflightChecker', () => {
       overrides: {},
     };
 
+    // jobBad points to non-existent bad.blend on disk -> triggers BLEND_NOT_FOUND (error)
     const jobBad = {
       id: 'job-bad',
       fileName: 'bad.blend',
-      filePath: path.join(tmpDir, 'bad.blend'),
+      filePath: path.join(tmpDir, 'non_existent_bad.blend'),
       selectedScene: 'Scene',
       selectedCamera: '',
       scenes: [createDummyScene({ cameras: [] })],
@@ -328,7 +463,9 @@ describe('PreflightChecker', () => {
     });
 
     expect(fullReport.hasErrors).toBe(true);
+    expect(fullReport.isBlocked).toBe(true);
     expect(fullReport.errors).toHaveLength(1);
+    expect(fullReport.errors[0].code).toBe('BLEND_NOT_FOUND');
     expect(fullReport.jobReports).toHaveLength(2);
     expect(fullReport.jobReports[0].errors).toHaveLength(0);
     expect(fullReport.jobReports[1].errors).toHaveLength(1);

@@ -6,7 +6,7 @@ import { RenderPropertiesTab } from './RenderPropertiesTab';
 
 import React, { useState } from 'react';
 
-import { Sliders, Video } from 'lucide-react';
+import { AlertTriangle, Sliders, Video } from 'lucide-react';
 
 export interface AdvancedJobDrawerProps {
   job: QueueJob;
@@ -66,18 +66,33 @@ export const AdvancedJobDrawer: React.FC<AdvancedJobDrawerProps> = ({ job }) => 
       </div>
 
       {/* Active Tab Content */}
-      <div className="p-1">
-        {activeTab === 'render' ? (
-          <RenderPropertiesTab job={job} />
-        ) : (
-          <OutputPropertiesTab job={job} />
-        )}
-
-        {/* All Properties Tree (RNA introspected schema) */}
-        <div className="px-3 pb-3">
-          <AllPropertiesTree job={job} />
+      {job.isBasicMode ? (
+        <div className="m-3 flex items-start space-x-2 rounded-lg border border-rn-warning/35 bg-rn-warning/10 p-3 text-xs text-rn-warning">
+          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+          <div>
+            <div className="font-semibold">Overrides Unavailable (Basic Mode)</div>
+            <div className="mt-0.5 text-rn-text/80 leading-relaxed">
+              {job.basicModeReason
+                ? `Inspection failed or timed out: ${job.basicModeReason}.`
+                : 'Blender metadata inspection was not available for this file.'}{' '}
+              The job will render directly with its own saved internal scene and output settings.
+            </div>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="p-1">
+          {activeTab === 'render' ? (
+            <RenderPropertiesTab job={job} />
+          ) : (
+            <OutputPropertiesTab job={job} />
+          )}
+
+          {/* All Properties Tree (RNA introspected schema) */}
+          <div className="px-3 pb-3">
+            <AllPropertiesTree job={job} />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

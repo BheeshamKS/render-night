@@ -68,6 +68,8 @@ export const runnerPayloadSchema = z.object({
   crashConfig: crashConfigSchema.optional(),
   renderMissingOnly: z.boolean().optional(),
   preRenderHook: z.string().optional(),
+  pathRemaps: z.record(z.string(), z.string()).optional(),
+  makePathsAbsolute: z.boolean().optional(),
 });
 
 export type RunnerPayload = z.infer<typeof runnerPayloadSchema>;

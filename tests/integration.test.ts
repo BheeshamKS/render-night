@@ -142,13 +142,14 @@ describe('Render Night Integration & Acceptance', () => {
     expect(jobs[1].id).toBe(firstJobId);
   });
 
-  it('records failure and captures stderr tail on corrupt file', async () => {
+  it('records inspect error and places corrupt file in Basic mode instead of failing', async () => {
     const store = useQueueStore.getState();
     await store.addFiles([corruptFile]);
 
     const corruptJob = useQueueStore.getState().jobs.find((j) => j.fileName === 'corrupt.blend');
     expect(corruptJob).toBeDefined();
-    expect(corruptJob?.status).toBe('Failed');
+    expect(corruptJob?.status).toBe('Queued');
+    expect(corruptJob?.isBasicMode).toBe(true);
     expect(corruptJob?.inspectStderrTail).toContain('corrupted blend file');
   });
 });

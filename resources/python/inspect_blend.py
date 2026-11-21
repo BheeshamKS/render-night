@@ -126,51 +126,218 @@ def get_enum_items(prop):
     ]
 
 
-def find_missing_files():
-    """Report missing images, external libraries, and audio files."""
+def collect_images_from_node_tree(node_tree, visited=None):
+    """Recursively collect image names referenced in a shader, world, compositor or geometry node tree."""
+    if not node_tree or not hasattr(node_tree, "nodes"):
+        return set()
+    if visited is None:
+        visited = set()
+    if node_tree in visited:
+        return set()
+    visited.add(node_tree)
+
+    images = set()
+    try:
+        for node in node_tree.nodes:
+            # Direct image reference (e.g. ShaderNodeTexImage, CompositorNodeImage, etc.)
+            img = getattr(node, "image", None)
+            if img and hasattr(img, "name"):
+                images.add(img.name)
+
+            # Node groups
+            nested_tree = getattr(node, "node_tree", None)
+            if nested_tree and nested_tree not in visited:
+                images.update(collect_images_from_node_tree(nested_tree, visited))
+    except Exception:
+        pass
+    return images
+
+
+def get_used_assets(active_scene=None):
+    """
+    Determine which images, libraries, and sounds are actually reachable by the render pipeline.
+    Returns: (used_images_set, used_libraries_set, used_sounds_set, is_confident_bool)
+    """
+    used_images = set()
+    used_libraries = set()
+    used_sounds = set()
+    confident = True
+
+    try:
+        scene = active_scene or (bpy.context.scene if hasattr(bpy, "context") and bpy.context.scene else None)
+        if not scene and hasattr(bpy, "data") and bpy.data.scenes:
+            scene = bpy.data.scenes[0]
+
+        if not scene:
+            return set(), set(), set(), False
+
+        # 1. World background node tree
+        if getattr(scene, "world", None) and getattr(scene.world, "node_tree", None):
+            used_images.update(collect_images_from_node_tree(scene.world.node_tree))
+
+        # 2. Compositor node tree (if compositing is enabled)
+        use_compositing = getattr(scene.render, "use_compositing", True)
+        if use_compositing and getattr(scene, "use_nodes", False) and getattr(scene, "node_tree", None):
+            used_images.update(collect_images_from_node_tree(scene.node_tree))
+
+        # 3. Sequencer strips (if sequencer is enabled)
+        use_sequencer = getattr(scene.render, "use_sequencer", True)
+        if use_sequencer and getattr(scene, "sequence_editor", None):
+            seqs = getattr(scene.sequence_editor, "sequences_all", getattr(scene.sequence_editor, "sequences", []))
+            for strip in seqs:
+                try:
+                    strip_sound = getattr(strip, "sound", None)
+                    if strip_sound and hasattr(strip_sound, "name"):
+                        used_sounds.add(strip_sound.name)
+                    strip_elements = getattr(strip, "elements", [])
+                    for elem in strip_elements:
+                        filename = getattr(elem, "filename", "")
+                        if filename:
+                            used_images.add(filename)
+                except Exception:
+                    pass
+
+        # 4. Renderable objects in active view layer
+        # Determine excluded collections in the active view layer
+        excluded_collections = set()
+        active_vl = getattr(scene, "view_layers", None)
+        active_layer = None
+        if active_vl:
+            active_layer = active_vl.get(active_vl.active.name) if getattr(active_vl, "active", None) else active_vl[0]
+
+        if active_layer and hasattr(active_layer, "layer_collection"):
+            def scan_layer_col(lc):
+                if getattr(lc, "exclude", False) and hasattr(lc, "collection"):
+                    excluded_collections.add(lc.collection)
+                for child in getattr(lc, "children", []):
+                    scan_layer_col(child)
+            try:
+                scan_layer_col(active_layer.layer_collection)
+            except Exception:
+                pass
+
+        for obj in getattr(scene, "objects", []):
+            try:
+                # If hidden from render, skip
+                if getattr(obj, "hide_render", False):
+                    continue
+
+                # If object belongs exclusively to excluded collections, skip
+                obj_cols = getattr(obj, "users_collection", [])
+                if obj_cols and all(col in excluded_collections for col in obj_cols):
+                    continue
+
+                # Inspect object materials
+                for mat_slot in getattr(obj, "material_slots", []):
+                    mat = getattr(mat_slot, "material", None)
+                    if mat and getattr(mat, "use_nodes", False) and getattr(mat, "node_tree", None):
+                        used_images.update(collect_images_from_node_tree(mat.node_tree))
+
+                # Inspect modifiers (Geometry Nodes, Displace, etc.)
+                for mod in getattr(obj, "modifiers", []):
+                    node_group = getattr(mod, "node_group", None)
+                    if node_group:
+                        used_images.update(collect_images_from_node_tree(node_group))
+                    tex = getattr(mod, "texture", None)
+                    if tex and getattr(tex, "image", None):
+                        used_images.add(tex.image.name)
+            except Exception:
+                confident = False
+
+        # 5. Linked libraries (via user_map)
+        try:
+            if hasattr(bpy.data, "user_map") and hasattr(bpy.data, "libraries"):
+                umap = bpy.data.user_map()
+                for lib in bpy.data.libraries:
+                    # A library is in use if any of its linked datablocks have active users
+                    lib_in_use = False
+                    for db_collection in (bpy.data.objects, bpy.data.materials, bpy.data.collections, bpy.data.meshes):
+                        for item in db_collection:
+                            if getattr(item, "library", None) == lib:
+                                users = umap.get(item, set())
+                                if users:
+                                    lib_in_use = True
+                                    break
+                        if lib_in_use:
+                            break
+                    if lib_in_use:
+                        used_libraries.add(lib.name)
+        except Exception:
+            confident = False
+
+    except Exception:
+        confident = False
+
+    return used_images, used_libraries, used_sounds, confident
+
+
+def find_missing_files(active_scene=None):
+    """
+    Report missing images, external libraries, and audio files,
+    classifying each as 'used', 'unused', or 'unknown'.
+    """
     missing = []
+    used_images, used_libraries, used_sounds, confident = get_used_assets(active_scene)
 
     # Images
-    for img in bpy.data.images:
+    for img in getattr(bpy.data, "images", []):
         try:
-            if img.packed_file or img.source != "FILE" or not img.filepath:
+            if img.packed_file or getattr(img, "source", "") != "FILE" or not getattr(img, "filepath", ""):
                 continue
             abs_path = bpy.path.abspath(img.filepath)
             if not os.path.exists(abs_path):
+                if confident:
+                    relevance = "used" if (img.name in used_images or os.path.basename(abs_path) in used_images) else "unused"
+                else:
+                    relevance = "unknown"
+
                 missing.append({
                     "path": abs_path,
                     "type": "image",
                     "datablock": img.name,
+                    "relevance": relevance,
                 })
         except Exception:
             continue
 
     # Libraries
-    for lib in bpy.data.libraries:
+    for lib in getattr(bpy.data, "libraries", []):
         try:
-            if not lib.filepath:
+            if not getattr(lib, "filepath", ""):
                 continue
             abs_path = bpy.path.abspath(lib.filepath)
             if not os.path.exists(abs_path):
+                if confident:
+                    relevance = "used" if lib.name in used_libraries else "unused"
+                else:
+                    relevance = "unknown"
+
                 missing.append({
                     "path": abs_path,
                     "type": "library",
                     "datablock": lib.name,
+                    "relevance": relevance,
                 })
         except Exception:
             continue
 
     # Sounds
-    for snd in bpy.data.sounds:
+    for snd in getattr(bpy.data, "sounds", []):
         try:
-            if snd.packed_file or not snd.filepath:
+            if snd.packed_file or not getattr(snd, "filepath", ""):
                 continue
             abs_path = bpy.path.abspath(snd.filepath)
             if not os.path.exists(abs_path):
+                if confident:
+                    relevance = "used" if snd.name in used_sounds else "unused"
+                else:
+                    relevance = "unknown"
+
                 missing.append({
                     "path": abs_path,
                     "type": "sound",
                     "datablock": snd.name,
+                    "relevance": relevance,
                 })
         except Exception:
             continue
@@ -211,22 +378,35 @@ def main():
         sys.exit(1)
 
     out_file = sys.argv[sys.argv.index("--") + 1]
+    errors = []
 
-    # Extract Blender app version & file saved version
-    blender_version = ".".join(map(str, bpy.app.version))
-    # bpy.data.version is (major, minor, file_subversion), e.g. (5, 2, 44)
-    # The actual Blender release version corresponding to this file format is major.minor.0
-    if hasattr(bpy.data, "version") and len(bpy.data.version) >= 2:
-        saved_with_version = f"{bpy.data.version[0]}.{bpy.data.version[1]}.0"
-    else:
+    # 1. Extract Blender app version & file saved version
+    try:
+        blender_version = ".".join(map(str, bpy.app.version))
+    except Exception as exc:
+        blender_version = "4.2.0"
+        errors.append(f"Blender version detection error: {exc}")
+
+    try:
+        if hasattr(bpy.data, "version") and len(bpy.data.version) >= 2:
+            saved_with_version = f"{bpy.data.version[0]}.{bpy.data.version[1]}.0"
+        else:
+            saved_with_version = blender_version
+    except Exception as exc:
         saved_with_version = blender_version
-    blend_path = bpy.data.filepath or ""
+        errors.append(f"Saved-with version detection error: {exc}")
 
-    active_scene_name = (
-        bpy.context.scene.name
-        if bpy.context.scene
-        else (bpy.data.scenes[0].name if bpy.data.scenes else "Scene")
-    )
+    blend_path = getattr(bpy.data, "filepath", "") or ""
+
+    try:
+        active_scene_name = (
+            bpy.context.scene.name
+            if getattr(bpy, "context", None) and bpy.context.scene
+            else (bpy.data.scenes[0].name if hasattr(bpy.data, "scenes") and bpy.data.scenes else "Scene")
+        )
+    except Exception as exc:
+        active_scene_name = "Scene"
+        errors.append(f"Active scene detection error: {exc}")
 
     scenes_data = []
     engine_items = []
@@ -236,62 +416,111 @@ def main():
     look_items = []
     device_items = []
 
-    for scene in bpy.data.scenes:
-        # Collect cameras in this scene
-        cameras = [obj.name for obj in scene.objects if obj.type == "CAMERA"]
-        active_camera = scene.camera.name if scene.camera else None
+    # 2. Inspect scenes
+    try:
+        for scene in getattr(bpy.data, "scenes", []):
+            try:
+                # Collect cameras in this scene
+                cameras = [obj.name for obj in getattr(scene, "objects", []) if getattr(obj, "type", "") == "CAMERA"]
+                active_camera = scene.camera.name if getattr(scene, "camera", None) else None
 
-        # Collect view layers
-        view_layers = [vl.name for vl in scene.view_layers]
+                # Collect view layers
+                view_layers = [vl.name for vl in getattr(scene, "view_layers", [])]
 
-        # RNA whitelisted structs
-        render_meta = introspect_struct(scene.render)
-        image_meta = introspect_struct(scene.render.image_settings)
-        ffmpeg_meta = introspect_struct(getattr(scene.render, "ffmpeg", None))
-        cycles_meta = introspect_struct(getattr(scene, "cycles", None))
-        eevee_meta = introspect_struct(getattr(scene, "eevee", None))
-        view_meta = introspect_struct(scene.view_settings)
-        display_meta = introspect_struct(scene.display_settings)
+                # RNA whitelisted structs
+                render_meta = introspect_struct(getattr(scene, "render", None))
+                image_meta = introspect_struct(getattr(scene.render, "image_settings", None)) if hasattr(scene, "render") else {}
+                ffmpeg_meta = introspect_struct(getattr(scene.render, "ffmpeg", None)) if hasattr(scene, "render") else {}
+                cycles_meta = introspect_struct(getattr(scene, "cycles", None))
+                eevee_meta = introspect_struct(getattr(scene, "eevee", None))
+                view_meta = introspect_struct(getattr(scene, "view_settings", None))
+                display_meta = introspect_struct(getattr(scene, "display_settings", None))
 
-        # Extract top-level dropdown items from active or first scene
-        if not engine_items and "engine" in render_meta:
-            engine_items = render_meta["engine"].get("enumItems", [])
-        if not format_items and "file_format" in image_meta:
-            format_items = image_meta["file_format"].get("enumItems", [])
-        if not codec_items and "codec" in ffmpeg_meta:
-            codec_items = ffmpeg_meta["codec"].get("enumItems", [])
-        if not view_transform_items and "view_transform" in view_meta:
-            view_transform_items = view_meta["view_transform"].get("enumItems", [])
-        if not look_items and "look" in view_meta:
-            look_items = view_meta["look"].get("enumItems", [])
-        if not device_items and "device" in cycles_meta:
-            device_items = cycles_meta["device"].get("enumItems", [])
+                # Extract top-level dropdown items from active or first scene
+                if not engine_items and "engine" in render_meta:
+                    engine_items = render_meta["engine"].get("enumItems", [])
+                if not format_items and "file_format" in image_meta:
+                    format_items = image_meta["file_format"].get("enumItems", [])
+                if not codec_items and "codec" in ffmpeg_meta:
+                    codec_items = ffmpeg_meta["codec"].get("enumItems", [])
+                if not view_transform_items and "view_transform" in view_meta:
+                    view_transform_items = view_meta["view_transform"].get("enumItems", [])
+                if not look_items and "look" in view_meta:
+                    look_items = view_meta["look"].get("enumItems", [])
+                if not device_items and "device" in cycles_meta:
+                    device_items = cycles_meta["device"].get("enumItems", [])
 
-        scene_dict = {
-            "name": scene.name,
-            "activeCamera": active_camera,
-            "cameras": cameras,
-            "viewLayers": view_layers,
-            "frameStart": int(scene.frame_start),
-            "frameEnd": int(scene.frame_end),
-            "frameStep": int(scene.frame_step),
-            "fps": int(scene.render.fps),
-            "fpsBase": float(scene.render.fps_base),
-            "resolutionX": int(scene.render.resolution_x),
-            "resolutionY": int(scene.render.resolution_y),
-            "resolutionPercentage": int(scene.render.resolution_percentage),
-            "render": render_meta,
-            "imageSettings": image_meta,
-            "ffmpeg": ffmpeg_meta,
-            "cycles": cycles_meta,
-            "eevee": eevee_meta,
-            "viewSettings": view_meta,
-            "displaySettings": display_meta,
-        }
-        scenes_data.append(scene_dict)
+                scene_dict = {
+                    "name": getattr(scene, "name", "Scene"),
+                    "activeCamera": active_camera,
+                    "cameras": cameras,
+                    "viewLayers": view_layers,
+                    "frameStart": int(getattr(scene, "frame_start", 1)),
+                    "frameEnd": int(getattr(scene, "frame_end", 250)),
+                    "frameStep": int(getattr(scene, "frame_step", 1)),
+                    "fps": int(getattr(scene.render, "fps", 24)) if hasattr(scene, "render") else 24,
+                    "fpsBase": float(getattr(scene.render, "fps_base", 1.0)) if hasattr(scene, "render") else 1.0,
+                    "resolutionX": int(getattr(scene.render, "resolution_x", 1920)) if hasattr(scene, "render") else 1920,
+                    "resolutionY": int(getattr(scene.render, "resolution_y", 1080)) if hasattr(scene, "render") else 1080,
+                    "resolutionPercentage": int(getattr(scene.render, "resolution_percentage", 100)) if hasattr(scene, "render") else 100,
+                    "render": render_meta,
+                    "imageSettings": image_meta,
+                    "ffmpeg": ffmpeg_meta,
+                    "cycles": cycles_meta,
+                    "eevee": eevee_meta,
+                    "viewSettings": view_meta,
+                    "displaySettings": display_meta,
+                }
+                scenes_data.append(scene_dict)
+            except Exception as scene_exc:
+                errors.append(f"Scene '{getattr(scene, 'name', 'unknown')}' introspection error: {scene_exc}")
+    except Exception as scenes_exc:
+        errors.append(f"Scenes collection error: {scenes_exc}")
 
-    missing_files = find_missing_files()
-    cycles_devices = get_cycles_devices()
+    # Fallback default scene if scenes_data is empty
+    if not scenes_data:
+        scenes_data.append({
+            "name": "Scene",
+            "activeCamera": None,
+            "cameras": [],
+            "viewLayers": ["ViewLayer"],
+            "frameStart": 1,
+            "frameEnd": 250,
+            "frameStep": 1,
+            "fps": 24,
+            "fpsBase": 1.0,
+            "resolutionX": 1920,
+            "resolutionY": 1080,
+            "resolutionPercentage": 100,
+            "render": {},
+            "imageSettings": {},
+            "ffmpeg": {},
+            "cycles": {},
+            "eevee": {},
+            "viewSettings": {},
+            "displaySettings": {},
+        })
+
+    # 3. Missing files with relevance
+    missing_files = []
+    try:
+        active_scene_obj = None
+        if hasattr(bpy.data, "scenes"):
+            for s in bpy.data.scenes:
+                if s.name == active_scene_name:
+                    active_scene_obj = s
+                    break
+        missing_files = find_missing_files(active_scene_obj)
+    except Exception as miss_exc:
+        errors.append(f"Missing files inspection error: {miss_exc}")
+
+    # 4. Cycles devices
+    cycles_devices = []
+    try:
+        cycles_devices = get_cycles_devices()
+    except Exception as dev_exc:
+        errors.append(f"Cycles devices inspection error: {dev_exc}")
+        cycles_devices = [{"name": "CPU", "type": "CPU", "use": True}]
 
     output = {
         "schemaVersion": 1,
@@ -308,6 +537,7 @@ def main():
         "viewTransformItems": view_transform_items,
         "lookItems": look_items,
         "deviceItems": device_items,
+        "errors": errors,
     }
 
     with open(out_file, "w", encoding="utf-8") as f:

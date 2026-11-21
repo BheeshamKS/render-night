@@ -7,6 +7,7 @@ import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 import { LeftNavRail } from './components/LeftNavRail';
 import { MonitorDock } from './components/MonitorDock';
 import { PostActionCountdownModal } from './components/PostActionCountdownModal';
+import { PreflightCountdownBanner } from './components/PreflightCountdownBanner';
 import { PreflightModal } from './components/PreflightModal';
 import { QueueWorkspace } from './components/QueueWorkspace';
 import { ScheduleModal } from './components/ScheduleModal';
@@ -177,6 +178,9 @@ export default function App() {
 
       {/* Crash Restore Alert Banner */}
       <CrashRestoreBanner />
+
+      {/* Pre-flight Auto-continue Countdown Banner */}
+      <PreflightCountdownBanner />
 
       {/* Main Workspace Body with Left Nav Rail */}
       <div className="flex flex-1 overflow-hidden">

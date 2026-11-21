@@ -66,8 +66,10 @@ export type InspectScene = z.infer<typeof inspectSceneSchema>;
  */
 export const missingFileSchema = z.object({
   path: z.string(),
-  type: z.enum(['image', 'library', 'sound']),
+  type: z.enum(['image', 'library', 'sound', 'vdb', 'alembic', 'cache', 'other']).or(z.string()),
   datablock: z.string().optional(),
+  relevance: z.enum(['used', 'unused', 'unknown']).optional(),
+  details: z.string().optional(),
 });
 
 export type MissingFile = z.infer<typeof missingFileSchema>;
@@ -102,6 +104,7 @@ export const inspectOutputSchema = z.object({
   viewTransformItems: z.array(rnaEnumItemSchema).default([]),
   lookItems: z.array(rnaEnumItemSchema).default([]),
   deviceItems: z.array(rnaEnumItemSchema).default([]),
+  errors: z.array(z.string()).default([]).optional(),
 });
 
 export type InspectOutput = z.infer<typeof inspectOutputSchema>;

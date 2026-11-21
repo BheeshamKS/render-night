@@ -9,6 +9,8 @@ export type CliParsedCommand =
       resume?: boolean;
       preset?: string;
       dryRun?: boolean;
+      strict?: boolean;
+      failOnWarning?: boolean;
     }
   | {
       kind: 'inspect';
@@ -85,6 +87,8 @@ export function parseCliArgs(argv: string[]): CliParsedCommand {
 
     const resume = argv.includes('--resume');
     const dryRun = argv.includes('--dry-run');
+    const strict = argv.includes('--strict');
+    const failOnWarning = argv.includes('--fail-on-warning');
 
     return {
       kind: 'queue',
@@ -94,6 +98,8 @@ export function parseCliArgs(argv: string[]): CliParsedCommand {
       resume,
       preset,
       dryRun,
+      strict,
+      failOnWarning,
     };
   }
 

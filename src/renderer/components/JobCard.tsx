@@ -47,10 +47,14 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
     runPreflightCheck,
     setShowPreflightModal,
     setActiveTab,
+    preflightReport,
   } = useQueueStore();
   const [showConsole, setShowConsole] = useState(false);
   const [showAdvancedDrawer, setShowAdvancedDrawer] = useState(false);
   const [showErrorDetails, setShowErrorDetails] = useState(false);
+
+  const jobReport = preflightReport?.jobReports.find((r) => r.jobId === job.id);
+  const jobWarningsCount = job.ignoreAllWarnings ? 0 : jobReport?.warnings.length || 0;
 
   const currentScene = job.scenes.find((s) => s.name === job.selectedScene);
   const sceneDefaults = {
@@ -139,6 +143,24 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
             <CheckCircle2 className="h-3 w-3" />
             <span>Completed</span>
           </span>
+        );
+      case 'Completed with warnings':
+        return (
+          <span className="flex items-center space-x-1 rounded bg-rn-warning/15 border border-rn-warning/30 px-2 py-0.5 text-xs font-medium text-rn-warning">
+            <AlertTriangle className="h-3 w-3" />
+            <span>Completed with warnings</span>
+          </span>
+        );
+      case 'Completed with errors':
+        return (
+          <button
+            onClick={() => setShowErrorDetails(!showErrorDetails)}
+            className="flex items-center space-x-1 rounded bg-rn-warning/15 border border-rn-warning/30 px-2 py-0.5 text-xs font-medium text-rn-warning hover:bg-rn-warning/25 transition"
+            title="Click to toggle failed frames details"
+          >
+            <AlertTriangle className="h-3 w-3" />
+            <span>Completed with errors ({job.failedFrames?.length || 0})</span>
+          </button>
         );
       case 'Failed':
         return (
@@ -248,6 +270,34 @@ export const JobCard: React.FC<JobCardProps> = ({ job, index, total }) => {
                 <span className="rounded bg-rn-subpanel px-1.5 py-0.5 text-[10px] text-rn-muted font-mono">
                   Blender {job.savedWithVersion}
                 </span>
+              )}
+              {job.isBasicMode && (
+                <span
+                  className="rounded bg-rn-warning/15 border border-rn-warning/30 px-1.5 py-0.5 text-[10px] font-medium text-rn-warning"
+                  title={
+                    job.basicModeReason
+                      ? `Basic mode: ${job.basicModeReason}`
+                      : 'Basic mode: Using internal .blend settings'
+                  }
+                >
+                  Basic mode
+                </span>
+              )}
+              {jobWarningsCount > 0 && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await runPreflightCheck(job.id);
+                    setShowPreflightModal(true);
+                  }}
+                  className="flex items-center space-x-1 rounded bg-rn-warning/15 border border-rn-warning/30 px-1.5 py-0.5 text-[10px] font-medium text-rn-warning hover:bg-rn-warning/25 transition"
+                  title="View pre-flight warnings for this job"
+                >
+                  <AlertTriangle className="h-3 w-3" />
+                  <span>
+                    {jobWarningsCount} warning{jobWarningsCount === 1 ? '' : 's'}
+                  </span>
+                </button>
               )}
               {renderDeviceBadge()}
             </div>

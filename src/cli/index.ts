@@ -30,6 +30,8 @@ Options:
   --resume                   Resume queue from missing frames only
   --preset <name>            Apply a preset to all jobs
   --dry-run                  Run pre-flight checks and preview queue without rendering
+  --strict                   Strict pre-flight: fail on warnings as well as blocking errors
+  --fail-on-warning          Exit with status 1 if any warnings occurred during render
   --help, -h                 Show help
   --version, -v              Show version
 `);
@@ -90,6 +92,8 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
         resume: cmd.resume,
         preset: cmd.preset,
         dryRun: cmd.dryRun,
+        strict: cmd.strict,
+        failOnWarning: cmd.failOnWarning,
       });
       process.exit(result.exitCode);
       break;

@@ -3,7 +3,7 @@ import { PreflightChecker, type PreflightJobInput } from '../src/core/preflight'
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 describe('Pre-Flight Acceptance: Deliberately Broken Fixture Set', () => {
   it('triggers the exact expected errors and warnings for the broken fixture set', () => {
@@ -18,7 +18,13 @@ describe('Pre-Flight Acceptance: Deliberately Broken Fixture Set', () => {
       // ignore
     }
 
-    // 1. Broken Job 1: Missing textures & external assets
+    // Write placeholder blend files for jobs that test non-path issues
+    fs.writeFileSync(path.join(tmpDir, 'architectural_render.blend'), 'dummy');
+    fs.writeFileSync(path.join(tmpDir, 'future_feature.blend'), 'dummy');
+    fs.writeFileSync(path.join(tmpDir, 'multirange_commercial.blend'), 'dummy');
+    fs.writeFileSync(path.join(tmpDir, 'readonly_shot.blend'), 'dummy');
+
+    // 1. Broken Job 1: Missing textures & external assets (Warning)
     const jobMissingTexture: PreflightJobInput = {
       id: 'job-missing-texture',
       fileName: 'architectural_render.blend',
@@ -81,7 +87,7 @@ describe('Pre-Flight Acceptance: Deliberately Broken Fixture Set', () => {
       },
     };
 
-    // 2. Broken Job 2: Saved with NEWER Blender than selected executable
+    // 2. Broken Job 2: Saved with NEWER Blender than selected executable (Warning in Phase 13)
     const jobNewerVersion: PreflightJobInput = {
       id: 'job-newer-version',
       fileName: 'future_feature.blend',
@@ -113,18 +119,35 @@ describe('Pre-Flight Acceptance: Deliberately Broken Fixture Set', () => {
         },
       ],
       availableCameras: ['Camera_Main'],
-      outputPathPattern: path.join(tmpDir, 'output2/frame_####.png'),
-      outputPreview: path.join(tmpDir, 'output2/frame_0001.png'),
+      outputPathPattern: path.join(tmpDir, 'output/future_####.png'),
+      outputPreview: path.join(tmpDir, 'output/future_0001.png'),
       rangeConfig: { mode: 'scene_default' },
+      inspectData: {
+        schemaVersion: 1,
+        blenderVersion: '5.1.0',
+        savedWithVersion: '5.1.0',
+        blendPath: path.join(tmpDir, 'future_feature.blend'),
+        activeScene: 'Scene',
+        scenes: [],
+        missingFiles: [],
+        cyclesDevices: [],
+        engineItems: [],
+        formatItems: [],
+        codecItems: [],
+        viewTransformItems: [],
+        lookItems: [],
+        deviceItems: [],
+      },
     };
 
-    // 3. Broken Job 3: Video format combined with discontinuous custom range
+    // 3. Broken Job 3: Video format + discontinuous range (Warning with quick fix in Phase 13)
     const jobVideoMultiRange: PreflightJobInput = {
       id: 'job-video-multi-range',
-      fileName: 'animation_clip.blend',
-      filePath: path.join(tmpDir, 'animation_clip.blend'),
+      fileName: 'multirange_commercial.blend',
+      filePath: path.join(tmpDir, 'multirange_commercial.blend'),
       selectedScene: 'Scene',
       selectedCamera: 'Camera_Main',
+      savedWithVersion: '4.2.0',
       scenes: [
         {
           name: 'Scene',
@@ -132,7 +155,7 @@ describe('Pre-Flight Acceptance: Deliberately Broken Fixture Set', () => {
           cameras: ['Camera_Main'],
           viewLayers: ['ViewLayer'],
           frameStart: 1,
-          frameEnd: 250,
+          frameEnd: 100,
           frameStep: 1,
           fps: 24,
           fpsBase: 1,
@@ -141,7 +164,7 @@ describe('Pre-Flight Acceptance: Deliberately Broken Fixture Set', () => {
           resolutionPercentage: 100,
           render: {},
           imageSettings: {
-            file_format: { value: 'FFMPEG' },
+            file_format: { value: 'FFMPEG', type: 'ENUM', name: 'Format' },
           },
           ffmpeg: {},
           cycles: {},
@@ -151,21 +174,38 @@ describe('Pre-Flight Acceptance: Deliberately Broken Fixture Set', () => {
         },
       ],
       availableCameras: ['Camera_Main'],
-      outputPathPattern: path.join(tmpDir, 'output3/animation.mp4'),
-      outputPreview: path.join(tmpDir, 'output3/animation.mp4'),
+      outputPathPattern: path.join(tmpDir, 'output/commercial.mp4'),
+      outputPreview: path.join(tmpDir, 'output/commercial.mp4'),
       rangeConfig: {
         mode: 'custom',
-        customExpression: '1-10, 25-50, 80',
+        customExpression: '1-10, 20-30',
+      },
+      inspectData: {
+        schemaVersion: 1,
+        blenderVersion: '4.2.0',
+        savedWithVersion: '4.2.0',
+        blendPath: path.join(tmpDir, 'multirange_commercial.blend'),
+        activeScene: 'Scene',
+        scenes: [],
+        missingFiles: [],
+        cyclesDevices: [],
+        engineItems: [],
+        formatItems: [],
+        codecItems: [],
+        viewTransformItems: [],
+        lookItems: [],
+        deviceItems: [],
       },
     };
 
-    // 4. Broken Job 4: Output directory not writable
+    // 4. Broken Job 4: Readonly output folder (Warning in Phase 13)
     const jobReadonlyOutput: PreflightJobInput = {
       id: 'job-readonly-output',
-      fileName: 'protected_render.blend',
-      filePath: path.join(tmpDir, 'protected_render.blend'),
+      fileName: 'readonly_shot.blend',
+      filePath: path.join(tmpDir, 'readonly_shot.blend'),
       selectedScene: 'Scene',
       selectedCamera: 'Camera_Main',
+      savedWithVersion: '4.2.0',
       scenes: [
         {
           name: 'Scene',
@@ -173,7 +213,7 @@ describe('Pre-Flight Acceptance: Deliberately Broken Fixture Set', () => {
           cameras: ['Camera_Main'],
           viewLayers: ['ViewLayer'],
           frameStart: 1,
-          frameEnd: 50,
+          frameEnd: 10,
           frameStep: 1,
           fps: 24,
           fpsBase: 1,
@@ -190,18 +230,69 @@ describe('Pre-Flight Acceptance: Deliberately Broken Fixture Set', () => {
         },
       ],
       availableCameras: ['Camera_Main'],
-      outputPathPattern: path.join(readonlyDir, 'subfolder/frame_####.png'),
-      outputPreview: path.join(readonlyDir, 'subfolder/frame_0001.png'),
+      outputPathPattern: path.join(readonlyDir, 'render_####.png'),
+      outputPreview: path.join(readonlyDir, 'render_0001.png'),
+      rangeConfig: { mode: 'scene_default' },
+      inspectData: {
+        schemaVersion: 1,
+        blenderVersion: '4.2.0',
+        savedWithVersion: '4.2.0',
+        blendPath: path.join(tmpDir, 'readonly_shot.blend'),
+        activeScene: 'Scene',
+        scenes: [],
+        missingFiles: [],
+        cyclesDevices: [],
+        engineItems: [],
+        formatItems: [],
+        codecItems: [],
+        viewTransformItems: [],
+        lookItems: [],
+        deviceItems: [],
+      },
+    };
+
+    // 5. Hard Blocker Job: Missing blend file (Blocking Error)
+    const jobMissingBlend: PreflightJobInput = {
+      id: 'job-missing-blend',
+      fileName: 'does_not_exist.blend',
+      filePath: path.join(tmpDir, 'does_not_exist.blend'),
+      selectedScene: 'Scene',
+      selectedCamera: 'Camera_Main',
+      scenes: [
+        {
+          name: 'Scene',
+          activeCamera: 'Camera_Main',
+          cameras: ['Camera_Main'],
+          viewLayers: ['ViewLayer'],
+          frameStart: 1,
+          frameEnd: 10,
+          frameStep: 1,
+          fps: 24,
+          fpsBase: 1,
+          resolutionX: 1920,
+          resolutionY: 1080,
+          resolutionPercentage: 100,
+          render: {},
+          imageSettings: {},
+          ffmpeg: {},
+          cycles: {},
+          eevee: {},
+          viewSettings: {},
+          displaySettings: {},
+        },
+      ],
+      availableCameras: ['Camera_Main'],
+      outputPathPattern: path.join(tmpDir, 'out/frame_####.png'),
+      outputPreview: path.join(tmpDir, 'out/frame_0001.png'),
       rangeConfig: { mode: 'scene_default' },
     };
 
-    // Instantiate PreflightChecker
     const checker = new PreflightChecker();
     const testExecutable = path.resolve(__dirname, '../tools/mock-blender/index.js');
 
     // Check broken fixture set with selected Blender v4.2.0
     const report = checker.checkAllJobs(
-      [jobMissingTexture, jobNewerVersion, jobVideoMultiRange, jobReadonlyOutput],
+      [jobMissingTexture, jobNewerVersion, jobVideoMultiRange, jobReadonlyOutput, jobMissingBlend],
       {
         selectedBlender: {
           version: '4.2.0',
@@ -210,8 +301,9 @@ describe('Pre-Flight Acceptance: Deliberately Broken Fixture Set', () => {
       },
     );
 
-    // 1. Queue must be blocked due to errors
+    // 1. Queue must be blocked due to hard blocking error (jobMissingBlend)
     expect(report.hasErrors).toBe(true);
+    expect(report.isBlocked).toBe(true);
     expect(report.hasWarnings).toBe(true);
 
     // Verify Job 1 (Missing assets) triggers warning
@@ -224,24 +316,24 @@ describe('Pre-Flight Acceptance: Deliberately Broken Fixture Set', () => {
     expect(missingAssetWarn?.severity).toBe('warning');
     expect(missingAssetWarn?.message).toContain('2 missing external asset(s)');
 
-    // Verify Job 2 (Newer Blender file) triggers error
+    // Verify Job 2 (Newer Blender file) triggers warning in Phase 13
     const rep2 = report.jobReports.find((r) => r.jobId === 'job-newer-version');
     expect(rep2).toBeDefined();
-    const newerVersionErr = rep2?.errors.find((e) => e.code === 'NEWER_BLENDER_VERSION');
-    expect(newerVersionErr).toBeDefined();
-    expect(newerVersionErr?.severity).toBe('error');
-    expect(newerVersionErr?.message).toContain('v5.1.0');
-    expect(newerVersionErr?.message).toContain('v4.2.0');
+    const newerVersionWarn = rep2?.warnings.find((e) => e.code === 'NEWER_BLENDER_VERSION');
+    expect(newerVersionWarn).toBeDefined();
+    expect(newerVersionWarn?.severity).toBe('warning');
+    expect(newerVersionWarn?.message).toContain('v5.1.0');
+    expect(newerVersionWarn?.message).toContain('v4.2.0');
 
-    // Verify Job 3 (Video format + multi-range) triggers error with quick fix
+    // Verify Job 3 (Video format + multi-range) triggers warning with quick fix
     const rep3 = report.jobReports.find((r) => r.jobId === 'job-video-multi-range');
     expect(rep3).toBeDefined();
-    const videoRangeErr = rep3?.errors.find((e) => e.code === 'VIDEO_RANGE_RULE_VIOLATION');
-    expect(videoRangeErr).toBeDefined();
-    expect(videoRangeErr?.severity).toBe('error');
-    expect(videoRangeErr?.quickFix?.action).toBe('switch_range_to_continuous');
+    const videoRangeWarn = rep3?.warnings.find((e) => e.code === 'VIDEO_RANGE_RULE_VIOLATION');
+    expect(videoRangeWarn).toBeDefined();
+    expect(videoRangeWarn?.severity).toBe('warning');
+    expect(videoRangeWarn?.quickFix?.action).toBe('switch_range_to_continuous');
 
-    // Quick fix test: switch Job 3 range to continuous and verify error clears
+    // Quick fix test: switch Job 3 range to continuous and verify warning clears
     const fixedJob3: PreflightJobInput = {
       ...jobVideoMultiRange,
       rangeConfig: {
@@ -250,16 +342,22 @@ describe('Pre-Flight Acceptance: Deliberately Broken Fixture Set', () => {
       },
     };
     const rep3Fixed = checker.checkJob(fixedJob3);
-    expect(rep3Fixed.errors.find((e) => e.code === 'VIDEO_RANGE_RULE_VIOLATION')).toBeUndefined();
+    expect(rep3Fixed.warnings.find((e) => e.code === 'VIDEO_RANGE_RULE_VIOLATION')).toBeUndefined();
 
-    // Verify Job 4 (Readonly output) triggers unwritable error on POSIX
+    // Verify Job 4 (Readonly output) triggers unwritable warning on POSIX
     if (process.platform !== 'win32') {
       const rep4 = report.jobReports.find((r) => r.jobId === 'job-readonly-output');
       expect(rep4).toBeDefined();
-      const unwritableErr = rep4?.errors.find((e) => e.code === 'OUTPUT_DIR_NOT_WRITABLE');
-      expect(unwritableErr).toBeDefined();
-      expect(unwritableErr?.severity).toBe('error');
+      const unwritableWarn = rep4?.warnings.find((e) => e.code === 'OUTPUT_DIR_NOT_WRITABLE');
+      expect(unwritableWarn).toBeDefined();
+      expect(unwritableWarn?.severity).toBe('warning');
     }
+
+    // Verify Job 5 triggers the blocking BLEND_NOT_FOUND error
+    const rep5 = report.jobReports.find((r) => r.jobId === 'job-missing-blend');
+    expect(rep5).toBeDefined();
+    expect(rep5?.isBlocked).toBe(true);
+    expect(rep5?.errors.some((e) => e.code === 'BLEND_NOT_FOUND')).toBe(true);
 
     // Cleanup
     try {
@@ -327,6 +425,9 @@ describe('Pre-Flight Acceptance: Deliberately Broken Fixture Set', () => {
       },
     };
 
+    // Write real blend file to disk so BLEND_NOT_FOUND does not trigger
+    fs.writeFileSync(cleanJob.filePath, 'dummy');
+
     const checker = new PreflightChecker();
     const testExecutable = path.resolve(__dirname, '../tools/mock-blender/index.js');
     const report = checker.checkAllJobs([cleanJob], {
@@ -339,6 +440,7 @@ describe('Pre-Flight Acceptance: Deliberately Broken Fixture Set', () => {
 
     expect(report.hasErrors).toBe(false);
     expect(report.hasWarnings).toBe(false);
+    expect(report.isBlocked).toBe(false);
     expect(report.errors.length).toBe(0);
     expect(report.warnings.length).toBe(0);
     expect(report.jobReports[0].errors.length).toBe(0);

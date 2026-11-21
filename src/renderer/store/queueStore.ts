@@ -34,7 +34,15 @@ import { playTodungSound } from '../utils/soundPlayer';
 
 import { create } from 'zustand';
 
-export type JobStatus = 'Queued' | 'Inspecting' | 'Rendering' | 'Completed' | 'Failed' | 'Skipped';
+export type JobStatus =
+  | 'Queued'
+  | 'Inspecting'
+  | 'Rendering'
+  | 'Completed'
+  | 'Completed with warnings'
+  | 'Completed with errors'
+  | 'Failed'
+  | 'Skipped';
 
 export interface JobLogEntry {
   line: string;
@@ -83,6 +91,14 @@ export interface QueueJob {
   presets?: string[];
   preRenderHook?: string;
   stitchToMp4?: boolean;
+
+  // Pre-flight & Warning Suppression (Phase 13)
+  isBasicMode?: boolean;
+  basicModeReason?: string;
+  ignoreAllWarnings?: boolean;
+  ignoredWarningCodes?: string[];
+  ignoredWarningIds?: string[];
+  missingPathRemaps?: Record<string, string>;
 }
 
 export interface MonitorStats {
@@ -200,6 +216,20 @@ interface QueueStoreState {
   showPreflightModal: boolean;
   preflightReport: PreflightReport | null;
   preflightTargetJobId: string | null;
+  preflightMode: 'never_block' | 'ask' | 'strict';
+  preflightCountdownSeconds: number;
+  preflightCountdown: number | null;
+  setPreflightMode: (mode: 'never_block' | 'ask' | 'strict') => void;
+  setPreflightCountdownSeconds: (seconds: number) => void;
+  startPreflightCountdown: () => void;
+  cancelPreflightCountdown: () => void;
+  forceStartQueue: () => Promise<void>;
+  toggleJobIgnoreAllWarnings: (jobId: string) => void;
+  ignoreWarning: (jobId: string, issueId: string) => void;
+  ignoreWarningCode: (jobId: string, code: string) => void;
+  unignoreWarning: (jobId: string, issueId: string) => void;
+  unignoreWarningCode: (jobId: string, code: string) => void;
+  remapMissingPath: (jobId: string, oldPath: string, newPath: string) => void;
 
   // Overrides & Presets
   copiedOverrides: OverrideMap | null;
@@ -341,6 +371,8 @@ export function toPersistedJob(qj: QueueJob): Job {
     Inspecting: 'pending',
     Rendering: 'active',
     Completed: 'done',
+    'Completed with warnings': 'done',
+    'Completed with errors': 'done',
     Failed: 'failed',
     Skipped: 'canceled',
   };
@@ -373,6 +405,12 @@ export function toPersistedJob(qj: QueueJob): Job {
         : 0,
     inspect: qj.inspectData,
     preRenderHook: qj.preRenderHook,
+    isBasicMode: qj.isBasicMode,
+    basicModeReason: qj.basicModeReason,
+    ignoreAllWarnings: qj.ignoreAllWarnings,
+    ignoredWarningCodes: qj.ignoredWarningCodes,
+    ignoredWarningIds: qj.ignoredWarningIds,
+    missingPathRemaps: qj.missingPathRemaps,
   };
 }
 
@@ -416,12 +454,19 @@ export function fromPersistedJob(pj: Job): QueueJob {
     overrides: pj.overrides || {},
     presets: pj.presets || [],
     preRenderHook: pj.preRenderHook,
+    isBasicMode: pj.isBasicMode,
+    basicModeReason: pj.basicModeReason,
+    ignoreAllWarnings: pj.ignoreAllWarnings,
+    ignoredWarningCodes: pj.ignoredWarningCodes,
+    ignoredWarningIds: pj.ignoredWarningIds,
+    missingPathRemaps: pj.missingPathRemaps,
   };
 }
 
 let timerInterval: NodeJS.Timeout | null = null;
 let postActionInterval: NodeJS.Timeout | null = null;
 let scheduleCheckInterval: NodeJS.Timeout | null = null;
+let preflightTimer: NodeJS.Timeout | null = null;
 
 export const useQueueStore = create<QueueStoreState>((set, get) => ({
   jobs: [],
@@ -662,6 +707,17 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
   showPreflightModal: false,
   preflightReport: null,
   preflightTargetJobId: null,
+  preflightMode: 'never_block',
+  preflightCountdownSeconds: 30,
+  preflightCountdown: null,
+  setPreflightMode: (mode) => {
+    set({ preflightMode: mode });
+    get().autoSaveState();
+  },
+  setPreflightCountdownSeconds: (seconds) => {
+    set({ preflightCountdownSeconds: seconds });
+    get().autoSaveState();
+  },
 
   // Overrides & Presets
   copiedOverrides: null,
@@ -1056,6 +1112,8 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
         } else {
           get().updateJob(job.id, {
             status: 'Queued',
+            isBasicMode: true,
+            basicModeReason: 'No inspect data returned',
             outputPreview: computePreview(
               job.outputPathPattern,
               job.project,
@@ -1068,11 +1126,13 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
         const errorMsg = (err as Error).message || 'Inspection failed';
         const stderrTail = (err as { stderrTail?: string }).stderrTail;
         get().updateJob(job.id, {
-          status: 'Failed',
+          status: 'Queued',
+          isBasicMode: true,
+          basicModeReason: errorMsg,
           inspectError: errorMsg,
           inspectStderrTail: stderrTail,
         });
-        get().addLog(`Failed to inspect ${job.fileName}: ${errorMsg}`);
+        get().addLog(`Inspection failed for ${job.fileName} (${errorMsg}). Added in Basic mode.`);
       }
     }
     get().autoSaveState();
@@ -1155,11 +1215,13 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
       const errorMsg = (err as Error).message || 'Re-inspection failed';
       const stderrTail = (err as { stderrTail?: string }).stderrTail;
       get().updateJob(job.id, {
-        status: 'Failed',
+        status: 'Queued',
+        isBasicMode: true,
+        basicModeReason: errorMsg,
         inspectError: errorMsg,
         inspectStderrTail: stderrTail,
       });
-      get().addLog(`Failed to re-inspect ${job.fileName}: ${errorMsg}`);
+      get().addLog(`Re-inspection failed for ${job.fileName} (${errorMsg}). Kept in Basic mode.`);
     }
     get().autoSaveState();
   },
@@ -1410,6 +1472,7 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
         crashPolicy: job.crashPolicy,
         overrides: job.overrides || {},
         preRenderHook: job.preRenderHook,
+        pathRemaps: job.missingPathRemaps,
       };
     });
 
@@ -1631,6 +1694,9 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
             engine: j.deviceReport.engine,
           }
         : undefined,
+      ignoreAllWarnings: j.ignoreAllWarnings,
+      ignoredWarningCodes: j.ignoredWarningCodes,
+      ignoredWarningIds: j.ignoredWarningIds,
     }));
 
     const options = {
@@ -1659,12 +1725,160 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
   },
 
   startQueueWithPreflight: async () => {
+    get().cancelPreflightCountdown();
     const report = await get().runPreflightCheck();
-    if (report.hasErrors || report.hasWarnings) {
+
+    // 1. Only the 3 hard conditions can block a job:
+    // Blender missing/inexecutable, .blend missing/unreadable, zero frames to render.
+    if (report.isBlocked) {
+      get().addLog(
+        `Pre-flight blocked: ${
+          report.blockReasons && report.blockReasons.length > 0
+            ? report.blockReasons.join('; ')
+            : 'Critical configuration errors'
+        }`,
+      );
       set({ showPreflightModal: true, preflightTargetJobId: null });
       return;
     }
+
+    const { preflightMode, preflightCountdownSeconds } = get();
+
+    // 2. Never block (DEFAULT)
+    if (preflightMode === 'never_block' || !report.hasWarnings) {
+      if (report.hasWarnings) {
+        get().addLog(
+          `Pre-flight: ${report.warnings.length} warning(s) detected. Continuing (Never block mode)...`,
+        );
+        for (const w of report.warnings) {
+          get().addLog(`  ⚠️ [${w.code}] ${w.message}`);
+        }
+      }
+      set({ showPreflightModal: false });
+      await get().startQueue();
+      return;
+    }
+
+    // 3. Ask when warnings exist: countdown banner with auto-continue
+    if (preflightMode === 'ask') {
+      get().addLog(
+        `Pre-flight: ${report.warnings.length} warning(s) detected. Auto-continuing in ${preflightCountdownSeconds}s...`,
+      );
+      get().startPreflightCountdown();
+      return;
+    }
+
+    // 4. Strict (old behavior): opt-in
+    if (preflightMode === 'strict') {
+      get().addLog(
+        `Pre-flight: ${report.warnings.length} warning(s) detected. Strict mode requires confirmation.`,
+      );
+      set({ showPreflightModal: true, preflightTargetJobId: null });
+      return;
+    }
+  },
+
+  startPreflightCountdown: () => {
+    if (preflightTimer) {
+      clearInterval(preflightTimer);
+      preflightTimer = null;
+    }
+    const initialSeconds = get().preflightCountdownSeconds || 30;
+    set({ preflightCountdown: initialSeconds });
+
+    preflightTimer = setInterval(() => {
+      const current = get().preflightCountdown;
+      if (current === null) {
+        if (preflightTimer) {
+          clearInterval(preflightTimer);
+          preflightTimer = null;
+        }
+        return;
+      }
+      if (current <= 1) {
+        if (preflightTimer) {
+          clearInterval(preflightTimer);
+          preflightTimer = null;
+        }
+        set({ preflightCountdown: null });
+        get().addLog('Pre-flight countdown complete. Starting render queue...');
+        void get().startQueue();
+      } else {
+        set({ preflightCountdown: current - 1 });
+      }
+    }, 1000);
+  },
+
+  cancelPreflightCountdown: () => {
+    if (preflightTimer) {
+      clearInterval(preflightTimer);
+      preflightTimer = null;
+    }
+    set({ preflightCountdown: null });
+  },
+
+  forceStartQueue: async () => {
+    get().cancelPreflightCountdown();
+    set({ showPreflightModal: false });
     await get().startQueue();
+  },
+
+  toggleJobIgnoreAllWarnings: (jobId: string) => {
+    const job = get().jobs.find((j) => j.id === jobId);
+    if (!job) return;
+    const nextVal = !job.ignoreAllWarnings;
+    get().updateJob(jobId, { ignoreAllWarnings: nextVal });
+    void get().runPreflightCheck(get().preflightTargetJobId || undefined);
+    get().autoSaveState();
+  },
+
+  ignoreWarning: (jobId: string, issueId: string) => {
+    const job = get().jobs.find((j) => j.id === jobId);
+    if (!job) return;
+    const existing = job.ignoredWarningIds || [];
+    if (!existing.includes(issueId)) {
+      get().updateJob(jobId, { ignoredWarningIds: [...existing, issueId] });
+      void get().runPreflightCheck(get().preflightTargetJobId || undefined);
+      get().autoSaveState();
+    }
+  },
+
+  ignoreWarningCode: (jobId: string, code: string) => {
+    const job = get().jobs.find((j) => j.id === jobId);
+    if (!job) return;
+    const existing = job.ignoredWarningCodes || [];
+    if (!existing.includes(code)) {
+      get().updateJob(jobId, { ignoredWarningCodes: [...existing, code] });
+      void get().runPreflightCheck(get().preflightTargetJobId || undefined);
+      get().autoSaveState();
+    }
+  },
+
+  unignoreWarning: (jobId: string, issueId: string) => {
+    const job = get().jobs.find((j) => j.id === jobId);
+    if (!job) return;
+    const existing = job.ignoredWarningIds || [];
+    get().updateJob(jobId, { ignoredWarningIds: existing.filter((id) => id !== issueId) });
+    void get().runPreflightCheck(get().preflightTargetJobId || undefined);
+    get().autoSaveState();
+  },
+
+  unignoreWarningCode: (jobId: string, code: string) => {
+    const job = get().jobs.find((j) => j.id === jobId);
+    if (!job) return;
+    const existing = job.ignoredWarningCodes || [];
+    get().updateJob(jobId, { ignoredWarningCodes: existing.filter((c) => c !== code) });
+    void get().runPreflightCheck(get().preflightTargetJobId || undefined);
+    get().autoSaveState();
+  },
+
+  remapMissingPath: (jobId: string, oldPath: string, newPath: string) => {
+    const job = get().jobs.find((j) => j.id === jobId);
+    if (!job) return;
+    const remaps = { ...(job.missingPathRemaps || {}), [oldPath]: newPath };
+    get().updateJob(jobId, { missingPathRemaps: remaps });
+    void get().runPreflightCheck(get().preflightTargetJobId || undefined);
+    get().autoSaveState();
   },
 
   closePreflightModal: () => {
@@ -1737,6 +1951,8 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
           minFreeDiskSpaceMb: globalSettings.minFreeDiskSpaceMb,
           defaultCrashPolicy: globalSettings.defaultCrashPolicy,
           customBlenderPaths: get().customBlenderPaths,
+          preflightMode: get().preflightMode,
+          preflightCountdownSeconds: get().preflightCountdownSeconds,
           sound: {
             enabled: !soundSettings.isMuted,
             volume: soundSettings.volume,
@@ -1889,6 +2105,12 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
           if (customPaths.length > 0) {
             set({ customBlenderPaths: customPaths });
             void get().loadBlenders();
+          }
+          if (saved.settings.preflightMode) {
+            set({ preflightMode: saved.settings.preflightMode });
+          }
+          if (typeof saved.settings.preflightCountdownSeconds === 'number') {
+            set({ preflightCountdownSeconds: saved.settings.preflightCountdownSeconds });
           }
         }
       })
@@ -2095,16 +2317,37 @@ export const useQueueStore = create<QueueStoreState>((set, get) => ({
               ? event.failedFramesList
               : job?.failedFrames || [];
           const hasFailures = failures.length > 0;
+          const completedFrames = event.completedFrames ?? job?.completedFrames ?? 0;
+
+          const jobReport = get().preflightReport?.jobReports.find((r) => r.jobId === event.jobId);
+          const hasWarnings =
+            !job?.ignoreAllWarnings &&
+            ((jobReport?.warnings.length || 0) > 0 || (job?.inspectData?.errors?.length || 0) > 0);
+
+          let newStatus: JobStatus;
+          if (hasFailures && completedFrames === 0) {
+            newStatus = 'Failed';
+          } else if (hasFailures) {
+            newStatus = 'Completed with errors';
+          } else if (hasWarnings) {
+            newStatus = 'Completed with warnings';
+          } else {
+            newStatus = 'Completed';
+          }
 
           get().updateJob(event.jobId, {
-            status: hasFailures ? 'Failed' : 'Completed',
+            status: newStatus,
             failedFrames: failures,
           });
           get().addLog(
             `Job ${event.jobId} ${
-              hasFailures
-                ? `finished with ${failures.length} failed frame(s)`
-                : 'completed successfully.'
+              newStatus === 'Failed'
+                ? `failed: no frames produced (${failures.length} errors)`
+                : newStatus === 'Completed with errors'
+                  ? `completed with ${failures.length} failed frame(s)`
+                  : newStatus === 'Completed with warnings'
+                    ? 'completed with warnings.'
+                    : 'completed successfully.'
             }`,
           );
 

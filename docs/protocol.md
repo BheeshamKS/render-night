@@ -30,6 +30,14 @@ Validated via `inspectOutputSchema` in `src/core/schemas/inspect.ts`.
 | `viewTransformItems`| `RnaEnumItem[]` | Color management view transforms (e.g. `Standard`, `AgX`, `Filmic`). |
 | `lookItems` | `RnaEnumItem[]` | Color management look presets (e.g. `None`, `Medium Contrast`, `High Contrast`). |
 | `deviceItems` | `RnaEnumItem[]` | Cycles compute device enum items (`CPU`, `GPU`). |
+| `errors` | `string[]` | Non-fatal section error strings encountered during inspection. |
+
+### Missing Files (`MissingFile`)
+- `path`: string
+- `type`: `image` | `library` | `sound` | `vdb` | `alembic` | `cache` | `other` | string
+- `datablock`: string (optional)
+- `relevance`: `used` | `unused` | `unknown` (default `unknown`)
+- `details`: string (optional)
 
 ### Scene Structure (`InspectScene`)
 
