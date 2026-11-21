@@ -186,6 +186,34 @@ impl RunnerSupervisor {
         self.pause_flag.load(Ordering::SeqCst)
     }
 
+    pub fn check_sentinel_stop(&self) -> bool {
+        if self.stop_flag.load(Ordering::SeqCst) {
+            return true;
+        }
+
+        let check = |p: &Path| -> bool {
+            if p.exists() {
+                if let Ok(content) = fs::read_to_string(p) {
+                    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&content) {
+                        if v.get("command").and_then(|c| c.as_str()) == Some("stop")
+                            || v.get("action").and_then(|a| a.as_str()) == Some("stop")
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+            false
+        };
+
+        if check(&self.control_file) || check(&self.config.runtime_dir.join("control.json")) {
+            self.stop_flag.store(true, Ordering::SeqCst);
+            let _ = fs::write(&self.control_file, r#"{"command":"stop","action":"stop"}"#);
+            return true;
+        }
+        false
+    }
+
     pub async fn run(self) -> Result<HistoryResult, String> {
         let job = &self.config;
         let job_start_time = Instant::now();
@@ -276,7 +304,7 @@ impl RunnerSupervisor {
         let mut detected_device_info: Option<(String, Vec<DeviceInfo>)> = None;
 
         // 3. Execution loop (resumes by relaunching Blender with remaining frames if crash occurs)
-        while !remaining_frames.is_empty() && !self.stop_flag.load(Ordering::SeqCst) {
+        while !remaining_frames.is_empty() && !self.check_sentinel_stop() {
             let active_frame = remaining_frames[0];
             let run_on_cpu = frame_cpu_fallback_tried.contains(&active_frame);
 
@@ -535,7 +563,7 @@ impl RunnerSupervisor {
             let exit_code = status.code().unwrap_or(-1);
             debug!("Blender child process exited with status {}", exit_code);
 
-            if self.stop_flag.load(Ordering::SeqCst) {
+            if self.check_sentinel_stop() {
                 break;
             }
 

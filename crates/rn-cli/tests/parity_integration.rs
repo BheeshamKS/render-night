@@ -51,7 +51,7 @@ fn test_parity_scenario_1_crash_114_gpu_recovery() {
                 "blendPath": blend_path.to_str().unwrap(),
                 "scene": "Scene",
                 "camera": "Camera",
-                "range": "1-2",
+                "range": "113-115",
                 "outputPattern": output_pattern,
                 "crashPolicy": "retry_then_cpu_fallback"
             }
@@ -61,7 +61,7 @@ fn test_parity_scenario_1_crash_114_gpu_recovery() {
 
     let base_dir = temp.path().join("app-data");
 
-    // Pass RN_MOCK_SCENARIO=crash-114
+    // Pass RN_MOCK_SCENARIO=crash-114: Frame 114 crashes on GPU and CPU, and is skipped permanently
     let out = Command::new(&cli)
         .arg("--queue")
         .arg(&queue_file)
@@ -75,18 +75,18 @@ fn test_parity_scenario_1_crash_114_gpu_recovery() {
 
     let stdout = String::from_utf8_lossy(&out.stdout);
     let stderr = String::from_utf8_lossy(&out.stderr);
-    println!("STATUS: {:?}", out.status);
-    println!("STDOUT:\n{}", stdout);
-    println!("STDERR:\n{}", stderr);
 
-    assert!(
-        out.status.success(),
-        "CLI should recover from crash-114 and succeed with CPU fallback"
-    );
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    assert!(stdout.contains("ALL JOBS COMPLETED SUCCESSFULLY"));
-    assert!(stdout.contains("Completed Jobs:    1"));
+    // Frame 114 failed permanently on CPU/GPU, so CLI completes the rest and exits 1
+    assert_eq!(out.status.code(), Some(1));
+    assert!(stderr.contains("Frame 114 failed permanently. Skipping frame and continuing queue."));
     assert!(stdout.contains("Completed Frames:  2"));
+    assert!(stdout.contains("Failed Frames:     1"));
+    assert!(stdout.contains("FINISHED WITH FAILURES"));
+
+    // Verify frames 113 and 115 rendered and saved, while 114 was skipped
+    assert!(temp.path().join("out_c114_0113.png").exists());
+    assert!(!temp.path().join("out_c114_0114.png").exists());
+    assert!(temp.path().join("out_c114_0115.png").exists());
 }
 
 #[test]
@@ -113,7 +113,7 @@ fn test_parity_scenario_2_gpu_oom_recovery() {
                 "blendPath": blend_path.to_str().unwrap(),
                 "scene": "Scene",
                 "camera": "Camera",
-                "range": "1-2",
+                "range": "113-115",
                 "outputPattern": output_pattern,
                 "crashPolicy": "retry_then_cpu_fallback"
             }
@@ -123,6 +123,7 @@ fn test_parity_scenario_2_gpu_oom_recovery() {
 
     let base_dir = temp.path().join("app-data");
 
+    // Pass RN_MOCK_SCENARIO=gpu-oom: Frame 114 crashes on GPU, succeeds on CPU fallback
     let out = Command::new(&cli)
         .arg("--queue")
         .arg(&queue_file)
@@ -134,11 +135,20 @@ fn test_parity_scenario_2_gpu_oom_recovery() {
         .output()
         .expect("exec cli queue");
 
-    assert!(out.status.success(), "CLI should recover from GPU OOM");
     let stdout = String::from_utf8_lossy(&out.stdout);
+    let stderr = String::from_utf8_lossy(&out.stderr);
+
+    assert!(out.status.success(), "CLI should recover from GPU OOM");
+    assert!(stderr.contains("CUDA error: Out of memory at frame 114"));
     assert!(stdout.contains("ALL JOBS COMPLETED SUCCESSFULLY"));
     assert!(stdout.contains("Completed Jobs:    1"));
-    assert!(stdout.contains("Completed Frames:  2"));
+    assert!(stdout.contains("Completed Frames:  3"));
+    assert!(stdout.contains("Failed Frames:     0"));
+
+    // Verify all 3 frames rendered and saved (including recovered frame 114)
+    assert!(temp.path().join("out_oom_0113.png").exists());
+    assert!(temp.path().join("out_oom_0114.png").exists());
+    assert!(temp.path().join("out_oom_0115.png").exists());
 }
 
 #[test]
@@ -177,12 +187,15 @@ fn test_parity_scenario_3_slow_control_stop() {
     fs::create_dir_all(&runtime_dir).unwrap();
     let control_file = runtime_dir.join("control.json");
 
-    // Write stop command to control file
-    fs::write(
-        &control_file,
-        serde_json::json!({ "command": "stop", "action": "stop" }).to_string(),
-    )
-    .unwrap();
+    // Spawn thread to write stop sentinel after brief delay
+    let ctrl_path = control_file.clone();
+    let stop_thread = std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(50));
+        let _ = fs::write(
+            &ctrl_path,
+            serde_json::json!({ "command": "stop", "action": "stop" }).to_string(),
+        );
+    });
 
     let out = Command::new(&cli)
         .arg("--queue")
@@ -191,12 +204,25 @@ fn test_parity_scenario_3_slow_control_stop() {
         .arg(&mock_blender)
         .arg("--base-dir")
         .arg(&base_dir)
+        .env("RN_MOCK_SCENARIO", "slow-control")
         .output()
         .expect("exec cli queue");
 
-    // Stop command halts queue execution
+    let _ = stop_thread.join();
+
     let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        out.status.success(),
+        "Stop sentinel halts queue with code 0"
+    );
     assert!(stdout.contains("NIGHT RENDER SUMMARY"));
+    assert!(stdout.contains("Failed Frames:     0"));
+
+    // Must halt cleanly before rendering all 5 frames
+    assert!(
+        !temp.path().join("out_ctrl_0005.png").exists(),
+        "Frame 5 must not be rendered when stopped early via sentinel"
+    );
 }
 
 #[test]
@@ -374,7 +400,17 @@ fn test_kill_9_crash_simulation_orphans_safety_and_resume() {
         "Post-queue action must be strictly disarmed on session restore/resume"
     );
     assert!(
+        resume_stderr.contains("unclean shutdown"),
+        "Unclean shutdown from previous session must be reported on resume"
+    );
+    assert!(
         !session_lock_path.exists(),
         "Session lock file must be cleaned up on successful completion"
+    );
+
+    // Verify all 50 frames exist on disk after resume
+    assert!(
+        temp.path().join("frame_0050.png").exists(),
+        "All frames up to 50 must exist on disk after resume"
     );
 }

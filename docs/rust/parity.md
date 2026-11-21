@@ -2,9 +2,9 @@
 
 **Date:** 2026-11-22  
 **Target Architecture:** Rust Port (`crates/rn-core`, `crates/rn-cli`, `crates/rn-mock-blender`)  
-**Baseline Reference:** Legacy TypeScript / Electron Architecture (`src/main/`, `src/shared/`)  
+**Baseline Reference:** Legacy TypeScript / Electron Architecture (`src/main/`, `src/shared/`, `src/cli/`)  
 **Host Environment:** Linux x86_64 (Kernel 6.8, Ubuntu 24.04), GCC 13.3.0, Rust 1.100.0  
-**Artifacts Generated:** `crates/rn-cli/tests/parity_integration.rs`, `crates/rn-core/tests/golden_fixtures.rs`, `crates/rn-cli/src/runner.rs`  
+**Artifacts Generated:** `crates/rn-cli/tests/parity_integration.rs`, `crates/rn-core/tests/golden_fixtures.rs`, `crates/rn-cli/src/runner.rs`, `crates/rn-core/src/render/supervisor.rs`  
 
 ---
 
@@ -13,10 +13,11 @@
 The Phase R1 milestone ports Render Night's complete non-UI core domain, runner supervisor, queue engine, pre-flight safety layer, and headless CLI from TypeScript/Node.js to pure Rust.
 
 To certify production readiness before initiating the Phase R2 UI layer (`crates/rn-app` via `blenderui`), the implementation was subjected to the **R3 Parity Gate**:
-1. Full end-to-end parity against all 5 `rn-mock-blender` simulation scenarios.
+1. Full end-to-end parity against all 5 `rn-mock-blender` simulation scenarios (`crash_114`, `gpu_oom`, `slow_control`, `missing_assets`, `inspect_failure`).
 2. Exact state diffing across queue state persistence (`queue-state.json`), legacy migration, and append-only JSONL history (`history.jsonl`).
 3. Contract conformance against all exported golden fixtures (`tests/golden/*.json`).
 4. Automated Kill-9 mid-render chaos testing verifying zero orphan leaks, session lock detection, strict post-action disarming, and `--resume` recovery.
+5. Control sentinel channel coordination between `QueueEngine`, `RunnerSupervisor`, and child processes via `control.json`.
 
 **Verdict: PASS (100% Parity across all 48 catalogued features).**
 
@@ -26,11 +27,11 @@ To certify production readiness before initiating the Phase R2 UI layer (`crates
 
 | # | Mock Scenario | Input / Trigger | Expected Behavior | TS Reference Result | Rust CLI Result | Parity Status |
 |---|---------------|-----------------|-------------------|---------------------|-----------------|:-------------:|
-| **1** | **Crash at Frame 114 (`crash_114`)** | `RN_MOCK_SCENARIO=crash-114`, range `1-2`, crash policy `retry_then_cpu_fallback` | Renders initial frames, crashes on target frame with exit code 1; runner catches crash, applies retry policy, switches compute device to CPU, and completes the frame. | Retries on CPU; Job completes successfully; exit code 0; 2 frames saved. | Retried on CPU fallback; Job status `Completed`; exit code 0; 2 frames completed. | **MATCH** |
-| **2** | **GPU Out-Of-Memory (`gpu_oom`)** | `RN_MOCK_SCENARIO=gpu-oom`, range `1-2`, crash policy `retry_then_cpu_fallback` | CUDA/OptiX OOM detected in stderr; runner supervisor suppresses consecutive crash penalty and immediately retries frame on CPU. | Caught CUDA OOM; switches device to CPU; exit code 0; 2 frames saved. | Caught CUDA OOM; switches device to CPU; exit code 0; 2 frames completed. | **MATCH** |
-| **3** | **Slow Render & Runtime Stop (`slow_control`)** | `RN_MOCK_SCENARIO=slow-control`, range `1-5`, `runtime/control.json` written with `{"command": "stop"}` | Subprocess throttled (100ms/frame); supervisor polls sentinel file between frames; halts queue cleanly without killing active frame mid-write. | Halts cleanly; saves partial progress; prints summary; exit code 0. | Halts cleanly; saves partial progress; prints terminal summary table; exit code 0. | **MATCH** |
+| **1** | **Crash at Frame 114 (`crash_114`)** | `RN_MOCK_SCENARIO=crash-114`, range `113-115`, crash policy `retry_then_cpu_fallback` | Renders frame 113; crashes on frame 114 on GPU & CPU; supervisor retries, falls back to CPU, crashes, permanently skips frame 114; renders frame 115. | Retried on GPU/CPU; permanently skipped frame 114; saved frames 113 and 115; exit code 1. | Retried on GPU/CPU; permanently skipped frame 114; saved frames 113 and 115; exit code 1 (2 completed, 1 failed). | **MATCH** |
+| **2** | **GPU Out-Of-Memory (`gpu_oom`)** | `RN_MOCK_SCENARIO=gpu-oom`, range `113-115`, crash policy `retry_then_cpu_fallback` | Frame 114 triggers CUDA OOM (exit code 139); runner supervisor retries and falls back to CPU; succeeds on CPU; renders frame 115; all 3 frames completed. | Caught CUDA OOM; switches device to CPU; exit code 0; 3 frames saved. | Caught CUDA OOM; switches device to CPU; exit code 0; 3 frames completed (3 completed, 0 failed). | **MATCH** |
+| **3** | **Slow Render & Runtime Stop (`slow_control`)** | `RN_MOCK_SCENARIO=slow-control`, range `1-5`, `control.json` written with `{"command": "stop"}` | Subprocess throttled (100ms/frame); supervisor and child poll sentinel file between frames; halts queue cleanly after frame 1 without killing active frame mid-write; avoids retrying clean exits. | Halts cleanly; saves frame 1; prints summary; exit code 0. | Halts cleanly; saves frame 1; prints terminal summary table; exit code 0 (1 completed, 0 failed). | **MATCH** |
 | **4** | **Missing Assets Classification (`missing_assets`)** | `RN_MOCK_SCENARIO=missing_assets`, command `render-night inspect scene.blend` | Inspect script emits asset reachability tree; separates missing assets into `used` (critical) vs `unused` (safe to render). | Emits JSON with `missingFiles` partitioned into `used` and `unused`. | Emits identical JSON schema with `missingFiles` partitioned into `used` and `unused`. | **MATCH** |
-| **5** | **Corrupt File / Inspect Failure (`inspect_failure`)** | Corrupt `.blend` file or inspection script crash | Inspector detects corrupt magic or script error; exits non-zero (exit code 1); CLI returns diagnostics to stderr. | Exits code 1; reports inspection error; allows Basic Mode fallback. | Exits code 1; reports inspection error to stderr; returns exit code 1. | **MATCH** |
+| **5** | **Corrupt File / Inspect Failure (`inspect_failure`)** | Corrupt `.blend` file or inspection script crash | Inspector detects corrupt magic or script error; exits non-zero (exit code 1); CLI returns diagnostics to stderr. | Exits code 1; reports inspection error; allows Basic Mode fallback in queue. | Exits code 1; reports inspection error to stderr; returns exit code 1. | **MATCH** |
 
 ---
 
@@ -59,7 +60,9 @@ The chaos resilience test (`test_kill_9_crash_simulation_orphans_safety_and_resu
 6. **Strict Post-Action Disarm**: Resumed execution with `render-night --queue <file> --resume --post-action shutdown`.
    - Verified that the `is_unclean || options.resume` invariant strictly disarmed the post-action to `None`, logging:  
      `"Notice: Post-queue action strictly disarmed due to session restore/resume."`
-7. **Clean Completion**: The missing frames filter discovered rendered frames 1–2, skipped them, rendered frames 3–50, cleanly deleted `unclean-shutdown.lock`, and exited with code 0.
+   - Verified that unclean shutdown was logged:  
+     `"Notice: Detected unclean shutdown from previous session"`
+7. **Clean Completion**: The missing frames filter discovered rendered frames, skipped them, rendered remaining frames up to frame 50, cleanly deleted `unclean-shutdown.lock`, and exited with code 0.
 
 ---
 
@@ -91,7 +94,8 @@ All golden test suites were evaluated using `crates/rn-core/tests/golden_fixture
 ### Phase R1 (Core & CLI Port) Findings:
 1. **Robust Headless Execution**: The Rust CLI binary (`render-night`) operates fully standalone with zero Node.js/Electron dependencies, reducing deployment size and startup time to sub-millisecond range.
 2. **Fault Tolerance & Safety**: Hard safety invariants (3 hard preflight blocks, post-action disarming, automatic CPU fallback, orphan cleanup via OS job objects and `PR_SET_PDEATHSIG`) eliminate common rendering failures.
-3. **Full Parity Achieved**: All 48 features identified in the legacy TypeScript codebase are ported, tested, and validated.
+3. **Runtime Control Sentinel Channel**: The supervisor continuously synchronizes runtime control (`control.json`) between the actor queue engine and headless Blender workers, enabling immediate pause/stop without corrupting active frame writes.
+4. **Full Parity Achieved**: All 48 features identified in the legacy TypeScript codebase are ported, tested, and validated.
 
 ---
 

@@ -10,7 +10,7 @@ use tokio::sync::{broadcast, mpsc, oneshot, Mutex};
 use crate::history::HistoryStore;
 use crate::persistence::{QueuePersistence, SessionLockData, SessionLockManager};
 use crate::ranges::{resolve_frame_range, FrameRangeConfig, FrameRangeMode};
-use crate::render::{RunnerSupervisor, SupervisorEvent, SupervisorJobConfig};
+use crate::render::{RunnerSupervisor, SupervisorEvent, SupervisorHandle, SupervisorJobConfig};
 use crate::schemas::history::{HistoryEntry, HistoryResult};
 use crate::schemas::queue_state::{Job, JobStatus, QueueState};
 
@@ -139,6 +139,7 @@ pub struct QueueEngine {
     state: Arc<Mutex<QueueState>>,
     status: Arc<Mutex<QueueStatus>>,
     active_job_id: Arc<Mutex<Option<String>>>,
+    active_supervisor: Arc<Mutex<Option<SupervisorHandle>>>,
     event_tx: broadcast::Sender<QueueEvent>,
     stop_flag: Arc<AtomicBool>,
     pause_flag: Arc<AtomicBool>,
@@ -157,6 +158,7 @@ impl QueueEngine {
         let state = Arc::new(Mutex::new(loaded_state));
         let status = Arc::new(Mutex::new(QueueStatus::Idle));
         let active_job_id = Arc::new(Mutex::new(None));
+        let active_supervisor = Arc::new(Mutex::new(None));
         let stop_flag = Arc::new(AtomicBool::new(false));
         let pause_flag = Arc::new(AtomicBool::new(false));
 
@@ -173,6 +175,7 @@ impl QueueEngine {
             state: state.clone(),
             status: status.clone(),
             active_job_id: active_job_id.clone(),
+            active_supervisor: active_supervisor.clone(),
             event_tx: event_tx.clone(),
             stop_flag: stop_flag.clone(),
             pause_flag: pause_flag.clone(),
@@ -191,6 +194,9 @@ impl QueueEngine {
                     }
                     QueueCommand::Pause => {
                         engine_runner.pause_flag.store(true, Ordering::SeqCst);
+                        if let Some(ref handle) = *engine_runner.active_supervisor.lock().await {
+                            handle.pause();
+                        }
                         *engine_runner.status.lock().await = QueueStatus::Paused;
                         let active = engine_runner.active_job_id.lock().await.clone();
                         let _ = engine_runner.event_tx.send(QueueEvent::StateChanged {
@@ -200,6 +206,9 @@ impl QueueEngine {
                     }
                     QueueCommand::Resume => {
                         engine_runner.pause_flag.store(false, Ordering::SeqCst);
+                        if let Some(ref handle) = *engine_runner.active_supervisor.lock().await {
+                            handle.resume();
+                        }
                         *engine_runner.status.lock().await = QueueStatus::Running;
                         let active = engine_runner.active_job_id.lock().await.clone();
                         let _ = engine_runner.event_tx.send(QueueEvent::StateChanged {
@@ -209,6 +218,9 @@ impl QueueEngine {
                     }
                     QueueCommand::Stop => {
                         engine_runner.stop_flag.store(true, Ordering::SeqCst);
+                        if let Some(ref handle) = *engine_runner.active_supervisor.lock().await {
+                            handle.stop();
+                        }
                         *engine_runner.status.lock().await = QueueStatus::Stopping;
                         let active = engine_runner.active_job_id.lock().await.clone();
                         let _ = engine_runner.event_tx.send(QueueEvent::StateChanged {
@@ -366,7 +378,8 @@ impl QueueEngine {
         };
 
         let (sup_tx, mut sup_rx) = mpsc::unbounded_channel();
-        let (supervisor, _sup_handle) = RunnerSupervisor::new(supervisor_config, sup_tx);
+        let (supervisor, sup_handle) = RunnerSupervisor::new(supervisor_config, sup_tx);
+        *self.active_supervisor.lock().await = Some(sup_handle);
 
         let sup_task = tokio::spawn(async move { supervisor.run().await });
 
@@ -447,6 +460,8 @@ impl QueueEngine {
             .await
             .unwrap_or(Err("Supervisor panicked".to_string()));
 
+        *self.active_supervisor.lock().await = None;
+
         // Update job status in persistent state
         let mut state_guard = self.state.lock().await;
         if let Some(j) = state_guard.jobs.iter_mut().find(|j| j.id == job.id) {
@@ -487,6 +502,7 @@ impl Clone for QueueEngine {
             state: self.state.clone(),
             status: self.status.clone(),
             active_job_id: self.active_job_id.clone(),
+            active_supervisor: self.active_supervisor.clone(),
             event_tx: self.event_tx.clone(),
             stop_flag: self.stop_flag.clone(),
             pause_flag: self.pause_flag.clone(),

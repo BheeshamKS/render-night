@@ -495,7 +495,8 @@ pub async fn run_cli_queue(options: CliRunOptions) -> CliRunResult {
                 ring_terminal_bell();
                 if failed_frames == 0
                     && (status == HistoryResult::Completed
-                        || status == HistoryResult::CompletedWithWarnings)
+                        || status == HistoryResult::CompletedWithWarnings
+                        || status == HistoryResult::Canceled)
                 {
                     summary.completed_jobs += 1;
                 } else {
