@@ -1,0 +1,43 @@
+name: BUI Build Matrix
+
+on:
+  push:
+    branches: [rust-rewrite, main]
+  pull_request:
+    branches: [rust-rewrite, main]
+
+jobs:
+  build:
+    name: Build BUI on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.88.0
+          components: rustfmt, clippy
+
+      - name: Install CMake & Ninja
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: '3.29.x'
+
+      - name: Install Linux Build Dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libgl1-mesa-dev libxext-dev libxcursor-dev libxinerama-dev libxi-dev libxrandr-dev
+
+      - name: Build rn-spike (Verification)
+        run: cargo check -p rn-spike --verbose
+
+      - name: Test Workspace Core
+        run: cargo test --workspace --exclude rn-spike

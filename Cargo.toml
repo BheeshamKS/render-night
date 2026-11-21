@@ -2,6 +2,7 @@
 members = [
     "crates/rn-core",
     "crates/rn-mock-blender",
+    "crates/rn-spike",
 ]
 resolver = "2"
 

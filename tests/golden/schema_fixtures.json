@@ -195,6 +195,9 @@
         "frameStart": 1,
         "frameEnd": 250,
         "frameStep": 1,
+        "resolutionX": 1920,
+        "resolutionY": 1080,
+        "resolutionPercentage": 100,
         "render": {},
         "imageSettings": {},
         "cycles": {},
@@ -231,7 +234,8 @@
       "scene.render.image_settings.file_format": "PNG",
       "scene.render.image_settings.color_depth": "16"
     },
-    "createdAt": 1731289200000
+    "createdAt": 1731289200000,
+    "updatedAt": 1731289200000
   },
   "runner_payload_fixture": {
     "blendPath": "/scenes/test.blend",

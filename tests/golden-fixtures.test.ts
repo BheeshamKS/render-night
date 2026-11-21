@@ -10,6 +10,7 @@ import {
 import { expandTokens, previewTokens } from '../src/core/render/token-expander';
 import { parseStdoutLine, StdoutParseError } from '../src/core/render/stdout-parser';
 import { inspectOutputSchema } from '../src/core/schemas/inspect';
+import { presetSchema } from '../src/core/schemas/preset';
 import { queueStateSchema } from '../src/core/schemas/queue-state';
 import { runnerPayloadSchema } from '../src/core/schemas/override';
 import { historyEntrySchema } from '../src/core/schemas/history';
@@ -158,12 +159,20 @@ describe('Golden Fixtures Validation', () => {
       expect(() => inspectOutputSchema.parse(data.inspect_output_sample)).not.toThrow();
     });
 
+    it('validates inspect_output_partial_basic_mode against schema', () => {
+      expect(() => inspectOutputSchema.parse(data.inspect_output_partial_basic_mode)).not.toThrow();
+    });
+
     it('validates runner_payload_fixture against schema', () => {
       expect(() => runnerPayloadSchema.parse(data.runner_payload_fixture)).not.toThrow();
     });
 
     it('validates history_entry_fixture against schema', () => {
       expect(() => historyEntrySchema.parse(data.history_entry_fixture)).not.toThrow();
+    });
+
+    it('validates preset_fixture against schema', () => {
+      expect(() => presetSchema.parse(data.preset_fixture)).not.toThrow();
     });
 
     it('contains override_diff_fixtures and preset_fixture', () => {
