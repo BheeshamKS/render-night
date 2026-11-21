@@ -245,7 +245,10 @@ export async function runCliQueue(options: CliRunOptions): Promise<CliRunResult>
 
   const historyStore = new HistoryStore({ historyDir });
   const runnerScriptPath =
-    options.runnerScriptPath || path.resolve(__dirname, '../../resources/python/render_runner.py');
+    options.runnerScriptPath ||
+    (fs.existsSync(path.resolve(__dirname, '../../../resources/python/render_runner.py'))
+      ? path.resolve(__dirname, '../../../resources/python/render_runner.py')
+      : path.resolve(__dirname, '../../resources/python/render_runner.py'));
 
   const engine = new QueueEngine({
     logsDir,

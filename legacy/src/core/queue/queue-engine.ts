@@ -289,7 +289,9 @@ export class QueueEngine extends EventEmitter {
 
     const runnerScript =
       this.options.runnerScriptPath ||
-      path.resolve(__dirname, '../../../resources/python/render_runner.py');
+      (fs.existsSync(path.resolve(__dirname, '../../../../resources/python/render_runner.py'))
+        ? path.resolve(__dirname, '../../../../resources/python/render_runner.py')
+        : path.resolve(__dirname, '../../../resources/python/render_runner.py'));
 
     // 3. Crash recovery configuration & state
     const crashPolicy: CrashPolicy = job.crashPolicy || {

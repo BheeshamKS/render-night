@@ -101,7 +101,9 @@ describe('Protocol Schemas: History, Post-Actions, Sound & Scheduling', () => {
 });
 
 describe('todung.wav Sound Synthesis', () => {
-  const soundPath = path.resolve(__dirname, '../resources/sounds/todung.wav');
+  const soundPath = fs.existsSync(path.resolve(__dirname, '../resources/sounds/todung.wav'))
+    ? path.resolve(__dirname, '../resources/sounds/todung.wav')
+    : path.resolve(__dirname, '../../resources/sounds/todung.wav');
 
   it('verifies todung.wav file exists on disk', () => {
     expect(fs.existsSync(soundPath)).toBe(true);

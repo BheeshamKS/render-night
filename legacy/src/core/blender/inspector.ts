@@ -38,8 +38,10 @@ export function resolveInspectScriptPath(
     candidates.push(join(resourcesPath, 'python', 'inspect_blend.py'));
   }
   candidates.push(
+    resolve(__dirname, '../../../../resources/python/inspect_blend.py'),
     resolve(__dirname, '../../../resources/python/inspect_blend.py'),
     resolve(__dirname, '../../resources/python/inspect_blend.py'),
+    resolve(process.cwd(), '../resources/python/inspect_blend.py'),
     resolve(process.cwd(), 'resources/python/inspect_blend.py'),
   );
 

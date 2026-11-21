@@ -1,19 +1,20 @@
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import { describe, expect, it } from 'vitest';
 import {
   parseCustomRange,
   RangeParseError,
   resolveFrameRange,
   validateRangeForFormat,
 } from '../src/core/ranges/frame-range';
-import { expandTokens, previewTokens } from '../src/core/render/token-expander';
 import { parseStdoutLine, StdoutParseError } from '../src/core/render/stdout-parser';
+import { expandTokens, previewTokens } from '../src/core/render/token-expander';
+import { historyEntrySchema } from '../src/core/schemas/history';
 import { inspectOutputSchema } from '../src/core/schemas/inspect';
+import { runnerPayloadSchema } from '../src/core/schemas/override';
 import { presetSchema } from '../src/core/schemas/preset';
 import { queueStateSchema } from '../src/core/schemas/queue-state';
-import { runnerPayloadSchema } from '../src/core/schemas/override';
-import { historyEntrySchema } from '../src/core/schemas/history';
+
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { describe, expect, it } from 'vitest';
 
 describe('Golden Fixtures Validation', () => {
   const goldenDir = fs.existsSync(path.resolve(__dirname, 'golden'))
@@ -54,10 +55,7 @@ describe('Golden Fixtures Validation', () => {
 
     it('validates mode_resolution_cases', () => {
       for (const tc of data.mode_resolution_cases) {
-        const res = resolveFrameRange(
-          tc.config,
-          tc.scene_defaults,
-        );
+        const res = resolveFrameRange(tc.config, tc.scene_defaults);
         expect(res.isContinuous).toBe(tc.expected_is_continuous);
         expect(res.frames.length).toBe(tc.expected_total_count);
         if (tc.expected_frames) {
@@ -73,7 +71,10 @@ describe('Golden Fixtures Validation', () => {
           isContinuous: tc.is_continuous,
           totalCount: tc.total_count,
         };
-        const res = validateRangeForFormat(rangeObj as any, tc.format);
+        const res = validateRangeForFormat(
+          rangeObj as unknown as Parameters<typeof validateRangeForFormat>[0],
+          tc.format,
+        );
         expect(res.valid).toBe(tc.expected_valid);
         if (!tc.expected_valid && tc.expected_error) {
           expect(res.reason).toContain(tc.expected_error);

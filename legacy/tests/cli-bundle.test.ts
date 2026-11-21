@@ -1,11 +1,14 @@
 import { execFile } from 'node:child_process';
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 import { describe, expect, it } from 'vitest';
 
 const execFileAsync = promisify(execFile);
 const cliEntry = path.resolve(__dirname, '../src/cli/index.ts');
-const cliBundle = path.resolve(__dirname, '../dist-cli/night-render.cjs');
+const cliBundle = fs.existsSync(path.resolve(__dirname, '../dist-cli/night-render.cjs'))
+  ? path.resolve(__dirname, '../dist-cli/night-render.cjs')
+  : path.resolve(__dirname, '../../dist-cli/night-render.cjs');
 
 describe('CLI Main Entry', () => {
   it('exits with code 2 on invalid flags or missing queue file', async () => {

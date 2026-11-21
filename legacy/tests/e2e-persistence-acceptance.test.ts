@@ -13,7 +13,11 @@ import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const MOCK_BLENDER_PATH = path.resolve(__dirname, '../tools/mock-blender/index.js');
-const RUNNER_SCRIPT_PATH = path.resolve(__dirname, '../resources/python/render_runner.py');
+const RUNNER_SCRIPT_PATH = fs.existsSync(
+  path.resolve(__dirname, '../resources/python/render_runner.py'),
+)
+  ? path.resolve(__dirname, '../resources/python/render_runner.py')
+  : path.resolve(__dirname, '../../resources/python/render_runner.py');
 
 describe('End-to-End Acceptance: Crash mid-render, Relaunch, Safe Resume, Sound & History', () => {
   let tmpDir: string;

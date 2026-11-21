@@ -85,7 +85,11 @@ describe('Cross-OS and relative sequence path resolution (regression)', () => {
       return;
     }
 
-    const runnerScript = path.resolve(__dirname, '../resources/python/render_runner.py');
+    const runnerScript = fs.existsSync(
+      path.resolve(__dirname, '../resources/python/render_runner.py'),
+    )
+      ? path.resolve(__dirname, '../resources/python/render_runner.py')
+      : path.resolve(__dirname, '../../resources/python/render_runner.py');
     const pyCode = [
       'import importlib.util, json, sys',
       'spec = importlib.util.spec_from_file_location("rn_runner", sys.argv[1])',

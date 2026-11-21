@@ -202,7 +202,11 @@ describe('HistoryStore & Actual Device Tracking', () => {
 
   it('QueueEngine automatically records job:history with actual device into HistoryStore', async () => {
     const mockBlender = path.resolve(__dirname, '../tools/mock-blender/index.js');
-    const runnerScript = path.resolve(__dirname, '../resources/python/render_runner.py');
+    const runnerScript = fs.existsSync(
+      path.resolve(__dirname, '../resources/python/render_runner.py'),
+    )
+      ? path.resolve(__dirname, '../resources/python/render_runner.py')
+      : path.resolve(__dirname, '../../resources/python/render_runner.py');
 
     const engine = new QueueEngine({
       logsDir: path.join(tmpDir, 'logs'),

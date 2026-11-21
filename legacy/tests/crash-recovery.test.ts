@@ -7,7 +7,11 @@ import * as path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const MOCK_BLENDER_PATH = path.resolve(__dirname, '../tools/mock-blender/index.js');
-const RUNNER_SCRIPT_PATH = path.resolve(__dirname, '../resources/python/render_runner.py');
+const RUNNER_SCRIPT_PATH = fs.existsSync(
+  path.resolve(__dirname, '../resources/python/render_runner.py'),
+)
+  ? path.resolve(__dirname, '../resources/python/render_runner.py')
+  : path.resolve(__dirname, '../../resources/python/render_runner.py');
 
 describe('Crash Recovery & Rolling ETA', () => {
   let tmpDir: string;

@@ -199,7 +199,9 @@ export function registerIpcHandlers(mainWindowProvider: () => BrowserWindow | nu
 
   const runnerScriptPath = app.isPackaged
     ? path.join(process.resourcesPath, 'python', 'render_runner.py')
-    : path.resolve(__dirname, '../../resources/python/render_runner.py');
+    : fs.existsSync(path.resolve(__dirname, '../../../resources/python/render_runner.py'))
+      ? path.resolve(__dirname, '../../../resources/python/render_runner.py')
+      : path.resolve(__dirname, '../../resources/python/render_runner.py');
 
   const queueEngine = new QueueEngine({
     logsDir,
@@ -385,7 +387,9 @@ export function registerIpcHandlers(mainWindowProvider: () => BrowserWindow | nu
   ipcMain.handle('sound:getSoundPath', async () => {
     return app.isPackaged
       ? path.join(process.resourcesPath, 'sounds', 'todung.wav')
-      : path.resolve(__dirname, '../../resources/sounds/todung.wav');
+      : fs.existsSync(path.resolve(__dirname, '../../../resources/sounds/todung.wav'))
+        ? path.resolve(__dirname, '../../../resources/sounds/todung.wav')
+        : path.resolve(__dirname, '../../resources/sounds/todung.wav');
   });
 
   // 7. History handlers

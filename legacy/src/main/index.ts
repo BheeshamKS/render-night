@@ -30,7 +30,9 @@ function getPreloadPath(): string {
 }
 
 function getIconPath(): string | undefined {
-  const iconPath = join(__dirname, '../../resources/icon.png');
+  const iconPath = existsSync(join(__dirname, '../../resources/icon.png'))
+    ? join(__dirname, '../../resources/icon.png')
+    : join(__dirname, '../../../resources/icon.png');
   return existsSync(iconPath) ? iconPath : undefined;
 }
 

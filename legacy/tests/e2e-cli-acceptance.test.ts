@@ -6,7 +6,9 @@ import { promisify } from 'node:util';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const execFileAsync = promisify(execFile);
-const cliBundle = path.resolve(__dirname, '../dist-cli/night-render.cjs');
+const cliBundle = fs.existsSync(path.resolve(__dirname, '../dist-cli/night-render.cjs'))
+  ? path.resolve(__dirname, '../dist-cli/night-render.cjs')
+  : path.resolve(__dirname, '../../dist-cli/night-render.cjs');
 const mockBlender = path.resolve(__dirname, '../tools/mock-blender/index.js');
 
 describe('End-to-End Headless CLI Acceptance', () => {
