@@ -1,0 +1,288 @@
+{
+  "inspect_output_sample": {
+    "schemaVersion": 1,
+    "blenderVersion": "4.2.0",
+    "savedWithVersion": "4.2.0",
+    "blendPath": "/path/to/test.blend",
+    "activeScene": "Scene",
+    "scenes": [
+      {
+        "name": "Scene",
+        "activeCamera": "Camera",
+        "cameras": [
+          "Camera",
+          "Camera.001"
+        ],
+        "viewLayers": [
+          "ViewLayer"
+        ],
+        "frameStart": 1,
+        "frameEnd": 250,
+        "frameStep": 1,
+        "fps": 24,
+        "fpsBase": 1,
+        "resolutionX": 1920,
+        "resolutionY": 1080,
+        "resolutionPercentage": 100,
+        "render": {
+          "engine": {
+            "value": "CYCLES",
+            "type": "ENUM",
+            "name": "Engine",
+            "enumItems": [
+              {
+                "identifier": "CYCLES",
+                "name": "Cycles"
+              },
+              {
+                "identifier": "BLENDER_EEVEE_NEXT",
+                "name": "EEVEE"
+              }
+            ]
+          },
+          "filepath": {
+            "value": "//render/{project}/{scene}_{camera}_####.png",
+            "type": "STRING",
+            "name": "File Path"
+          }
+        },
+        "imageSettings": {
+          "file_format": {
+            "value": "PNG",
+            "type": "ENUM",
+            "name": "File Format",
+            "enumItems": [
+              {
+                "identifier": "PNG",
+                "name": "PNG"
+              },
+              {
+                "identifier": "OPEN_EXR",
+                "name": "OpenEXR"
+              }
+            ]
+          },
+          "color_mode": {
+            "value": "RGBA",
+            "type": "ENUM",
+            "name": "Color Mode"
+          }
+        },
+        "ffmpeg": {},
+        "cycles": {
+          "device": {
+            "value": "GPU",
+            "type": "ENUM",
+            "name": "Device",
+            "enumItems": [
+              {
+                "identifier": "CPU",
+                "name": "CPU"
+              },
+              {
+                "identifier": "GPU",
+                "name": "GPU Compute"
+              }
+            ]
+          },
+          "samples": {
+            "value": 128,
+            "type": "INT",
+            "name": "Samples",
+            "min": 1,
+            "max": 100000
+          }
+        },
+        "eevee": {},
+        "viewSettings": {
+          "view_transform": {
+            "value": "AgX",
+            "type": "ENUM",
+            "name": "View Transform",
+            "enumItems": [
+              {
+                "identifier": "Standard",
+                "name": "Standard"
+              },
+              {
+                "identifier": "AgX",
+                "name": "AgX"
+              }
+            ]
+          }
+        },
+        "displaySettings": {
+          "display_device": {
+            "value": "sRGB",
+            "type": "ENUM",
+            "name": "Display Device"
+          }
+        }
+      }
+    ],
+    "missingFiles": [
+      {
+        "path": "/textures/missing.png",
+        "type": "image",
+        "datablock": "Texture_Diffuse"
+      }
+    ],
+    "cyclesDevices": [
+      {
+        "id": "CUDA_NVIDIA_GeForce_RTX_4090",
+        "name": "NVIDIA GeForce RTX 4090",
+        "type": "CUDA",
+        "use": true
+      }
+    ],
+    "engineItems": [
+      {
+        "identifier": "CYCLES",
+        "name": "Cycles"
+      },
+      {
+        "identifier": "BLENDER_EEVEE_NEXT",
+        "name": "EEVEE"
+      }
+    ],
+    "formatItems": [
+      {
+        "identifier": "PNG",
+        "name": "PNG"
+      },
+      {
+        "identifier": "OPEN_EXR",
+        "name": "OpenEXR"
+      }
+    ],
+    "codecItems": [],
+    "viewTransformItems": [
+      {
+        "identifier": "Standard",
+        "name": "Standard"
+      },
+      {
+        "identifier": "AgX",
+        "name": "AgX"
+      }
+    ],
+    "lookItems": [
+      {
+        "identifier": "None",
+        "name": "None"
+      }
+    ],
+    "deviceItems": [
+      {
+        "identifier": "CPU",
+        "name": "CPU"
+      },
+      {
+        "identifier": "GPU",
+        "name": "GPU Compute"
+      }
+    ]
+  },
+  "inspect_output_partial_basic_mode": {
+    "schemaVersion": 1,
+    "blenderVersion": "4.2.0",
+    "savedWithVersion": "4.2.0",
+    "blendPath": "/path/to/corrupt.blend",
+    "activeScene": "Scene",
+    "scenes": [
+      {
+        "name": "Scene",
+        "frameStart": 1,
+        "frameEnd": 250,
+        "frameStep": 1,
+        "render": {},
+        "imageSettings": {},
+        "cycles": {},
+        "eevee": {},
+        "viewSettings": {},
+        "displaySettings": {},
+        "ffmpeg": {}
+      }
+    ],
+    "errors": [
+      "RNA introspection failed: Section 'cycles' threw memory access violation",
+      "Basic Mode fallback activated"
+    ],
+    "missingFiles": []
+  },
+  "override_diff_fixtures": {
+    "cycles_samples_diff": {
+      "scene.cycles.samples": 256,
+      "scene.render.resolution_x": 1920
+    },
+    "engine_switch_diff": {
+      "scene.render.engine": "CYCLES",
+      "scene.cycles.samples": 512
+    }
+  },
+  "preset_fixture": {
+    "id": "preset-1080p-cycles",
+    "name": "1080p / 256 samples / PNG 16-bit",
+    "engine": "CYCLES",
+    "overrides": {
+      "scene.render.resolution_x": 1920,
+      "scene.render.resolution_y": 1080,
+      "scene.cycles.samples": 256,
+      "scene.render.image_settings.file_format": "PNG",
+      "scene.render.image_settings.color_depth": "16"
+    },
+    "createdAt": 1731289200000
+  },
+  "runner_payload_fixture": {
+    "blendPath": "/scenes/test.blend",
+    "scene": "Scene",
+    "camera": "Camera",
+    "viewLayers": [
+      "ViewLayer"
+    ],
+    "overrides": {
+      "scene.cycles.samples": 128
+    },
+    "frames": [
+      1,
+      2,
+      3
+    ],
+    "outputPattern": "//render/test_####.png",
+    "outputDir": "/renders",
+    "controlFile": "/renders/control.json",
+    "devicePreferences": {
+      "deviceType": "OPTIX",
+      "enableGpu": true,
+      "selectedDevices": [
+        "NVIDIA GeForce RTX 4090"
+      ]
+    },
+    "threads": 8,
+    "crashPolicy": {
+      "maxRetries": 2,
+      "fallbackToCpu": true,
+      "skipOnFailure": true,
+      "maxConsecutiveCrashes": 3
+    },
+    "renderMissingOnly": true
+  },
+  "history_entry_fixture": {
+    "id": "hist-1",
+    "jobId": "job-1",
+    "filePath": "/path/to/scene.blend",
+    "fileName": "scene.blend",
+    "project": "scene",
+    "scene": "Scene",
+    "camera": "Camera",
+    "frameCount": 150,
+    "totalTimeSeconds": 240.5,
+    "averageFrameTimeSeconds": 1.6,
+    "engine": "CYCLES",
+    "device": "GPU: NVIDIA RTX 4090 (OPTIX)",
+    "result": "completed",
+    "failedFrames": [],
+    "outputPath": "/path/to/renders/scene_####.png",
+    "timestamp": 1731289200000
+  }
+}

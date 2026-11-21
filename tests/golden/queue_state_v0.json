@@ -1,0 +1,36 @@
+{
+  "version": 0,
+  "jobs": [
+    {
+      "id": "job-1",
+      "blendPath": "/path/to/test.blend",
+      "name": "test.blend",
+      "status": "pending",
+      "range": { "start": 1, "end": 50, "step": 1 },
+      "renderMissingOnly": false,
+      "failedFrames": [],
+      "overrides": {},
+      "presets": [],
+      "createdAt": 1731289200000,
+      "progress": 0
+    }
+  ],
+  "settings": {
+    "concurrentJobs": 1,
+    "stopOnFailure": false,
+    "closeAppOnCompletion": false,
+    "closeAppOnCompletionMode": "last",
+    "soundOnCompletion": true,
+    "soundOnFailure": true,
+    "powerMode": "none",
+    "pauseOnBattery": false,
+    "resumeOnAc": false,
+    "maxConcurrentFrames": 1,
+    "postAction": "none",
+    "sound": {
+      "enabled": true,
+      "volume": 100,
+      "playOnFailure": false
+    }
+  }
+}

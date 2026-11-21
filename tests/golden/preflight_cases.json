@@ -1,0 +1,93 @@
+{
+  "blocking_rules": [
+    {
+      "condition": "BLENDER_NOT_FOUND",
+      "description": "Selected Blender executable does not exist or is not executable",
+      "is_blocking": true,
+      "severity": "error"
+    },
+    {
+      "condition": "BLEND_NOT_FOUND",
+      "description": ".blend file does not exist on disk",
+      "is_blocking": true,
+      "severity": "error"
+    },
+    {
+      "condition": "BLEND_NOT_READABLE",
+      "description": ".blend file access denied (R_OK failure)",
+      "is_blocking": true,
+      "severity": "error"
+    },
+    {
+      "condition": "ZERO_FRAMES_TO_RENDER",
+      "description": "Resolved frame range evaluates to empty set",
+      "is_blocking": true,
+      "severity": "error"
+    }
+  ],
+  "warning_rules": [
+    {
+      "code": "OUTPUT_DIR_NOT_WRITABLE",
+      "severity": "warning",
+      "is_blocking": false
+    },
+    {
+      "code": "INSPECTION_FAILED",
+      "severity": "warning",
+      "is_blocking": false
+    },
+    {
+      "code": "NEWER_BLENDER_VERSION",
+      "severity": "warning",
+      "is_blocking": false
+    },
+    {
+      "code": "NO_ACTIVE_CAMERA",
+      "severity": "warning",
+      "is_blocking": false
+    },
+    {
+      "code": "VIDEO_RANGE_RULE_VIOLATION",
+      "severity": "warning",
+      "is_blocking": false
+    },
+    {
+      "code": "MISSING_ASSETS",
+      "severity": "warning",
+      "is_blocking": false
+    },
+    {
+      "code": "NO_COMPATIBLE_GPU",
+      "severity": "warning",
+      "is_blocking": false
+    },
+    {
+      "code": "LOW_DISK_SPACE",
+      "severity": "warning",
+      "is_blocking": false
+    },
+    {
+      "code": "WINDOWS_LONG_PATH",
+      "severity": "warning",
+      "is_blocking": false
+    }
+  ],
+  "asset_relevance_cases": [
+    {
+      "missing_assets": [
+        { "path": "/used/wood.png", "type": "image", "datablock": "WoodMat", "relevance": "used" },
+        { "path": "/unused/scratch.png", "type": "image", "datablock": "UnusedMat", "relevance": "unused" },
+        { "path": "/unused/old_lib.blend", "type": "library", "datablock": "OldLib", "relevance": "unused" }
+      ],
+      "expected_warnings_count": 1,
+      "expected_warning_code": "MISSING_ASSETS",
+      "expected_unused_missing_count": 2,
+      "expected_is_blocked": false
+    }
+  ],
+  "suppression_modes": [
+    "ignore_individual_id",
+    "ignore_warning_code",
+    "ignore_all_warnings"
+  ]
+}

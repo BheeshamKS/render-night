@@ -1,0 +1,205 @@
+{
+  "single_line_samples": [
+    {
+      "name": "Cycles render line with Fra, Mem, Time, Remaining, and Samples",
+      "line": "Fra:1 Mem:24.50M (Peak 25.10M) | Time:00:00.52 | Remaining:00:05.12 | Mem:12.30M, Peak:14.20M | Scene, ViewLayer | Rendered 32/128 Samples",
+      "expected_kind": "progress",
+      "expected_progress": {
+        "frame": 1,
+        "memory": "24.50M",
+        "peakMemory": "25.10M",
+        "time": "00:00.52",
+        "remaining": "00:05.12",
+        "samples": { "current": 32, "total": 128 }
+      }
+    },
+    {
+      "name": "Cycles sample alternative format (Sample x/y)",
+      "line": "Fra:42 Mem:100.2M | Time:00:02.10 | Sample 10/100",
+      "expected_kind": "progress",
+      "expected_progress": {
+        "frame": 42,
+        "memory": "100.2M",
+        "time": "00:02.10",
+        "samples": { "current": 10, "total": 100 }
+      }
+    },
+    {
+      "name": "Double-quoted Saved line",
+      "line": "Saved: \"/path/to/render_0001.png\"",
+      "expected_kind": "saved",
+      "expected_saved_path": "/path/to/render_0001.png"
+    },
+    {
+      "name": "Single-quoted Saved line",
+      "line": "Saved: '/path/to/render_0002.png'",
+      "expected_kind": "saved",
+      "expected_saved_path": "/path/to/render_0002.png"
+    },
+    {
+      "name": "Unquoted Saved line",
+      "line": "Saved: /var/renders/shot_0005.exr",
+      "expected_kind": "saved",
+      "expected_saved_path": "/var/renders/shot_0005.exr"
+    },
+    {
+      "name": "Real recorded Blender 4.2 Cycles OptiX output sample",
+      "line": "Fra:10 Mem:312.45M (Peak 450.80M) | Time:00:03.45 | Remaining:00:15.20 | Mem:280.10M, Peak:350.20M | Scene, ViewLayer | Rendered 512/512 Samples",
+      "expected_kind": "progress",
+      "expected_progress": {
+        "frame": 10,
+        "memory": "312.45M",
+        "peakMemory": "450.80M",
+        "time": "00:03.45",
+        "remaining": "00:15.20",
+        "samples": { "current": 512, "total": 512 }
+      }
+    },
+    {
+      "name": "Real recorded Blender 4.2 EEVEE-Next output sample",
+      "line": "Fra:25 Mem:124.50M (Peak 180.20M) | Time:00:00.35 | Syncing Scene",
+      "expected_kind": "progress",
+      "expected_progress": {
+        "frame": 25,
+        "memory": "124.50M",
+        "peakMemory": "180.20M",
+        "time": "00:00.35"
+      }
+    },
+    {
+      "name": "Remaining time in HH:MM:SS format and carriage returns",
+      "line": "Fra:50 Mem:1024.00M (Peak 1500.00M) | Time:00:15.30 | Remaining:01:45:20.10 | Sample 256/512\r\n",
+      "expected_kind": "progress",
+      "expected_progress": {
+        "frame": 50,
+        "memory": "1024.00M",
+        "peakMemory": "1500.00M",
+        "time": "00:15.30",
+        "remaining": "01:45:20.10",
+        "samples": { "current": 256, "total": 512 }
+      }
+    },
+    {
+      "name": "Regular text line",
+      "line": "Blender quit",
+      "expected_kind": "text",
+      "expected_text": "Blender quit"
+    },
+    {
+      "name": "RN_EVENT frame_start",
+      "line": "RN_EVENT {\"type\":\"frame_start\",\"frame\":1,\"scene\":\"Scene\"}",
+      "expected_kind": "event",
+      "expected_event": {
+        "type": "frame_start",
+        "frame": 1,
+        "scene": "Scene"
+      }
+    },
+    {
+      "name": "RN_EVENT frame_done",
+      "line": "RN_EVENT {\"type\":\"frame_done\",\"frame\":1,\"scene\":\"Scene\",\"saved\":\"/renders/shot_0001.png\",\"timeSeconds\":4.25,\"peakMemory\":\"2.4G\"}",
+      "expected_kind": "event",
+      "expected_event": {
+        "type": "frame_done",
+        "frame": 1,
+        "scene": "Scene",
+        "saved": "/renders/shot_0001.png",
+        "timeSeconds": 4.25,
+        "peakMemory": "2.4G"
+      }
+    },
+    {
+      "name": "RN_EVENT job_start",
+      "line": "RN_EVENT {\"type\":\"job_start\",\"totalFrames\":10,\"frames\":[1,2,3,4,5,6,7,8,9,10],\"scene\":\"Scene\",\"camera\":\"Camera\",\"engine\":\"CYCLES\"}",
+      "expected_kind": "event",
+      "expected_event": {
+        "type": "job_start",
+        "totalFrames": 10,
+        "frames": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        "scene": "Scene",
+        "camera": "Camera",
+        "engine": "CYCLES"
+      }
+    },
+    {
+      "name": "RN_EVENT device_report",
+      "line": "RN_EVENT {\"type\":\"device_report\",\"computeDeviceType\":\"OPTIX\",\"engine\":\"CYCLES\",\"mode\":\"CPU\",\"devices\":[{\"name\":\"AMD Ryzen 9\",\"type\":\"CPU\",\"use\":true}],\"requestedGpu\":true,\"fallbackToCpu\":true,\"threads\":16}",
+      "expected_kind": "event",
+      "expected_event": {
+        "type": "device_report",
+        "computeDeviceType": "OPTIX",
+        "engine": "CYCLES",
+        "mode": "CPU",
+        "devices": [{ "name": "AMD Ryzen 9", "type": "CPU", "use": true }],
+        "requestedGpu": true,
+        "fallbackToCpu": true,
+        "threads": 16
+      }
+    },
+    {
+      "name": "RN_EVENT overrides_report",
+      "line": "RN_EVENT {\"type\":\"overrides_report\",\"applied\":[{\"rnaPath\":\"scene.cycles.samples\",\"value\":256}],\"skipped\":[{\"rnaPath\":\"scene.eevee.bloom\",\"reason\":\"Deprecated in Blender 4.2\"}]}",
+      "expected_kind": "event",
+      "expected_event": {
+        "type": "overrides_report",
+        "applied": [{ "rnaPath": "scene.cycles.samples", "value": 256 }],
+        "skipped": [{ "rnaPath": "scene.eevee.bloom", "reason": "Deprecated in Blender 4.2" }]
+      }
+    },
+    {
+      "name": "RN_EVENT job_done",
+      "line": "RN_EVENT {\"type\":\"job_done\",\"completedFrames\":10,\"failedFrames\":0,\"durationSeconds\":42.5}",
+      "expected_kind": "event",
+      "expected_event": {
+        "type": "job_done",
+        "completedFrames": 10,
+        "failedFrames": 0,
+        "durationSeconds": 42.5
+      }
+    },
+    {
+      "name": "Malformed RN_EVENT JSON error",
+      "line": "RN_EVENT { not valid json }",
+      "expected_is_error": true,
+      "expected_error": "StdoutParseError"
+    }
+  ],
+  "multi_line_stream_samples": [
+    {
+      "name": "Two-frame full render sequence",
+      "lines": [
+        "RN_EVENT {\"type\":\"device_report\",\"computeDeviceType\":\"OPTIX\",\"engine\":\"CYCLES\",\"mode\":\"GPU\",\"devices\":[{\"name\":\"NVIDIA GeForce RTX 4090\",\"type\":\"OPTIX\",\"use\":true}],\"requestedGpu\":true,\"fallbackToCpu\":false,\"threads\":16}",
+        "RN_EVENT {\"type\":\"overrides_report\",\"applied\":[{\"rnaPath\":\"scene.cycles.samples\",\"value\":128}],\"skipped\":[]}",
+        "RN_EVENT {\"type\":\"job_start\",\"totalFrames\":2,\"frames\":[1,2],\"scene\":\"Scene\",\"camera\":\"Camera\",\"engine\":\"CYCLES\"}",
+        "RN_EVENT {\"type\":\"frame_start\",\"frame\":1,\"scene\":\"Scene\",\"frameIndex\":0,\"totalFrames\":2}",
+        "Fra:1 Mem:14.25M (Peak 25.10M) | Time:00:00.05 | Remaining:00:00.10 | Sample 64/128",
+        "Fra:1 Mem:15.80M (Peak 25.10M) | Time:00:00.10 | Remaining:00:00.00 | Sample 128/128",
+        "Saved: \"/renders/scene_0001.png\"",
+        "RN_EVENT {\"type\":\"frame_done\",\"frame\":1,\"scene\":\"Scene\",\"saved\":\"/renders/scene_0001.png\",\"timeSeconds\":0.1,\"peakMemory\":\"25.10M\"}",
+        "RN_EVENT {\"type\":\"frame_start\",\"frame\":2,\"scene\":\"Scene\",\"frameIndex\":1,\"totalFrames\":2}",
+        "Fra:2 Mem:14.25M (Peak 25.10M) | Time:00:00.05 | Remaining:00:00.10 | Sample 64/128",
+        "Fra:2 Mem:15.80M (Peak 25.10M) | Time:00:00.10 | Remaining:00:00.00 | Sample 128/128",
+        "Saved: \"/renders/scene_0002.png\"",
+        "RN_EVENT {\"type\":\"frame_done\",\"frame\":2,\"scene\":\"Scene\",\"saved\":\"/renders/scene_0002.png\",\"timeSeconds\":0.1,\"peakMemory\":\"25.10M\"}",
+        "RN_EVENT {\"type\":\"job_done\",\"completedFrames\":2,\"failedFrames\":0,\"durationSeconds\":0.25}",
+        "Blender quit"
+      ]
+    },
+    {
+      "name": "Blender 4.2.0 version output block",
+      "lines": [
+        "Blender 4.2.0 LTS (sub 0)",
+        "    build date: 2024-07-16",
+        "    build time: 06:19:15",
+        "    build commit date: 2024-07-16",
+        "    build commit time: 06:19",
+        "    build hash: a51f305417fb",
+        "    build platform: Linux"
+      ],
+      "expected_version": "4.2.0",
+      "expected_major": 4,
+      "expected_minor": 2,
+      "expected_patch": 0
+    }
+  ]
+}

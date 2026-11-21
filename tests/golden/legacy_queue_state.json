@@ -1,0 +1,147 @@
+{
+  "queue_state_v1": {
+    "version": 1,
+    "jobs": [
+      {
+        "id": "job-101",
+        "blendPath": "/scenes/test-scene.blend",
+        "name": "test-scene.blend",
+        "status": "pending",
+        "range": {
+          "start": 1,
+          "end": 50,
+          "step": 1
+        },
+        "rangeConfig": {
+          "mode": "custom",
+          "customExpression": "1-20, 30-50"
+        },
+        "crashPolicy": {
+          "maxRetries": 2,
+          "fallbackToCpu": true,
+          "skipOnFailure": true,
+          "maxConsecutiveCrashes": 3
+        },
+        "renderMissingOnly": true,
+        "failedFrames": [],
+        "overrides": {
+          "scene.cycles.samples": 256,
+          "scene.render.resolution_x": 1920
+        },
+        "presets": [
+          "high-quality"
+        ],
+        "outputDir": "/renders",
+        "outputPattern": "//render/{project}/{scene}_####.png",
+        "device": "GPU",
+        "engine": "CYCLES",
+        "createdAt": 1731289200000,
+        "progress": 0
+      },
+      {
+        "id": "job-102",
+        "blendPath": "/scenes/another-scene.blend",
+        "name": "another-scene.blend",
+        "status": "done",
+        "range": {
+          "start": 1,
+          "end": 10,
+          "step": 1
+        },
+        "overrides": {},
+        "presets": [],
+        "createdAt": 1731288000000,
+        "startedAt": 1731288005000,
+        "completedAt": 1731288100000,
+        "progress": 100,
+        "failedFrames": []
+      }
+    ],
+    "settings": {
+      "concurrentJobs": 1,
+      "stopOnFailure": false,
+      "closeAppOnCompletion": false,
+      "closeAppOnCompletionMode": "last",
+      "soundOnCompletion": true,
+      "soundOnFailure": true,
+      "powerMode": "none",
+      "pauseOnBattery": false,
+      "resumeOnAc": false,
+      "maxConcurrentFrames": 1,
+      "postAction": "none",
+      "sound": {
+        "enabled": true,
+        "volume": 100,
+        "playOnFailure": false
+      },
+      "schedule": {
+        "enabled": false,
+        "targetTime": "23:30",
+        "blockSleepWhileWaiting": true
+      },
+      "defaultBlenderId": "blender-4-2",
+      "isolatedMode": true,
+      "autoExec": false,
+      "defaultPriority": "normal",
+      "defaultThreads": 8,
+      "blockSleepDuringRender": true,
+      "blockSleepWhileScheduled": true,
+      "minFreeDiskSpaceMb": 2048,
+      "defaultCrashPolicy": {
+        "maxRetries": 2,
+        "fallbackToCpu": true,
+        "skipOnFailure": true,
+        "maxConsecutiveCrashes": 3
+      }
+    }
+  },
+  "legacy_v0_unmigrated": {
+    "version": 0,
+    "jobs": [
+      {
+        "id": "v0-job",
+        "blendPath": "/scenes/old.blend",
+        "name": "old.blend",
+        "status": "pending",
+        "range": {
+          "start": 1,
+          "end": 100,
+          "step": 1
+        },
+        "overrides": {},
+        "presets": [],
+        "createdAt": 1700000000000
+      }
+    ],
+    "settings": {
+      "concurrentJobs": 1,
+      "stopOnFailure": false
+    }
+  },
+  "minimal_cli_queue": {
+    "blender": "latest",
+    "postAction": "sleep",
+    "jobs": [
+      {
+        "blendPath": "/renders/scene.blend",
+        "scene": "Scene",
+        "camera": "Camera",
+        "range": "1-50",
+        "overrides": {
+          "scene.cycles.samples": 128
+        },
+        "renderMissingOnly": true
+      }
+    ]
+  },
+  "session_lock": {
+    "pid": 12345,
+    "timestamp": 1731289200000,
+    "workerPids": [
+      12346,
+      12347
+    ],
+    "activeJobId": "job-101",
+    "statePath": "/path/to/render-night-queue.json"
+  }
+}

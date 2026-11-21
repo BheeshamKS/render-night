@@ -1,0 +1,25 @@
+[package]
+name = "rn-mock-blender"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[lib]
+name = "rn_mock_blender"
+path = "src/lib.rs"
+
+[[bin]]
+name = "rn-mock-blender"
+path = "src/main.rs"
+
+[lints]
+workspace = true

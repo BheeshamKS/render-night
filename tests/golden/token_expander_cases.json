@@ -1,0 +1,144 @@
+{
+  "cases": [
+    {
+      "name": "expands basic project, scene, camera tokens",
+      "template": "//renders/{project}/{scene}_{camera}",
+      "context": {
+        "project": "Character_Rig",
+        "scene": "Shot_01",
+        "camera": "Cam_CloseUp"
+      },
+      "expected": "//renders/Character_Rig/Shot_01_Cam_CloseUp"
+    },
+    {
+      "name": "expands frame hashes when frame is provided",
+      "template": "//renders/{project}/{scene}_####.png",
+      "context": {
+        "project": "Character_Rig",
+        "scene": "Shot_01",
+        "camera": "Cam_CloseUp",
+        "frame": 42
+      },
+      "expected": "//renders/Character_Rig/Shot_01_0042.png"
+    },
+    {
+      "name": "supports different hash counts",
+      "template": "//output/frame_##_####_######.png",
+      "context": {
+        "project": "Character_Rig",
+        "scene": "Shot_01",
+        "camera": "Cam_CloseUp",
+        "frame": 5
+      },
+      "expected": "//output/frame_05_0005_000005.png"
+    },
+    {
+      "name": "keeps hashes intact when frame is undefined in expandTokens",
+      "template": "//renders/{project}/{scene}_####.png",
+      "context": {
+        "project": "Character_Rig",
+        "scene": "Shot_01",
+        "camera": "Cam_CloseUp"
+      },
+      "expected": "//renders/Character_Rig/Shot_01_####.png"
+    },
+    {
+      "name": "previewTokens replaces hashes with frame 1 by default",
+      "template": "//renders/{project}/{scene}_####.png",
+      "context": {
+        "project": "Character_Rig",
+        "scene": "Shot_01",
+        "camera": "Cam_CloseUp"
+      },
+      "is_preview": true,
+      "expected": "//renders/Character_Rig/Shot_01_0001.png"
+    },
+    {
+      "name": "handles empty or missing camera/scene gracefully",
+      "template": "{project}_{scene}_{camera}",
+      "context": {
+        "project": "Test",
+        "scene": "",
+        "camera": ""
+      },
+      "expected": "Test__"
+    },
+    {
+      "name": "handles frame 0",
+      "template": "//renders/{project}/frame_####.png",
+      "context": {
+        "project": "Character_Rig",
+        "scene": "Shot_01",
+        "camera": "Cam_CloseUp",
+        "frame": 0
+      },
+      "expected": "//renders/Character_Rig/frame_0000.png"
+    },
+    {
+      "name": "handles negative frame numbers with negative prefix padding",
+      "template": "//renders/{project}/frame_####.png",
+      "context": {
+        "project": "Character_Rig",
+        "scene": "Shot_01",
+        "camera": "Cam_CloseUp",
+        "frame": -5
+      },
+      "expected": "//renders/Character_Rig/frame_-0005.png"
+    },
+    {
+      "name": "preserves full digits when frame number length exceeds hash count",
+      "template": "//renders/{project}/frame_##.png",
+      "context": {
+        "project": "Character_Rig",
+        "scene": "Shot_01",
+        "camera": "Cam_CloseUp",
+        "frame": 12345
+      },
+      "expected": "//renders/Character_Rig/frame_12345.png"
+    },
+    {
+      "name": "handles repeated token occurrences and Windows path structures",
+      "template": "D:\\\\Renders\\\\{project}\\\\{project}_{scene}_{camera}_{scene}_####.exr",
+      "context": {
+        "project": "Character_Rig",
+        "scene": "Shot_01",
+        "camera": "Cam_CloseUp",
+        "frame": 10
+      },
+      "expected": "D:\\\\Renders\\\\Character_Rig\\\\Character_Rig_Shot_01_Cam_CloseUp_Shot_01_0010.exr"
+    },
+    {
+      "name": "handles single hash token",
+      "template": "shot_#.png",
+      "context": {
+        "project": "P",
+        "scene": "S",
+        "camera": "C",
+        "frame": 7
+      },
+      "expected": "shot_7.png"
+    },
+    {
+      "name": "handles 8-hash maximum token",
+      "template": "shot_########.png",
+      "context": {
+        "project": "P",
+        "scene": "S",
+        "camera": "C",
+        "frame": 1
+      },
+      "expected": "shot_00000001.png"
+    },
+    {
+      "name": "handles empty template",
+      "template": "",
+      "context": {
+        "project": "P",
+        "scene": "S",
+        "camera": "C",
+        "frame": 1
+      },
+      "expected": ""
+    }
+  ]
+}

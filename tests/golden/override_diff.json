@@ -1,0 +1,90 @@
+{
+  "property_modified_cases": [
+    { "path": "scene.render.resolution_x", "a": 1920, "b": 1920, "expected_modified": false },
+    { "path": "scene.render.resolution_x", "a": 1920, "b": 3840, "expected_modified": true },
+    { "path": "scene.render.engine", "a": "CYCLES", "b": "CYCLES", "expected_modified": false },
+    { "path": "scene.render.engine", "a": "BLENDER_EEVEE_NEXT", "b": "CYCLES", "expected_modified": true },
+    { "path": "scene.render.film_transparent", "a": true, "b": true, "expected_modified": false },
+    { "path": "scene.render.film_transparent", "a": true, "b": false, "expected_modified": true },
+    { "path": "devices", "a": ["GPU_0"], "b": ["GPU_0"], "expected_modified": false },
+    { "path": "devices", "a": ["GPU_0"], "b": ["GPU_1"], "expected_modified": true },
+    { "path": "camera", "a": null, "b": null, "expected_modified": false },
+    { "path": "camera", "a": "Camera", "b": null, "expected_modified": true }
+  ],
+  "compute_diff_cases": [
+    {
+      "name": "returns empty object when values match defaults",
+      "current": {
+        "scene.render.resolution_x": 1920,
+        "scene.render.resolution_y": 1080
+      },
+      "defaults": {
+        "scene.render.resolution_x": 1920,
+        "scene.render.resolution_y": 1080
+      },
+      "expected_diff": {}
+    },
+    {
+      "name": "extracts only modified properties",
+      "current": {
+        "scene.render.resolution_x": 1920,
+        "scene.render.resolution_y": 1080,
+        "scene.cycles.samples": 256,
+        "scene.render.image_settings.color_depth": "16"
+      },
+      "defaults": {
+        "scene.render.resolution_x": 1280,
+        "scene.render.resolution_y": 1080,
+        "scene.cycles.samples": 128,
+        "scene.render.image_settings.color_depth": "8"
+      },
+      "expected_diff": {
+        "scene.render.resolution_x": 1920,
+        "scene.cycles.samples": 256,
+        "scene.render.image_settings.color_depth": "16"
+      }
+    }
+  ],
+  "engine_relevance_cases": [
+    { "path": "scene.render.resolution_x", "engine": "CYCLES", "expected_relevant": true },
+    { "path": "scene.render.resolution_x", "engine": "BLENDER_EEVEE_NEXT", "expected_relevant": true },
+    { "path": "scene.render.image_settings.file_format", "engine": "BLENDER_WORKBENCH", "expected_relevant": true },
+    { "path": "scene.view_settings.view_transform", "engine": "CYCLES", "expected_relevant": true },
+    { "path": "scene.cycles.samples", "engine": "CYCLES", "expected_relevant": true },
+    { "path": "scene.cycles.samples", "engine": "BLENDER_EEVEE_NEXT", "expected_relevant": false },
+    { "path": "scene.cycles.adaptive_threshold", "engine": "BLENDER_EEVEE", "expected_relevant": false },
+    { "path": "scene.cycles.denoiser", "engine": "BLENDER_WORKBENCH", "expected_relevant": false },
+    { "path": "scene.eevee.taa_render_samples", "engine": "BLENDER_EEVEE_NEXT", "expected_relevant": true },
+    { "path": "scene.eevee.taa_render_samples", "engine": "BLENDER_EEVEE", "expected_relevant": true },
+    { "path": "scene.eevee.taa_render_samples", "engine": "CYCLES", "expected_relevant": false },
+    { "path": "scene.eevee.use_bloom", "engine": "CYCLES", "expected_relevant": false }
+  ],
+  "filter_overrides_cases": [
+    {
+      "name": "filter for Cycles engine",
+      "overrides": {
+        "scene.render.resolution_x": 1920,
+        "scene.cycles.samples": 256,
+        "scene.eevee.taa_render_samples": 64
+      },
+      "engine": "CYCLES",
+      "expected_applicable": {
+        "scene.render.resolution_x": 1920,
+        "scene.cycles.samples": 256
+      }
+    },
+    {
+      "name": "filter for EEVEE engine",
+      "overrides": {
+        "scene.render.resolution_x": 1920,
+        "scene.cycles.samples": 256,
+        "scene.eevee.taa_render_samples": 64
+      },
+      "engine": "BLENDER_EEVEE_NEXT",
+      "expected_applicable": {
+        "scene.render.resolution_x": 1920,
+        "scene.eevee.taa_render_samples": 64
+      }
+    }
+  ]
+}

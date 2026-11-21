@@ -46,3 +46,8 @@ __pycache__/
 
 # Test sequences
 test-sequences/
+
+# Rust
+target/
+
+crates/rn-mock-blender/*.png
