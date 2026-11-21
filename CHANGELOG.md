@@ -6,6 +6,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.1.0-alpha.6] - 2026-11-21
+
+### Added
+
+- **Smooth Realtime Image Sequence Player (Canvas 2D + Web Workers):**
+  - **Clock-driven Playback Engine:** Implemented requestAnimationFrame loop calculating exact frame times using `performance.now()`, eliminating drift and stutter from `setInterval`/`setTimeout`.
+  - **Off-Main-Thread Decoding:** Multi-worker pool decoding images to `ImageBitmap` off the Electron main UI thread with automatic display-size downsampling.
+  - **Direct Canvas 2D Rendering:** Replaced `<img>` DOM swaps with `<canvas>` 2D context (`desynchronized: true`) eliminating layout reflows and memory leaks.
+  - **Memory-Budgeted LRU RAM Cache & Ring Buffer:** Adaptive read-ahead ring buffer and LRU cache with configurable RAM limit (default: 4 GB / 40% free RAM) and explicit bitmap disposal.
+  - **Realtime vs. Every-Frame Modes:** Toggle between guaranteed timing with dropped-frame tracking (Realtime) or guaranteed inspection of every single frame.
+  - **Shuttle & Timeline Scrubbing:** Industry-standard `J` / `K` / `L` shuttle controls (1x, 2x, 4x, 8x reverse/forward), smooth scrubbing with low-latency debouncing, and zoom/pan shortcuts (`F` to fit, `1` for 100%).
+  - **Automated Intra-frame Video Proxy Fallback:** Fast background transcode to Intra-frame H.264 (GOP 1) with sRGB tone-mapping for heavy EXR/HDR/16-bit/4K image sequences.
+  - **Live Render Mode:** Seamlessly tracks active renders and appends new frames to the timeline without resetting playback or interrupting playback state.
+
+- **Resilient Pre-flight Policy ("Never Hard-Block"):**
+  - **Strict Fatal Triad Only:** Only three non-recoverable conditions block job execution: missing/non-executable Blender binary, unreadable `.blend` file, or zero frames to render. All other issues (missing textures, low disk space, newer file versions) are non-blocking warnings.
+  - **Graph-Based Asset Reachability:** `inspect_blend.py` traverses material node trees, compositing nodes, sequencer strips, and world nodes using `bpy.data.user_map` to categorize missing files into `used`, `unused`, and `unknown`. Unused missing files are collapsed into an info counter and never alert.
+  - **Pre-flight Execution Modes:** Added global setting with three selectable modes:
+    - *Never Block* (default): Queue starts immediately without interruptions or modal dialogs.
+    - *Ask when warnings exist*: Non-modal banner with "Render anyway" and a 30-second auto-continue countdown for unattended batches.
+    - *Strict*: Opt-in legacy blocking mode.
+  - **Per-Job Warning Suppression:** Support for "Ignore", "Ignore all like this", and per-job "Ignore all warnings" toggles.
+  - **Fallback to Basic Blender CLI Execution:** Graceful fallback when Python inspection fails or times out, allowing users to proceed using raw Blender execution rather than halting.
+
+### Changed
+
+- **Release Packaging & macOS Compilation Notice:**
+  - Automated release assets are built and attached for Windows (`.exe` NSIS installer & portable) and Linux (`.AppImage` & `.deb`).
+  - Automated macOS binaries are skipped in GitHub Actions CI/CD to avoid runner signing bottlenecks. macOS users can easily compile and package Render Night locally using `npm run dist:mac` following the step-by-step guide in `README.md`.
+
+---
+
+## [0.1.0-alpha.5] - 2026-11-13
+
+### Added
+
+- **Sequence Viewer In/Out Loop Markers & Playback Speed:**
+  - Set custom In (`I`) and Out (`O`) playback loop points or clear them (`Alt+X`).
+  - Playback speed multiplier menu (`0.25x`, `0.5x`, `1x`, `2x`).
+- **Queue Import & Export (.rnqueue.json / .json):**
+  - Full export and import of queue configurations via `Ctrl+Shift+S` and `Ctrl+Shift+O`.
+  - Bridges the desktop GUI with the headless `night-render` CLI for running exported queues in server and terminal environments.
+
+---
+
 ## [0.1.0-alpha.4] - 2026-11-13
 
 ### Fixed

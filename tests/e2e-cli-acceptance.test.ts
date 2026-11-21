@@ -170,7 +170,7 @@ describe('End-to-End Headless CLI Acceptance', () => {
     fs.writeFileSync(queueFile, JSON.stringify(queueData, null, 2));
 
     try {
-      await execFileAsync('node', [cliBundle, '--queue', queueFile]);
+      await execFileAsync('node', [cliBundle, '--queue', queueFile, '--strict']);
       expect.fail('Expected exit code 1 for preflight error');
     } catch (err: unknown) {
       expect((err as { code?: number }).code).toBe(1);

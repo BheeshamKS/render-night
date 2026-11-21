@@ -10,11 +10,11 @@ Render Night uses `electron-builder` to produce verified release binaries for Wi
 
 | Platform    | Format / Target           | Architecture    | Output File Pattern                            | Distribution Channel             |
 | :---------- | :------------------------ | :-------------- | :--------------------------------------------- | :------------------------------- |
-| **Windows** | NSIS Installer            | `x64`           | `release/Render Night Setup 0.1.0-alpha.4.exe` | GitHub Release (Automated)       |
-| **Windows** | Portable Executable       | `x64`           | `release/Render Night 0.1.0-alpha.4.exe`       | GitHub Release (Automated)       |
-| **Linux**   | AppImage                  | `x64`           | `release/Render-Night-0.1.0-alpha.4.AppImage`  | GitHub Release (Automated)       |
-| **Linux**   | Debian Package (`.deb`)   | `x64`           | `release/render-night_0.1.0-alpha.4_amd64.deb` | GitHub Release (Automated)       |
-| **macOS**   | Apple Disk Image (`.dmg`) | `arm64` / `x64` | `release/Render Night-0.1.0-alpha.4*.dmg`      | Local Build (`npm run dist:mac`) |
+| **Windows** | NSIS Installer            | `x64`           | `release/Render Night Setup 0.1.0-alpha.6.exe` | GitHub Release (Automated)       |
+| **Windows** | Portable Executable       | `x64`           | `release/Render Night 0.1.0-alpha.6.exe`       | GitHub Release (Automated)       |
+| **Linux**   | AppImage                  | `x64`           | `release/Render-Night-0.1.0-alpha.6.AppImage`  | GitHub Release (Automated)       |
+| **Linux**   | Debian Package (`.deb`)   | `x64`           | `release/render-night_0.1.0-alpha.6_amd64.deb` | GitHub Release (Automated)       |
+| **macOS**   | Apple Disk Image (`.dmg`) | `arm64` / `x64` | `release/Render Night-0.1.0-alpha.6*.dmg`      | Local Build (`npm run dist:mac`) |
 
 > [!NOTE]
 > Per project specification, Linux packaging produces **AppImage + deb ONLY**. No `.tar.gz` archive is distributed.
