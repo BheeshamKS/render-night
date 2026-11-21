@@ -187,3 +187,36 @@ pub fn parse_stdout_stream(lines: &[&str]) -> Vec<ParsedLine> {
 
     out
 }
+
+#[derive(Debug, Default)]
+pub struct StdoutStreamParser {
+    current_frame: Option<i32>,
+}
+
+impl StdoutStreamParser {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn parse_line(&mut self, line: &str) -> ParsedLine {
+        match parse_stdout_line(line) {
+            Ok(mut parsed) => {
+                match &mut parsed {
+                    ParsedLine::Progress(p) => {
+                        if let Some(f) = p.frame {
+                            self.current_frame = Some(f);
+                        } else if p.frame.is_none() {
+                            p.frame = self.current_frame;
+                        }
+                    }
+                    ParsedLine::Event(RunnerEvent::FrameStart { frame, .. }) => {
+                        self.current_frame = Some(*frame);
+                    }
+                    _ => {}
+                }
+                parsed
+            }
+            Err(_) => ParsedLine::Text(line.trim().to_string()),
+        }
+    }
+}
