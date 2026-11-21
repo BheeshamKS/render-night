@@ -2525,6 +2525,7 @@ dependencies = [
  "chrono",
  "clap",
  "directories",
+ "libc",
  "rn-core",
  "serde",
  "serde_json",

@@ -47,6 +47,7 @@ async fn main() -> ExitCode {
                     eprintln!("Error: File not found: {}", blend_path);
                     return ExitCode::from(2);
                 }
+                let canonical_path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
 
                 let resolved = match resolve_blender_for_cli(
                     blender.as_deref(),
@@ -64,7 +65,7 @@ async fn main() -> ExitCode {
                 };
 
                 let opts = InspectOptions::default();
-                match inspect_blend(path, &resolved.executable, &opts).await {
+                match inspect_blend(&canonical_path, &resolved.executable, &opts).await {
                     Ok(output) => {
                         match serde_json::to_string_pretty(&output) {
                             Ok(json) => println!("{}", json),

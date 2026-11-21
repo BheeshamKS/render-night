@@ -315,7 +315,7 @@ pub async fn run_cli_queue(options: CliRunOptions) -> CliRunResult {
             status: JobStatus::Pending,
             range: simple_range,
             range_config: Some(range_cfg),
-            crash_policy: job_input.crash_policy.clone(),
+            crash_policy: job_input.crash_policy.as_ref().map(|p| p.to_crash_policy()),
             render_missing_only: job_input.render_missing_only || options.resume,
             failed_frames: Vec::new(),
             overrides: job_input.overrides.clone(),
@@ -388,7 +388,29 @@ pub async fn run_cli_queue(options: CliRunOptions) -> CliRunResult {
 
     let runner_script = resolve_runner_script_path(options.runner_script_path.as_deref());
 
-    let target_post_action = if let Some(pa_str) = &options.post_action {
+    // Safety check: Unclean shutdown detection and post-action disarm
+    let lock_mgr = rn_core::persistence::SessionLockManager::new(&base_dir);
+    let (is_unclean, unclean_info) = lock_mgr.check_unclean_shutdown();
+    let is_restored_or_resumed = is_unclean || options.resume;
+
+    let target_post_action = if is_restored_or_resumed {
+        let requested = if let Some(pa_str) = &options.post_action {
+            serde_json::from_value::<PostAction>(serde_json::Value::String(pa_str.clone()))
+                .unwrap_or(PostAction::None)
+        } else {
+            parsed_queue.post_action.unwrap_or(PostAction::None)
+        };
+        if requested != PostAction::None {
+            eprintln!("Notice: Post-queue action strictly disarmed due to session restore/resume.");
+        }
+        if is_unclean {
+            eprintln!(
+                "Notice: Detected unclean shutdown from previous session (PID: {:?}). Resuming safely.",
+                unclean_info.as_ref().map(|l| l.pid)
+            );
+        }
+        PostAction::None
+    } else if let Some(pa_str) = &options.post_action {
         serde_json::from_value::<PostAction>(serde_json::Value::String(pa_str.clone()))
             .unwrap_or(PostAction::None)
     } else {

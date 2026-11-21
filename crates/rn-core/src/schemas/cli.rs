@@ -25,6 +25,48 @@ fn default_step() -> i32 {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+#[serde(untagged)]
+pub enum CliCrashPolicy {
+    Preset(String),
+    Custom(CrashPolicy),
+}
+
+impl CliCrashPolicy {
+    pub fn to_crash_policy(&self) -> CrashPolicy {
+        match self {
+            CliCrashPolicy::Preset(s) => match s.as_str() {
+                "retry_then_cpu_fallback" => CrashPolicy {
+                    max_retries: 2,
+                    fallback_to_cpu: true,
+                    skip_on_failure: true,
+                    max_consecutive_crashes: 3,
+                },
+                "retry_then_skip" => CrashPolicy {
+                    max_retries: 2,
+                    fallback_to_cpu: false,
+                    skip_on_failure: true,
+                    max_consecutive_crashes: 3,
+                },
+                "skip_immediately" => CrashPolicy {
+                    max_retries: 0,
+                    fallback_to_cpu: false,
+                    skip_on_failure: true,
+                    max_consecutive_crashes: 3,
+                },
+                "abort_job" => CrashPolicy {
+                    max_retries: 0,
+                    fallback_to_cpu: false,
+                    skip_on_failure: false,
+                    max_consecutive_crashes: 1,
+                },
+                _ => CrashPolicy::default(),
+            },
+            CliCrashPolicy::Custom(c) => c.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct CliJobItem {
     pub id: Option<String>,
@@ -46,7 +88,7 @@ pub struct CliJobItem {
     #[serde(alias = "pre_render_hook")]
     pub pre_render_hook: Option<String>,
     #[serde(alias = "crash_policy")]
-    pub crash_policy: Option<CrashPolicy>,
+    pub crash_policy: Option<CliCrashPolicy>,
     #[serde(default, alias = "stitch_to_mp4")]
     pub stitch_to_mp4: bool,
 }
