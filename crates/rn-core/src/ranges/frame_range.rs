@@ -1,8 +1,9 @@
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use thiserror::Error;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum FrameRangeMode {
     #[default]
@@ -12,7 +13,7 @@ pub enum FrameRangeMode {
     SingleStill,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct SimpleRange {
     pub start: i32,
     pub end: i32,
@@ -24,7 +25,7 @@ fn default_step() -> i32 {
     1
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct FrameRangeConfig {
     #[serde(default)]
     pub mode: FrameRangeMode,
@@ -36,7 +37,7 @@ pub struct FrameRangeConfig {
     pub single_still_frame: Option<i32>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct ResolvedFrameRange {
     pub frames: Vec<i32>,
     pub is_continuous: bool,
