@@ -9,6 +9,10 @@ repository.workspace = true
 [lints]
 workspace = true
 
+[[bin]]
+name = "render-night-gui"
+path = "src/main.rs"
+
 [dependencies]
 rn-core = { path = "../rn-core" }
 blenderui = "0.5.1"

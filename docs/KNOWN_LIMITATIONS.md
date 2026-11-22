@@ -1,13 +1,13 @@
 # Known Limitations & Design Boundaries
 
-This document comprehensively records all known technical limitations, design boundaries, and architectural trade-offs in Render Night across all phases.
+This document comprehensively records all known technical limitations, design boundaries, and architectural trade-offs in Render Night's pure-Rust architecture.
 
 ---
 
-## 1. EXR and HDR Floating-Point Previews in Live Monitor
-- **Limitation**: 32-bit floating-point OpenEXR (`.exr`) image files cannot be decoded natively by Chromium's graphics pipeline without full OpenEXR WebAssembly decoders or tonemapping pipelines.
-- **Behavior**: In the live monitor dock, standard formats (PNG, JPEG, WEBP, BMP, TGA) display real-time rendered frame previews. For EXR renders, an informational badge and placeholder are displayed, while the Sequence Tools tab generates cached 8-bit PNG proxies via FFmpeg.
-- **Rationale**: Keeps the Electron UI lightweight and eliminates memory bloat from multi-megabyte 32-bit float buffers in the renderer process.
+## 1. EXR and HDR Floating-Point Previews in Viewport & Sequence Player
+- **Architecture**: In the Rust desktop app (`rn-app`), OpenEXR (`.exr`) image files are decoded natively off the main thread using the `exr` crate with custom multithreaded raster scanline reading and sRGB tonemapping.
+- **Behavior**: Direct OpenEXR decoding at 4K resolution can require significant memory bandwidth (30–60 MB per frame in memory). When playback drop rate exceeds 5% for more than 2 seconds, the `ProxyManager` automatically transcodes an intra-frame H.264 proxy (GOP 1) with sRGB tonemapping to maintain smooth 24–60 FPS playback.
+- **Rationale**: Keeps RAM consumption bounded within the configured LRU cache budget (default 4 GB / 40% free RAM) without dropping playback frames.
 
 ---
 
@@ -49,10 +49,10 @@ This document comprehensively records all known technical limitations, design bo
 
 ---
 
-## 7. macOS Unsigned Gatekeeper Prompt
-- **Limitation**: Alpha distribution binaries on macOS are currently unsigned (`hardenedRuntime: false`, `identity: null`).
-- **Behavior**: On first launch, macOS Gatekeeper blocks execution with an untrusted developer prompt.
-- **Workaround**: Users must right-click `Render Night.app` in Finder, select **Open**, and confirm the dialog once.
+## 7. macOS Ad-Hoc Code Signing & Gatekeeper
+- **Limitation**: Release binaries for macOS are built with ad-hoc signatures.
+- **Behavior**: On first launch, macOS Gatekeeper requires user authorization.
+- **Workaround**: Users right-click `Render Night.app` in `/Applications`, select **Open**, and confirm once.
 
 ---
 

@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Render Night
+GenericName=Blender Batch Render Queue
+Comment=Fast local render queue desktop app for Blender with a Blender-native look and headless CLI
+Exec=render-night-gui %U
+Icon=render-night
+Type=Application
+Terminal=false
+Categories=Graphics;3DGraphics;AudioVideo;
+Keywords=blender;render;queue;batch;3d;
+StartupWMClass=render-night-gui
+MimeType=application/x-blender;

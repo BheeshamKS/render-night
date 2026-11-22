@@ -52,4 +52,53 @@ unused_dependencies = "allow"
 unused_workspace_dependencies = "allow"
 missing_lints_inheritance = "allow"
 
+# Cargo-dist configuration for packaging and release automation
+[workspace.metadata.dist]
+cargo-dist-version = "0.28.0"
+ci = "github"
+installers = ["nsis", "dmg", "deb"]
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "x86_64-pc-windows-msvc",
+    "aarch64-apple-darwin",
+    "x86_64-apple-darwin",
+]
+include = [
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "resources/**/*",
+]
+windows-archive = ".zip"
+unix-archive = ".tar.gz"
+
+[workspace.metadata.dist.dependencies.apt]
+libx11-dev = "*"
+libgl1-mesa-dev = "*"
+libxext-dev = "*"
+libxcursor-dev = "*"
+libxinerama-dev = "*"
+libxi-dev = "*"
+libxrandr-dev = "*"
+libasound2-dev = "*"
+
+# Debian package configuration (deb only for Linux)
+[workspace.metadata.deb]
+name = "render-night"
+maintainer = "BheeshamKS <bheeshamkumarsajnani3@gmail.com>"
+copyright = "2026 BheeshamKS"
+license-file = ["LICENSE", "4"]
+extended-description = "A fast local render queue desktop app for Blender with a Blender-native look and headless CLI."
+section = "graphics"
+priority = "optional"
+assets = [
+    ["target/release/render-night", "usr/bin/render-night", "755"],
+    ["target/release/render-night-gui", "usr/bin/render-night-gui", "755"],
+    ["resources/icon.png", "usr/share/icons/hicolor/256x256/apps/render-night.png", "644"],
+    ["resources/render-night.desktop", "usr/share/applications/render-night.desktop", "644"],
+    ["resources/python/**/*", "usr/share/render-night/python/", "644"],
+    ["resources/sounds/**/*", "usr/share/render-night/sounds/", "644"],
+]
+
+
 

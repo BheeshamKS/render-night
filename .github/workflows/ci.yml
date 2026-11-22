@@ -2,35 +2,55 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [rust-rewrite, main]
   pull_request:
-    branches: [main]
+    branches: [rust-rewrite, main]
 
 jobs:
-  verify:
-    name: Lint, Typecheck, Build & Test
+  lint-and-format:
+    name: Lint & Format Check
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          node-version: '22'
-          cache: 'npm'
+          components: rustfmt, clippy
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install Linux Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libgl1-mesa-dev libxext-dev libxcursor-dev libxinerama-dev libxi-dev libxrandr-dev libasound2-dev
 
-      - name: Lint
-        run: npm run lint
+      - name: Check Formatting
+        run: cargo fmt --check
 
-      - name: Typecheck
-        run: npm run typecheck
+      - name: Clippy Warnings Check
+        run: cargo clippy --all-targets -- -D warnings
 
-      - name: Build
-        run: npm run build
+  test:
+    name: Workspace Tests (${{ matrix.os }})
+    needs: lint-and-format
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
 
-      - name: Test
-        run: npm test
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux Build Dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libgl1-mesa-dev libxext-dev libxcursor-dev libxinerama-dev libxi-dev libxrandr-dev libasound2-dev
+
+      - name: Run Workspace Tests
+        run: cargo test --workspace
