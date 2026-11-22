@@ -105,54 +105,54 @@ Every single capability from the legacy TypeScript / Electron architecture has b
 
 | Category | # | Feature Name | Rust Implementation & Location | Verification Suite | Status |
 |:---|:---:|:---|:---|:---|:---:|
-| **Queue Management** | 1 | File Drop & Add .blend | `AppState::add_job_path`, `rn_app::state` | `r2_verification_test`, `r3_verification_test` | **PASS** |
-| | 2 | Job Reordering | `AppState::move_job_up`, `move_job_down` | `r2_verification_test` | **PASS** |
-| | 3 | Job Duplication (`Ctrl+D`) | `AppState::duplicate_job` | `r3_verification_test` | **PASS** |
-| | 4 | Multi-Selection & Bulk Actions | `AppState::selected_job_ids`, `toggle_select_all` | `r2_verification_test` | **PASS** |
-| | 5 | Job Removal with Undo Toast | `AppState::remove_job`, `Toasts` | `r3_verification_test` | **PASS** |
-| | 6 | Clear Finished / Completed | `AppState::clear_completed_jobs` | `r2_verification_test` | **PASS** |
-| | 7 | Queue Start / Pause / Resume | `QueueEngine`, `control.json` sentinels | `supervisor_integration`, `r2_verification_test` | **PASS** |
-| | 8 | Persistent Queue State (`queue-state.json`) | `QueuePersistence`, `v0` migration | `queue_persistence_test` | **PASS** |
-| **Frame Ranges** | 9 | Scene Default Range | `FrameRange::SceneDefault` | `golden_fixtures` | **PASS** |
-| | 10 | Simple Range (Start/End/Step) | `FrameRange::Simple` | `golden_fixtures` | **PASS** |
-| | 11 | Single Still Frame | `FrameRange::SingleStill` | `golden_fixtures` | **PASS** |
-| | 12 | Custom Multi-Range Syntax | `CustomRangeParser` (`1-10, 20-30x2`) | `range_properties` (proptest) | **PASS** |
-| | 13 | Negative Frame Syntax | `RangeParser` (`-10..-1`) | `golden_fixtures` | **PASS** |
-| | 14 | Deduplication & Strict Ordering | `CustomRangeParser::parse_to_sorted_deduped` | `range_properties` | **PASS** |
-| **Video vs Image Rule** | 15 | Continuous Check for Video Containers | `VideoRangeValidator::validate` | `golden_fixtures`, `parity_integration` | **PASS** |
-| | 16 | One-Click Video Range Fix | `PreflightBanner::quick_fix` | `r2_verification_test` | **PASS** |
-| | 17 | Missing Frames Filter for Images | `FrameDetector::filter_missing_frames` | `supervisor_integration`, `parity_integration` | **PASS** |
-| **Crash & Fault Tolerance** | 18 | CUDA / OptiX OOM Catching | `CrashDetector::detect_oom` | `parity_integration` (Scenario 2) | **PASS** |
-| | 19 | Automatic CPU Fallback | `Supervisor::fallback_to_cpu` | `parity_integration` (Scenario 2) | **PASS** |
-| | 20 | Non-Aborting Frame Isolation | `CrashPolicy::isolate_and_continue` | `parity_integration` (Scenario 1) | **PASS** |
-| | 21 | Consecutive Crash Limits | `SupervisorConfig::max_retries` | `supervisor_integration` | **PASS** |
-| | 22 | Unclean Shutdown Detection | `unclean-shutdown.lock` PID sentinel | `queue_persistence_test` | **PASS** |
-| | 23 | Resume-After-Crash Modal Flow | `ModalState::ResumeAfterCrash` | `r3_verification_test` | **PASS** |
-| **Overrides & Presets** | 24 | In-Memory RNA Diff Engine | `OverrideDiff::diff_from_defaults` | `golden_fixtures` | **PASS** |
-| | 25 | 30+ High-Value Pinned Controls | `PropertyDrawer`, `rn_app::ui::job_drawer` | `r2_verification_test` | **PASS** |
-| | 26 | Engine-Aware Property Visibility | `EngineSupport::is_property_applicable` | `r2_verification_test` | **PASS** |
-| | 27 | Presets Store (CRUD) | `PresetStore::save`, `delete`, `list` | `r3_verification_test` | **PASS** |
-| | 28 | Preset Import / Export (JSON) | `PresetStore::export_json`, `import_json` | `r3_verification_test` | **PASS** |
-| | 29 | Copy / Paste Overrides | `AppState::copy_overrides`, `paste_overrides` | `r3_verification_test` | **PASS** |
-| | 30 | Engine Compatibility Skip Report | `ModalState::SkipReport` | `r3_verification_test` | **PASS** |
-| **Safety & Preflight** | 31 | Non-Negotiable Fatal Triad | `PreflightChecker::check_fatal` | `r2_verification_test` | **PASS** |
-| | 32 | Graph-Based Asset Classification | `inspect_blend.py` user_map reachability | `parity_integration` (Scenario 4) | **PASS** |
-| | 33 | Pre-flight Modes (Never / Ask / Strict) | `PreflightMode::Never`, `Ask`, `Strict` | `r2_verification_test`, `r3_verification_test` | **PASS** |
-| | 34 | Per-Job Warning Suppression | `AppState::ignore_warning_code` | `r3_verification_test` | **PASS** |
-| | 35 | Safe Post-Actions (Shutdown/Sleep/Quit)| `PostAction::execute_with_safety` | `r3_verification_test` | **PASS** |
-| | 36 | 60-Second Countdown Modal | `ModalState::ShutdownCountdown` | `r3_verification_test` | **PASS** |
-| | 37 | Keystroke Post-Action Disarm | `AppState::cancel_shutdown_countdown` | `r3_verification_test` | **PASS** |
-| | 38 | Strict Disarm on Restored Sessions | `is_unclean || options.resume` safety | `parity_integration` (Kill-9 test) | **PASS** |
-| **Feedback & Tools** | 39 | Synthesized "to-DUNG" Completion Chime| `rn_core::sound::synthesize_todung` | `r3_verification_test` | **PASS** |
-| | 40 | Sound Player Settings & Test Chime | `AppState::test_sound`, volume/mute | `r3_verification_test` | **PASS** |
-| | 41 | Append-Only JSONL History | `HistoryStore::append`, rotation at 1000 | `golden_fixtures` | **PASS** |
-| | 42 | History Search, Filter & Re-add | `HistoryView::search`, `filter_status` | `r3_verification_test` | **PASS** |
-| | 43 | Realtime Sequence Player Clock Engine | `SequenceClock` monotonic time formula | `r4_sequence_player_test` | **PASS** |
-| | 44 | Off-Thread Decoders (PNG/JPEG/EXR) | `SequenceDecoder` with fast downscale | `r4_sequence_player_test` | **PASS** |
-| | 45 | LRU RAM Cache & Read-Ahead Ring Buffer| `FrameCache`, `RingBuffer` | `r4_sequence_player_test` | **PASS** |
-| | 46 | Automated Intra-frame Video Proxy | `ProxyManager` H.264 GOP 1 fallback | `r4_sequence_player_test` | **PASS** |
-| | 47 | Live Output Folder Watching | `SequenceWatcher` (`notify`) | `r4_sequence_player_test` | **PASS** |
-| **CLI & Environment** | 48 | Headless CLI & Platform Integration | `render-night` CLI, GPU/CPU detection | `cli_integration`, `parity_integration` | **PASS** |
+| **Queue Management** | 1 | File Drop & Add .blend | `AppState::add_job_path`, `rn_app::state` | `r2_verification_test`, `runtime_ui_interaction_test` | **VERIFIED** |
+| | 2 | Job Reordering | `AppState::move_job_up`, `move_job_down` | `r2_verification_test` | **VERIFIED** |
+| | 3 | Job Duplication (`Ctrl+D`) | `AppState::duplicate_job` | `r3_verification_test` | **VERIFIED** |
+| | 4 | Multi-Selection & Bulk Actions | `AppState::selected_job_ids`, `toggle_select_all` | `r2_verification_test` | **VERIFIED** |
+| | 5 | Job Removal with Undo Toast | `AppState::remove_job`, `Toasts` | `r3_verification_test` | **VERIFIED** |
+| | 6 | Clear Finished / Completed | `AppState::clear_completed_jobs` | `r2_verification_test` | **VERIFIED** |
+| | 7 | Queue Start / Pause / Resume | `QueueEngine`, `control.json` sentinels | `supervisor_integration`, `runtime_ui_interaction_test`, `parity_integration` | **VERIFIED** |
+| | 8 | Persistent Queue State (`queue-state.json`) | `QueuePersistence`, `v0` migration | `queue_persistence_test` | **VERIFIED** |
+| **Frame Ranges** | 9 | Scene Default Range | `FrameRange::SceneDefault` | `golden_fixtures` | **VERIFIED** |
+| | 10 | Simple Range (Start/End/Step) | `FrameRange::Simple` | `golden_fixtures` | **VERIFIED** |
+| | 11 | Single Still Frame | `FrameRange::SingleStill` | `golden_fixtures` | **VERIFIED** |
+| | 12 | Custom Multi-Range Syntax | `CustomRangeParser` (`1-10, 20-30x2`) | `range_properties` (proptest) | **VERIFIED** |
+| | 13 | Negative Frame Syntax | `RangeParser` (`-10..-1`) | `golden_fixtures` | **VERIFIED** |
+| | 14 | Deduplication & Strict Ordering | `CustomRangeParser::parse_to_sorted_deduped` | `range_properties` | **VERIFIED** |
+| **Video vs Image Rule** | 15 | Continuous Check for Video Containers | `VideoRangeValidator::validate` | `golden_fixtures`, `parity_integration` | **VERIFIED** |
+| | 16 | One-Click Video Range Fix | `PreflightBanner::quick_fix` | `r2_verification_test` | **VERIFIED** |
+| | 17 | Missing Frames Filter for Images | `FrameDetector::filter_missing_frames` | `supervisor_integration`, `parity_integration` | **VERIFIED** |
+| **Crash & Fault Tolerance** | 18 | CUDA / OptiX OOM Catching | `CrashDetector::detect_oom` | `parity_integration` (Scenario 2) | **VERIFIED** |
+| | 19 | Automatic CPU Fallback | `Supervisor::fallback_to_cpu` | `parity_integration` (Scenario 2) | **VERIFIED** |
+| | 20 | Non-Aborting Frame Isolation | `CrashPolicy::isolate_and_continue` | `parity_integration` (Scenario 1) | **VERIFIED** |
+| | 21 | Consecutive Crash Limits | `SupervisorConfig::max_retries` | `supervisor_integration` | **VERIFIED** |
+| | 22 | Unclean Shutdown Detection | `unclean-shutdown.lock` PID sentinel | `queue_persistence_test` | **VERIFIED** |
+| | 23 | Resume-After-Crash Modal Flow | `ModalState::ResumeAfterCrash` | `r3_verification_test`, `real_blender_e2e_test` | **VERIFIED** |
+| **Overrides & Presets** | 24 | In-Memory RNA Diff Engine | `OverrideDiff::diff_from_defaults` | `golden_fixtures` | **VERIFIED** |
+| | 25 | 30+ High-Value Pinned Controls | `PropertyDrawer`, `rn_app::ui::job_drawer` | `r2_verification_test` | **VERIFIED** |
+| | 26 | Engine-Aware Property Visibility | `EngineSupport::is_property_applicable` | `r2_verification_test` | **VERIFIED** |
+| | 27 | Presets Store (CRUD) | `PresetStore::save`, `delete`, `list` | `r3_verification_test` | **VERIFIED** |
+| | 28 | Preset Import / Export (JSON) | `PresetStore::export_json`, `import_json` | `r3_verification_test` | **VERIFIED** |
+| | 29 | Copy / Paste Overrides | `AppState::copy_overrides`, `paste_overrides` | `r3_verification_test` | **VERIFIED** |
+| | 30 | Engine Compatibility Skip Report | `ModalState::SkipReport` | `r3_verification_test` | **VERIFIED** |
+| **Safety & Preflight** | 31 | Non-Negotiable Fatal Triad | `PreflightChecker::check_fatal` | `r2_verification_test` | **VERIFIED** |
+| | 32 | Graph-Based Asset Classification | `inspect_blend.py` user_map reachability | `parity_integration`, `real_blender_e2e_test` | **VERIFIED** |
+| | 33 | Pre-flight Modes (Never / Ask / Strict) | `PreflightMode::Never`, `Ask`, `Strict` | `r2_verification_test`, `r3_verification_test` | **VERIFIED** |
+| | 34 | Per-Job Warning Suppression | `AppState::ignore_warning_code` | `r3_verification_test` | **VERIFIED** |
+| | 35 | Safe Post-Actions (Shutdown/Sleep/Quit)| `PostAction::execute_with_safety` | `r3_verification_test` | **VERIFIED** |
+| | 36 | 60-Second Countdown Modal | `ModalState::ShutdownCountdown` | `r3_verification_test` | **VERIFIED** |
+| | 37 | Keystroke Post-Action Disarm | `AppState::cancel_shutdown_countdown` | `r3_verification_test` | **VERIFIED** |
+| | 38 | Strict Disarm on Restored Sessions | `is_unclean || options.resume` safety | `parity_integration` (Kill-9 test), `real_blender_e2e_test` | **VERIFIED** |
+| **Feedback & Tools** | 39 | Synthesized "to-DUNG" Completion Chime| `rn_core::sound::synthesize_todung` | `r3_verification_test`, `real_blender_e2e_test` | **VERIFIED** |
+| | 40 | Sound Player Settings & Test Chime | `AppState::test_sound`, volume/mute | `r3_verification_test` | **VERIFIED** |
+| | 41 | Append-Only JSONL History | `HistoryStore::append`, rotation at 1000 | `golden_fixtures` | **VERIFIED** |
+| | 42 | History Search, Filter & Re-add | `HistoryView::search`, `filter_status` | `r3_verification_test` | **VERIFIED** |
+| | 43 | Realtime Sequence Player Clock Engine | `SequenceClock` monotonic time formula | `r4_sequence_player_test` | **VERIFIED** |
+| | 44 | Off-Thread Decoders (PNG/JPEG/EXR) | `SequenceDecoder` with fast downscale | `r4_sequence_player_test` | **VERIFIED** |
+| | 45 | LRU RAM Cache & Read-Ahead Ring Buffer| `FrameCache`, `RingBuffer` | `r4_sequence_player_test` | **VERIFIED** |
+| | 46 | Automated Intra-frame Video Proxy | `ProxyManager` H.264 GOP 1 fallback | `r4_sequence_player_test` | **VERIFIED** |
+| | 47 | Live Output Folder Watching | `SequenceWatcher` (`notify`) | `r4_sequence_player_test` | **VERIFIED** |
+| **CLI & Environment** | 48 | Headless CLI & Platform Integration | `render-night` CLI, GPU/CPU detection | `cli_integration`, `real_blender_e2e_test` | **VERIFIED** |
 
 ---
 

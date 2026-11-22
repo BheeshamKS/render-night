@@ -28,16 +28,29 @@ def emit_event(event_dict):
 
 def check_control(control_file):
     """Check the sentinel control file for continue / pause / stop commands."""
-    if not control_file or not os.path.exists(control_file):
+    if not control_file:
         return "continue"
-    try:
-        with open(control_file, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            cmd = data.get("command", "continue")
-            if cmd in ("continue", "pause", "stop"):
-                return cmd
-    except Exception:
-        pass
+    candidates = [control_file]
+    p = os.path.dirname(control_file)
+    for _ in range(4):
+        if p:
+            candidates.append(os.path.join(p, "control.json"))
+            p = os.path.dirname(p)
+    is_paused = False
+    for cand in candidates:
+        if os.path.exists(cand):
+            try:
+                with open(cand, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    cmd = data.get("command", "continue")
+                    if cmd == "stop":
+                        return "stop"
+                    if cmd == "pause":
+                        is_paused = True
+            except Exception:
+                pass
+    if is_paused:
+        return "pause"
     return "continue"
 
 

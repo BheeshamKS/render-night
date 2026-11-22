@@ -194,25 +194,37 @@ pub fn execute_render_runner(
     let failed_count = 0;
 
     let control_file = payload.control_file.as_deref().map(Path::new);
-    let fallback_control_file = control_file
-        .and_then(|p| p.parent())
-        .and_then(|p| p.parent())
-        .map(|p| p.join("control.json"));
+    let mut control_candidates: Vec<PathBuf> = Vec::new();
+    if let Some(cf) = control_file {
+        control_candidates.push(cf.to_path_buf());
+        let mut curr = cf.parent();
+        for _ in 0..4 {
+            if let Some(p) = curr {
+                control_candidates.push(p.join("control.json"));
+                curr = p.parent();
+            }
+        }
+    }
 
     for (idx, &f) in frames.iter().enumerate() {
         // Control sentinel check before frame
         let check_sentinel = || -> (bool, bool) {
-            let candidates = [control_file, fallback_control_file.as_deref()];
-            for cand in candidates.into_iter().flatten() {
+            let mut is_paused = false;
+            for cand in &control_candidates {
                 if cand.exists() {
                     if let Ok(ctrl_content) = fs::read_to_string(cand) {
                         if let Ok(cmd) = serde_json::from_str::<ControlCommand>(&ctrl_content) {
-                            return (cmd.command == "stop", cmd.command == "pause");
+                            if cmd.command == "stop" {
+                                return (true, false);
+                            }
+                            if cmd.command == "pause" {
+                                is_paused = true;
+                            }
                         }
                     }
                 }
             }
-            (false, false)
+            (false, is_paused)
         };
 
         let mut stopped = false;

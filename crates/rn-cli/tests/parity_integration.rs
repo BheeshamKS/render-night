@@ -187,10 +187,16 @@ fn test_parity_scenario_3_slow_control_stop() {
     fs::create_dir_all(&runtime_dir).unwrap();
     let control_file = runtime_dir.join("control.json");
 
-    // Spawn thread to write stop sentinel after brief delay
+    // Spawn thread to write stop sentinel once frame 1 is rendered
+    let out_frame_1 = temp.path().join("out_ctrl_0001.png");
     let ctrl_path = control_file.clone();
     let stop_thread = std::thread::spawn(move || {
-        std::thread::sleep(Duration::from_millis(50));
+        for _ in 0..100 {
+            if out_frame_1.exists() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
         let _ = fs::write(
             &ctrl_path,
             serde_json::json!({ "command": "stop", "action": "stop" }).to_string(),
@@ -324,8 +330,8 @@ fn test_kill_9_crash_simulation_orphans_safety_and_resume() {
         .arg("--post-action")
         .arg("shutdown")
         .env("RN_MOCK_SCENARIO", "slow-control")
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .spawn()
         .expect("spawn cli");
 
@@ -349,12 +355,16 @@ fn test_kill_9_crash_simulation_orphans_safety_and_resume() {
     // Give it a brief moment so it is actively mid-render
     std::thread::sleep(Duration::from_millis(150));
 
-    // 3. Kill with SIGKILL (kill -9)
+    // 3. Kill immediately (kill -9 simulation)
     #[cfg(unix)]
     {
         unsafe {
             libc::kill(pid as i32, libc::SIGKILL);
         }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = child.kill();
     }
     let _ = child.wait();
 
