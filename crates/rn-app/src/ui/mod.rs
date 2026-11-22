@@ -11,6 +11,7 @@ pub mod monitor_dock;
 pub mod nav_rail;
 pub mod preflight_banner;
 pub mod queue_view;
+pub mod sequence_player;
 pub mod settings_view;
 pub mod sparkline;
 pub mod theme;
@@ -29,6 +30,7 @@ use modals::render_modal_overlay;
 use monitor_dock::render_monitor_dock;
 use nav_rail::render_nav_rail;
 use queue_view::render_queue_view;
+use sequence_player::render_sequence_player_view;
 use settings_view::render_settings_view;
 use toasts::render_toasts;
 use toolbar::render_toolbar;
@@ -62,8 +64,18 @@ impl Render for AppView {
             .relative()
             // Top Toolbar
             .child(render_toolbar(&self.state))
-            // Center Work Area (Nav Rail + Queue / History / Tools / Settings)
-            .child(
+            // Center Work Area (Nav Rail + Queue / History / Tools / Settings OR Sequence Player)
+            .child(if self.state.is_sequence_player_open {
+                if let Some(ref player) = self.state.sequence_player {
+                    div()
+                        .flex_1()
+                        .w_full()
+                        .h_full()
+                        .child(render_sequence_player_view(player))
+                } else {
+                    div()
+                }
+            } else {
                 div()
                     .flex_1()
                     .w_full()
@@ -76,8 +88,8 @@ impl Render for AppView {
                         NavItem::History => render_history_view(&self.state),
                         NavItem::Tools => render_tools_view(&self.state),
                         NavItem::Settings => render_settings_view(&self.state),
-                    }),
-            )
+                    })
+            })
             // Bottom Slim Monitor Bar or Full Dock
             .child(render_monitor_dock(&self.state))
             // Floating Context Menu (if any)

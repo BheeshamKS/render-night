@@ -131,6 +131,10 @@ pub struct AppState {
     pub shutdown_countdown_duration: u32,
     pub preflight_mode: String,
     pub ignored_warning_codes: Vec<String>,
+
+    // Phase R4 Sequence Player
+    pub sequence_player: Option<crate::player::SequencePlayer>,
+    pub is_sequence_player_open: bool,
 }
 
 impl Default for AppState {
@@ -188,6 +192,10 @@ impl AppState {
             shutdown_countdown_duration: 60,
             preflight_mode: "ask".to_string(),
             ignored_warning_codes: Vec::new(),
+
+            // Phase R4 defaults
+            sequence_player: None,
+            is_sequence_player_open: false,
         }
     }
 
@@ -842,8 +850,32 @@ impl AppState {
         }
     }
 
+    /// Open realtime sequence player
+    pub fn open_sequence_player(&mut self, start: i32, end: i32, fps: f64) {
+        let player = crate::player::SequencePlayer::new(start, end, fps);
+        self.sequence_player = Some(player);
+        self.is_sequence_player_open = true;
+    }
+
+    /// Close sequence player
+    pub fn close_sequence_player(&mut self) {
+        self.is_sequence_player_open = false;
+        self.sequence_player = None;
+    }
+
     /// Handle keyboard shortcut events
-    pub fn handle_key_event(&mut self, key: &str, ctrl: bool, _shift: bool, _alt: bool) {
+    pub fn handle_key_event(&mut self, key: &str, ctrl: bool, shift: bool, alt: bool) {
+        // If sequence player is open, route shortcuts to sequence player
+        if self.is_sequence_player_open {
+            if key == "Escape" {
+                self.close_sequence_player();
+                return;
+            }
+            if let Some(ref mut player) = self.sequence_player {
+                player.handle_key(key, shift, alt);
+                return;
+            }
+        }
         // If shutdown countdown modal is active, ANY key cancels countdown!
         if let Some(ModalState::ShutdownCountdown { .. }) = self.active_modal {
             self.cancel_shutdown_countdown();
