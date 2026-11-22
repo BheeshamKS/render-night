@@ -194,7 +194,10 @@ pub fn execute_render_runner(
     let failed_count = 0;
 
     let control_file = payload.control_file.as_deref().map(Path::new);
-    let fallback_control_file = control_file.and_then(|p| p.parent()).and_then(|p| p.parent()).map(|p| p.join("control.json"));
+    let fallback_control_file = control_file
+        .and_then(|p| p.parent())
+        .and_then(|p| p.parent())
+        .map(|p| p.join("control.json"));
 
     for (idx, &f) in frames.iter().enumerate() {
         // Control sentinel check before frame

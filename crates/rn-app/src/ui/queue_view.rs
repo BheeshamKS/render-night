@@ -119,17 +119,15 @@ fn render_empty_drop_zone(cx: &Context<AppView>) -> blenderui::element::Div {
                 .child("Add Blender files to queue for background batch rendering"),
         )
         .child(
-            div()
-                .mt(px(8.0))
-                .child(
-                    Button()
-                        .id("btn-browse-blend")
-                        .child("+ Browse .blend Files")
-                        .on_click(cx.listener(|this, _event, _window, cx| {
-                            this.state.prompt_add_blend_files();
-                            cx.notify();
-                        })),
-                ),
+            div().mt(px(8.0)).child(
+                Button()
+                    .id("btn-browse-blend")
+                    .child("+ Browse .blend Files")
+                    .on_click(cx.listener(|this, _event, _window, cx| {
+                        this.state.prompt_add_blend_files();
+                        cx.notify();
+                    })),
+            ),
         )
         .child(
             span()

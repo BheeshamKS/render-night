@@ -527,14 +527,15 @@ impl AppState {
         }
 
         if let Some(ref handle) = self.engine_handle {
-            let _ = handle.update_state(self.queue_state.clone());
             let h = handle.clone();
+            let qs = self.queue_state.clone();
             std::thread::spawn(move || {
                 let rt = tokio::runtime::Builder::new_current_thread()
                     .enable_all()
                     .build();
                 if let Ok(rt) = rt {
                     rt.block_on(async move {
+                        let _ = h.update_state(qs).await;
                         let _ = h.start().await;
                     });
                 }

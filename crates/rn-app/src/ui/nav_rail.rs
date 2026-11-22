@@ -85,7 +85,11 @@ fn render_nav_item(
     label: &'static str,
     badge: Option<usize>,
     is_active: bool,
-    click_fn: impl Fn(&blenderui::events::ClickEvent, &mut blenderui::window::Window, &mut blenderui::window::App) + 'static,
+    click_fn: impl Fn(
+            &blenderui::events::ClickEvent,
+            &mut blenderui::window::Window,
+            &mut blenderui::window::App,
+        ) + 'static,
 ) -> blenderui::element::Div {
     let bg = if is_active {
         theme::BG_SELECTED

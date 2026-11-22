@@ -153,24 +153,26 @@ pub fn render_toolbar(state: &AppState, cx: &Context<AppView>) -> blenderui::ele
                         .child(
                             Dropdown()
                                 .id("dropdown-when-finished")
-                                .on_change(cx.listener(|this, e: &blenderui::events::ChangeEvent, _, cx| {
-                                    let action = match e.value.as_str() {
-                                        "sleep" => PostAction::Sleep,
-                                        "hibernate" => PostAction::Hibernate,
-                                        "shutdown" => PostAction::Shutdown,
-                                        "restart" => PostAction::Restart,
-                                        "close_app" => PostAction::CloseApp,
-                                        _ => PostAction::None,
-                                    };
-                                    this.state.set_when_finished(action);
-                                    cx.notify();
-                                }))
+                                .on_change(cx.listener(
+                                    |this, e: &blenderui::events::ChangeEvent, _, cx| {
+                                        let action = match e.value.as_str() {
+                                            "sleep" => PostAction::Sleep,
+                                            "hibernate" => PostAction::Hibernate,
+                                            "shutdown" => PostAction::Shutdown,
+                                            "restart" => PostAction::Restart,
+                                            "close_app" => PostAction::CloseApp,
+                                            _ => PostAction::None,
+                                        };
+                                        this.state.set_when_finished(action);
+                                        cx.notify();
+                                    },
+                                ))
                                 .child(
                                     option()
                                         .value("none")
                                         .selected(state.when_finished == PostAction::None)
                                         .child("Do nothing"),
-                                 )
+                                )
                                 .child(
                                     option()
                                         .value("sleep")

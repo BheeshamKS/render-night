@@ -22,7 +22,9 @@ async fn main() -> ExitCode {
 
     if cli.smoke_test {
         let current_exe = std::env::current_exe().expect("Failed to get current executable path");
-        let parent_dir = current_exe.parent().expect("Failed to get parent directory");
+        let parent_dir = current_exe
+            .parent()
+            .expect("Failed to get parent directory");
         let gui_bin_name = format!("render-night-gui{}", std::env::consts::EXE_SUFFIX);
         let gui_path = parent_dir.join(&gui_bin_name);
         if !gui_path.exists() {

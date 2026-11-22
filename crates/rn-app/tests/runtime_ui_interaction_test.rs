@@ -77,7 +77,9 @@ fn test_window_full_height_and_no_white_background() {
         );
         // Theme background is #181818 (0x181818) or monitor dock background #1e1e1e (0x1e1e1e)
         assert!(
-            bottom_right_px == 0x181818 || bottom_right_px == 0x1E1E1E || bottom_right_px == 0x222222,
+            bottom_right_px == 0x181818
+                || bottom_right_px == 0x1E1E1E
+                || bottom_right_px == 0x222222,
             "Bottom-right pixel {:#08x} should match dark theme surface at {}x{}",
             bottom_right_px,
             width,
@@ -126,28 +128,44 @@ fn test_all_interactive_buttons_wire_and_dispatch() {
         cx.draw(win_id);
 
         // 1. Verify navigation rail buttons: History, Tools, Settings, Queue
-        let nav_history = cx.element_bounds(win_id, "nav-history").expect("nav-history must exist");
-        cx.simulate_click(win_id, nav_history.origin.x + 5.0, nav_history.origin.y + 5.0);
+        let nav_history = cx
+            .element_bounds(win_id, "nav-history")
+            .expect("nav-history must exist");
+        cx.simulate_click(
+            win_id,
+            nav_history.origin.x + 5.0,
+            nav_history.origin.y + 5.0,
+        );
         cx.draw(win_id);
         view_handle.update(cx, |this, _window, _cx| {
             assert_eq!(this.state.active_nav_item, NavItem::History);
         });
 
-        let nav_tools = cx.element_bounds(win_id, "nav-tools").expect("nav-tools must exist");
+        let nav_tools = cx
+            .element_bounds(win_id, "nav-tools")
+            .expect("nav-tools must exist");
         cx.simulate_click(win_id, nav_tools.origin.x + 5.0, nav_tools.origin.y + 5.0);
         cx.draw(win_id);
         view_handle.update(cx, |this, _window, _cx| {
             assert_eq!(this.state.active_nav_item, NavItem::Tools);
         });
 
-        let nav_settings = cx.element_bounds(win_id, "nav-settings").expect("nav-settings must exist");
-        cx.simulate_click(win_id, nav_settings.origin.x + 5.0, nav_settings.origin.y + 5.0);
+        let nav_settings = cx
+            .element_bounds(win_id, "nav-settings")
+            .expect("nav-settings must exist");
+        cx.simulate_click(
+            win_id,
+            nav_settings.origin.x + 5.0,
+            nav_settings.origin.y + 5.0,
+        );
         cx.draw(win_id);
         view_handle.update(cx, |this, _window, _cx| {
             assert_eq!(this.state.active_nav_item, NavItem::Settings);
         });
 
-        let nav_queue = cx.element_bounds(win_id, "nav-queue").expect("nav-queue must exist");
+        let nav_queue = cx
+            .element_bounds(win_id, "nav-queue")
+            .expect("nav-queue must exist");
         cx.simulate_click(win_id, nav_queue.origin.x + 5.0, nav_queue.origin.y + 5.0);
         cx.draw(win_id);
         view_handle.update(cx, |this, _window, _cx| {
@@ -155,54 +173,88 @@ fn test_all_interactive_buttons_wire_and_dispatch() {
         });
 
         // 2. Empty state Browse button
-        let btn_browse = cx.element_bounds(win_id, "btn-browse-blend").expect("btn-browse-blend must exist when queue empty");
+        let btn_browse = cx
+            .element_bounds(win_id, "btn-browse-blend")
+            .expect("btn-browse-blend must exist when queue empty");
         assert_eq!(mock_dialog.pick_blend_calls(), 0);
         cx.simulate_click(win_id, btn_browse.origin.x + 5.0, btn_browse.origin.y + 5.0);
         cx.draw(win_id);
         assert_eq!(mock_dialog.pick_blend_calls(), 1);
 
         // 3. Toolbar "+ Add .blend" button
-        let btn_add = cx.element_bounds(win_id, "btn-add-blend").expect("btn-add-blend must exist");
+        let btn_add = cx
+            .element_bounds(win_id, "btn-add-blend")
+            .expect("btn-add-blend must exist");
         cx.simulate_click(win_id, btn_add.origin.x + 5.0, btn_add.origin.y + 5.0);
         cx.draw(win_id);
         assert_eq!(mock_dialog.pick_blend_calls(), 2);
 
         // 4. Expand / Collapse Monitor Dock and Tabs
-        let btn_toggle_dock = cx.element_bounds(win_id, "btn-toggle-dock").expect("btn-toggle-dock must exist");
+        let btn_toggle_dock = cx
+            .element_bounds(win_id, "btn-toggle-dock")
+            .expect("btn-toggle-dock must exist");
         view_handle.update(cx, |this, _window, _cx| {
             assert!(!this.state.monitor_expanded);
         });
-        cx.simulate_click(win_id, btn_toggle_dock.origin.x + 5.0, btn_toggle_dock.origin.y + 5.0);
+        cx.simulate_click(
+            win_id,
+            btn_toggle_dock.origin.x + 5.0,
+            btn_toggle_dock.origin.y + 5.0,
+        );
         cx.draw(win_id);
         view_handle.update(cx, |this, _window, _cx| {
             assert!(this.state.monitor_expanded, "Dock should now be expanded");
         });
 
         // Test tabs in expanded dock
-        let tab_frametimes = cx.element_bounds(win_id, "btn-dock-tab-frametimes").expect("btn-dock-tab-frametimes must exist in expanded dock");
-        cx.simulate_click(win_id, tab_frametimes.origin.x + 5.0, tab_frametimes.origin.y + 5.0);
+        let tab_frametimes = cx
+            .element_bounds(win_id, "btn-dock-tab-frametimes")
+            .expect("btn-dock-tab-frametimes must exist in expanded dock");
+        cx.simulate_click(
+            win_id,
+            tab_frametimes.origin.x + 5.0,
+            tab_frametimes.origin.y + 5.0,
+        );
         cx.draw(win_id);
         view_handle.update(cx, |this, _window, _cx| {
             assert_eq!(this.state.active_dock_tab, DockTab::FrameTimes);
         });
 
-        let tab_console = cx.element_bounds(win_id, "btn-dock-tab-console").expect("btn-dock-tab-console must exist in expanded dock");
-        cx.simulate_click(win_id, tab_console.origin.x + 5.0, tab_console.origin.y + 5.0);
+        let tab_console = cx
+            .element_bounds(win_id, "btn-dock-tab-console")
+            .expect("btn-dock-tab-console must exist in expanded dock");
+        cx.simulate_click(
+            win_id,
+            tab_console.origin.x + 5.0,
+            tab_console.origin.y + 5.0,
+        );
         cx.draw(win_id);
         view_handle.update(cx, |this, _window, _cx| {
             assert_eq!(this.state.active_dock_tab, DockTab::Console);
         });
 
-        let tab_preview = cx.element_bounds(win_id, "btn-dock-tab-preview").expect("btn-dock-tab-preview must exist in expanded dock");
-        cx.simulate_click(win_id, tab_preview.origin.x + 5.0, tab_preview.origin.y + 5.0);
+        let tab_preview = cx
+            .element_bounds(win_id, "btn-dock-tab-preview")
+            .expect("btn-dock-tab-preview must exist in expanded dock");
+        cx.simulate_click(
+            win_id,
+            tab_preview.origin.x + 5.0,
+            tab_preview.origin.y + 5.0,
+        );
         cx.draw(win_id);
         view_handle.update(cx, |this, _window, _cx| {
             assert_eq!(this.state.active_dock_tab, DockTab::Preview);
         });
 
         // Collapse dock
-        let btn_collapse_dock = cx.element_bounds(win_id, "btn-toggle-dock").expect("btn-toggle-dock collapse must exist");
-        cx.simulate_click(win_id, btn_collapse_dock.origin.x + 5.0, btn_collapse_dock.origin.y + 5.0);
+        let btn_collapse_dock = cx
+            .element_bounds(win_id, "btn-toggle-dock")
+            .expect("btn-toggle-dock collapse must exist");
+        cx.simulate_click(
+            win_id,
+            btn_collapse_dock.origin.x + 5.0,
+            btn_collapse_dock.origin.y + 5.0,
+        );
         cx.draw(win_id);
         view_handle.update(cx, |this, _window, _cx| {
             assert!(!this.state.monitor_expanded, "Dock should now be collapsed");
@@ -210,32 +262,48 @@ fn test_all_interactive_buttons_wire_and_dispatch() {
 
         // 5. Add a test job to verify Start/Pause/Resume/Stop controls
         view_handle.update(cx, |this, _window, _cx| {
-            this.state.add_job("test_shot.blend", "/path/test_shot.blend", 1, 10, "GPU", "CYCLES", None);
+            this.state.add_job(
+                "test_shot.blend",
+                "/path/test_shot.blend",
+                1,
+                10,
+                "GPU",
+                "CYCLES",
+                None,
+            );
         });
         cx.draw(win_id);
 
-        let btn_start = cx.element_bounds(win_id, "btn-start-queue").expect("btn-start-queue must exist");
+        let btn_start = cx
+            .element_bounds(win_id, "btn-start-queue")
+            .expect("btn-start-queue must exist");
         cx.simulate_click(win_id, btn_start.origin.x + 5.0, btn_start.origin.y + 5.0);
         cx.draw(win_id);
         view_handle.update(cx, |this, _window, _cx| {
             assert_eq!(this.state.queue_status, QueueStatus::Running);
         });
 
-        let btn_pause = cx.element_bounds(win_id, "btn-pause-queue").expect("btn-pause-queue must exist when running");
+        let btn_pause = cx
+            .element_bounds(win_id, "btn-pause-queue")
+            .expect("btn-pause-queue must exist when running");
         cx.simulate_click(win_id, btn_pause.origin.x + 5.0, btn_pause.origin.y + 5.0);
         cx.draw(win_id);
         view_handle.update(cx, |this, _window, _cx| {
             assert_eq!(this.state.queue_status, QueueStatus::Paused);
         });
 
-        let btn_resume = cx.element_bounds(win_id, "btn-resume-queue").expect("btn-resume-queue must exist when paused");
+        let btn_resume = cx
+            .element_bounds(win_id, "btn-resume-queue")
+            .expect("btn-resume-queue must exist when paused");
         cx.simulate_click(win_id, btn_resume.origin.x + 5.0, btn_resume.origin.y + 5.0);
         cx.draw(win_id);
         view_handle.update(cx, |this, _window, _cx| {
             assert_eq!(this.state.queue_status, QueueStatus::Running);
         });
 
-        let btn_stop = cx.element_bounds(win_id, "btn-stop-queue").expect("btn-stop-queue must exist when running");
+        let btn_stop = cx
+            .element_bounds(win_id, "btn-stop-queue")
+            .expect("btn-stop-queue must exist when running");
         cx.simulate_click(win_id, btn_stop.origin.x + 5.0, btn_stop.origin.y + 5.0);
         cx.draw(win_id);
         view_handle.update(cx, |this, _window, _cx| {
