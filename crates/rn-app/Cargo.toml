@@ -11,5 +11,16 @@ workspace = true
 
 [dependencies]
 rn-core = { path = "../rn-core" }
+blenderui = "0.5.1"
+blenderui-sys = "0.5.1"
+blenderui-vlist = "0.5.1"
+blenderui-table = "0.5.1"
+blenderui-paint = "0.5.1"
 tokio = { workspace = true }
 tracing = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+rfd = "0.14"
+chrono = { workspace = true }
+directories = { workspace = true }

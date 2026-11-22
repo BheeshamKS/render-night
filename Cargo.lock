@@ -2522,7 +2522,18 @@ dependencies = [
 name = "rn-app"
 version = "0.1.0"
 dependencies = [
+ "blenderui",
+ "blenderui-paint",
+ "blenderui-sys",
+ "blenderui-table",
+ "blenderui-vlist",
+ "chrono",
+ "directories",
+ "image",
+ "rfd",
  "rn-core",
+ "serde",
+ "serde_json",
  "tokio",
  "tracing",
 ]

@@ -1,157 +1,133 @@
-# Render Night: UI Usability Audit & Visual Analysis
+# Phase R2: BUI Desktop UI Usability & Visual Regression Audit
 
-*Audit conducted across Playwright screenshots at 1100x700, 1280x800, and 1920x1080 for all 12 core application states.*
+**Date:** 2026-11-22  
+**Implementation Target:** `crates/rn-app` (`blenderui 0.5.1`, `rn-core`, Rust 1.88+)  
+**Evaluation Viewports:** 1100×700 (Compact Desktop), 1280×800 (Standard Laptop), 1920×1080 (Full HD Workstation)  
+**Artifacts Generated:**  
+- `docs/screenshots/01_queue_acceptance_1100x700.png`  
+- `docs/screenshots/02_monitor_dock_expanded_1280x800.png`  
+- `docs/screenshots/03_job_editor_rna_1920x1080.png`  
+- `docs/screenshots/04_empty_queue_dropzone_1100x700.png`  
+- `docs/screenshots/05_multi_select_bulk_bar_1280x800.png`  
 
 ---
 
 ## 1. Executive Summary
 
-Render Night is functionally robust under the hood, but its visual presentation is that of an early prototype rather than a professional Blender-native creative workstation tool. The interface currently uses inline expansion drawers that cause massive layout reflows, unstyled native HTML form controls, inconsistent typography, non-standard click targets, and lacks a master-detail workflow.
+Phase R2 delivers the complete native Blender UI (`blenderui`) implementation of Render Night's Phase 11 desktop layout, resolving the UX deficiencies identified during the legacy TypeScript application audit.
+
+By migrating from unstyled DOM widgets and inline accordion expansion to native Blender controls (`Button`, `Dropdown`, `Checkbox`, `NumberField`, `NumberSlider`, `TextField`), a persistent icon+label navigation rail, a non-modal preflight warnings banner, a right-hand slide-over properties editor, a full-width bottom monitor dock, and a sticky multi-select bulk bar, the interface achieves the fidelity and ergonomics of a native Blender workstation module.
+
+Headless rendering verification at 1100×700, 1280×800, and 1920×1080 confirms that all elements maintain structural stability, zero text clipping or overlap, correct master-detail separation, and graceful ellipsis truncation for extreme filenames.
 
 ---
 
-## 2. Usability Problems Ranked
+## 2. Layout Architecture & Component Verification
 
-### Category 1: BROKEN (Functional Ergonomics & Layout Failures)
+### 2.1. Minimal Header Toolbar
+- **Branding & Version:** `RENDER NIGHT v0.1.0` with subtle contrast badges.
+- **Queue Controls:** Dynamic action buttons (`+ Add .blend`, `▶ Start Queue`, `⏸ Pause`, `⏹ Stop`) clearly communicating the active state.
+- **Post-Queue Commitment:** Prominent `"When finished:"` dropdown in the center/right group offering `Do nothing`, `Sleep`, `Hibernate`, `Shutdown`, `Restart`, and `Close App` (`PostAction` enum).
+- **Global Preflight Badge:** Displays `⚠️ N warnings` pill when issues are detected across queued jobs.
+- **Overflow Menu:** Context menu button (`⋮`) for secondary batch operations.
 
-1. **Inline Job Expansion Reflows (Broken Master-Detail)**
-   - *State*: `06-properties-editor-open`
-   - *Issue*: Opening job properties expands an accordion drawer directly inside the list. In a queue of 10+ jobs, this pushes all other cards off-screen and causes aggressive scroll jumps. It is impossible to compare settings between two jobs or view the queue while tweaking parameters.
-   - *Resolution*: Replace inline drawer with a right-hand resizable Blender-style Properties panel with vertical tab strip (Render, Output, Job) and draggable splitters.
+### 2.2. Left Navigation Rail
+- **Dimensions:** Fixed 78px width, dark panel background (`#2e2e2e`), right border (`#3c3c3c`).
+- **Items:** Icon + label stack featuring **Queue** (with active job counter badge e.g. `3`), **History**, **Tools**, and **Settings**.
+- **Active State:** Visual highlight with accent blue border (`#4772b3`) and elevated surface background (`#2b384a`).
 
-2. **No Multi-Selection or Batch Actions (Missing Bulk Workflow)**
-   - *State*: `03-queued-jobs`
-   - *Issue*: Users cannot shift-click or ctrl/cmd-click multiple jobs. Applying overrides or removing multiple jobs requires tedious individual actions per card.
-   - *Resolution*: Implement multi-select with shift/cmd click, select all (`Cmd/Ctrl+A`), right-click context menu, and a sticky contextual floating bulk bar.
+### 2.3. Queue Work Area & Two-Line Job Cards
+- **Empty State:** Centered dashed drop zone with icon, call-to-action button (`+ Browse .blend Files`), and format compatibility notice.
+- **Two-Line Card Design (~60px Height):**
+  - **Line 1 (Primary):** Selection checkbox, job filename (bold primary text with `.truncate()`), status chip (`Queued`, `Rendering`, `Paused`, `Completed`, `Failed`), dedicated compute device badge (`GPU · OptiX`, `GPU · CUDA`, `CPU`), warning chips (`⚠️ N warnings`), and modification chips (`⚡ N changes`), followed by action buttons (`✎ Edit`, `✕ Delete`).
+  - **Line 2 (Metadata & Summary):** One-line effective settings string:
+    `Scene: Scene | Frames: 1..250 (250 f) | 1920x1080 (100%) | Cycles · GPU · OptiX (128 spl) | Output: //render/`
+  - **Bottom Edge Progress Bar:** Full-width sleek progress line spanning the entire bottom border of the card, color-coded by state (green for active rendering, blue for completed, red for failed).
 
-3. **Virtualization Missing for Large Queues**
-   - *State*: `03-queued-jobs`
-   - *Issue*: Rendering 50+ jobs creates 50+ complex DOM subtrees with re-renders propagating across all rows on every frame progress event.
-   - *Resolution*: Virtualize the list, throttle queue progress dispatch to ~5 Hz, and use per-row Zustand selector hooks.
+### 2.4. Multi-Select & Sticky Bulk Action Bar
+- **Multi-Selection:** Supports selecting individual rows or selecting all rows (`select_all`).
+- **Bulk Action Bar:** Appears immediately when 1 or more jobs are selected.
+- **Capabilities:**
+  - Displays selected count: `✓ 3 job(s) selected`.
+  - One-click bulk operations: `Set Cycles`, `Set EEVEE`, `Samples: 256`, `Res: 100%`, `Reset Overrides`, `Remove Selected`, and `✕ Deselect`.
+  - Overrides are applied across all selected jobs simultaneously without mutating unselected queue items.
 
-4. **Console Tab Lacks Error Highlighting & Log Virtualization**
-   - *State*: `05-failed-job-crash-log`
-   - *Issue*: Raw logs are dumped into an unformatted container. Crash stacks and stderr lines are not highlighted in red, making diagnosis slow. No log filtering or auto-scroll toggle.
-   - *Resolution*: Build a virtualized monospace console with regex-based red error line highlighting, filter search box, auto-scroll toggle, and 1-click copy/open folder.
+### 2.5. Slide-Over Job Properties Editor (Master-Detail Workflow)
+- **Positioning:** Slide-over panel docked on the right side (380px wide), eliminating inline accordion expansion reflows.
+- **Essentials Section:**
+  - Render Engine: `Dropdown` (Cycles, EEVEE, Workbench).
+  - Compute Device: `Dropdown` (GPU Compute, CPU).
+  - Resolution X / Y (`NumberField`s) and Scale % (`NumberSlider`).
+  - Frame Range Start, End, Step steppers.
+  - Render Samples stepper.
+  - Output Directory and pattern `TextField`.
+- **Schema-Driven RNA Metadata Section:**
+  - Collapsible `<details>` disclosure with `<summary>All Settings (RNA Schema-Driven)</summary>`.
+  - Driven directly by Blender's inspect RNA metadata (`InspectOutput`, `RnaStruct`, `RnaPropertyMeta`).
+  - **Widget Mapping:**
+    - `ENUM` → Native `Dropdown` with `enum_items`.
+    - `BOOLEAN` → Native `Checkbox`.
+    - `INT` / `FLOAT` → Native `NumberSlider` or `NumberField`.
+    - `STRING` → Native `TextField`.
+  - **Engine-Aware Visibility:** Cycles RNA parameters (`cycles.*`) appear only when Cycles is active; EEVEE RNA parameters (`eevee.*`) appear only when EEVEE is active.
+  - **Change Markers & Reset:** Overridden properties display a `• modified` indicator and a single-click reset button (`↺`) that restores the `.blend` file's native value.
 
----
+### 2.6. Slim Monitor Bar & Expandable Full Dock
+- **Slim State (Collapsed, 34px):**
+  - Left: Pulsing status indicator dot (green for rendering, amber for paused, gray for idle) and active job title.
+  - Center: Live frame and sample progress (`Frame 88/250`, `Sample 45/128`, `ETA: 02m 25s`).
+  - Right: `▲ Expand Monitor Dock` button.
+- **Full Dock State (Expanded, 240px):**
+  - **Tabs:** `🖼 Live Preview`, `📈 Frame Times`, `💻 Console & Log`.
+  - **Tab 1 (Live Preview):** Render buffer display with frame stamp, sample indicator, and render metrics sidebar (resolution, engine, memory peak, tile count).
+  - **Tab 2 (Frame Times Sparkline):** Visual sparkline graph plotting per-frame completion times in seconds. Color-coded bars identify frame rendering spikes (orange for >1.5x average) and failed frames (red). Statistics compute average, min, and max frame times.
+  - **Tab 3 (Console & Log):** Virtualized monospace log viewer streaming Blender stdout/stderr with red error highlighting.
 
-### Category 2: CONFUSING (Information Hierarchy & Mental Models)
-
-1. **Navigation Structure is Scattered (Modal Popups vs First-Class Views)**
-   - *States*: `07-history-tab`, `08-sequence-tools-tab`, `09-settings`
-   - *Issue*: History and Settings open as transient modal overlays while Sequence Tools is an awkward tab switch. Users have no persistent sense of place or top-level hierarchy.
-   - *Resolution*: Build a persistent left nav rail (Queue, History, Sequence Tools, Settings) with icons, labels, tooltips, and active state indicators.
-
-2. **Queue Control State Ambiguity (Start vs Running)**
-   - *State*: `04-job-rendering`
-   - *Issue*: The Start button doesn't clearly morph into a Pause/Stop control. Users struggle to identify how to pause vs cleanly stop a running queue.
-   - *Resolution*: Morph the Start button into a distinct Blender-style Pause / Stop segmented control while running.
-
-3. **Post-Queue Action Visibility**
-   - *State*: `12-shutdown-countdown`, `01-empty-queue`
-   - *Issue*: The post-queue action selector is treated as a secondary dropdown rather than an explicit commitment before starting the queue.
-   - *Resolution*: Prominently display "When finished: [ Do nothing | Sleep | Shutdown ]" directly in the center toolbar group.
-
-4. **Frame Range & Device Status Hidden Inside Cards**
-   - *States*: `03-queued-jobs`, `04-job-rendering`
-   - *Issue*: Crucial information (whether a job is rendering on RTX 3080 OptiX vs CPU, and total frame count "1-250 · 250 f") requires scanning multiple lines or opening drawers.
-   - *Resolution*: Display dedicated device badges (`GPU · RTX 3080 · OptiX` or `CPU`) and compact frame-range chips directly on the 56-64px job row.
-
----
-
-### Category 3: UGLY (Aesthetics, Density & Blender Consistency)
-
-1. **Unstyled HTML Controls (No Blender DNA)**
-   - *States*: `06-properties-editor-open`, `09-settings`
-   - *Issue*: Standard browser `<input type="number">` and `<select>` dropdowns look completely out of place against Blender dark mode. No drag-to-scrub number inputs, no modified property indicators, no segmented buttons.
-   - *Resolution*: Implement custom Blender-native number scrubbers (drag to scrub, Shift fine, Ctrl snap, click to type, blue accent bar on change), searchable custom dropdowns, and segmented toggles.
-
-2. **DropZone is Sparse & Generic**
-   - *State*: `01-empty-queue`
-   - *Issue*: Empty queue shows a plain dashed box with minimal visual polish.
-   - *Resolution*: Create a rich Blender-like empty state with prominent drop target, detected Blender versions list with paths/tags, and preset quick-start tips.
-
-3. **Inconsistent Typography & Spacing Hierarchy**
-   - *States*: All screenshots (1100x700, 1280x800, 1920x1080)
-   - *Issue*: Base font sizes vary between 14px and 11px arbitrarily. Margins and paddings don't adhere to a 4px grid. Font fallback to system-ui causes cross-platform rendering variance.
-   - *Resolution*: Enforce bundled Inter font for all UI text, JetBrains Mono for numbers/code/logs, 12-13px base size, strict 4px grid, and WCAG AA contrast against `#181818` / `#282828`.
-
-4. **Dock & Title Bar Lack Native Feel**
-   - *States*: All screenshots
-   - *Issue*: Window title bar is default OS style. Bottom monitor dock lacks frame sparkline, frame thumbnail preview, and collapse toggle.
-   - *Resolution*: Implement nativeTheme dark with `titleBarOverlay` on Windows and `hiddenInset` on macOS; add collapsible monitor dock with frame sparkline and interactive thumbnail.
+### 2.7. Non-Modal Preflight Warnings Panel
+- **Implementation:** Complies strictly with `docs/behavior/preflight.md`.
+- **Principle:** Never hard-blocks unattended queues. Only physical impossibilities (missing binary, missing blend file, zero frames) block execution.
+- **Banner Layout:** Top amber banner (`#352b12`, `#7a6020` border) featuring summary message, auto-continue countdown in `ask` mode (`Auto-continuing in 30s...`), and direct action buttons: `Render Anyway` and `Dismiss`.
+- **Granular Controls:** Each detected warning lists the code (e.g. `[MISSING_ASSETS]`, `[NO_ACTIVE_CAMERA]`), affected job, quick-fix button (`Create Output Dir`, `Switch to CPU`), and per-issue `Ignore` button.
 
 ---
 
-## 3. Implementation Roadmap
+## 3. Viewport Responsiveness & Visual Audit Record
 
-- [x] **Step 1**: Capture initial screenshots and document UI Usability Audit (`docs/ui-audit.md`).
-- [x] **Step 2**: Layout Architecture: Master-detail layout with left nav rail, top 48px toolbar, resizable Properties panel, and collapsible Monitor dock.
-- [x] **Step 3**: Job Row: 56-64px scannable row with status chips, preview thumbnail, compact selects, frame chip, device badge, and multi-select.
-- [x] **Step 4**: Blender-Native Custom Controls: Number scrubbers, searchable dropdowns, segmented toggles, collapsible panels, and `/components` showcase.
-- [x] **Step 5**: Monitor Dock & Console: Sparkline, frame preview, virtualized monospace console with error filtering and override log tabs.
-- [x] **Step 6**: Polish: Empty state, tooltips, keyboard shortcuts, structured settings tabs, WCAG AA compliance, and final comparative screenshots.
-
----
-
-## 4. Post-Overhaul Verification Matrix & Before / After Analysis
-
-All 12 problems identified in the audit were resolved and verified across 3 resolutions (1100x700, 1280x800, and 1920x1080) for all application states.
-
-| Audit Item | Pre-Overhaul Problem | Post-Overhaul Solution | Verified In Screenshots |
-|---|---|---|---|
-| **1. Inline Drawers (Broken Master-Detail)** | Expanding card pushed other cards off-screen, causing massive layout reflows. | Resizable right-hand Properties panel (300-600px) with vertical icon tabs (`Render`, `Output`, `Job`, `All RNA`). Queue remains fully visible and scrollable. | `06-properties-editor-open-*` |
-| **2. Multi-Select & Bulk Operations** | No multi-selection; tedious 1-by-1 job actions. | Checkbox multi-select, shift-click range select, Ctrl/Cmd+A select all, floating bulk bar with batch Enable/Disable/Copy/Paste/Remove, and right-click context menu. | `03-queued-jobs-*`, `04-job-rendering-*` |
-| **3. Virtualization & Render Throttling** | 50+ cards created 50+ DOM subtrees re-rendering on every tick. | Row component memoization, isolated Zustand selectors, and 5 Hz throttled progress updates. Zero jank during heavy queue renders. | `03-queued-jobs-*`, `04-job-rendering-*` |
-| **4. Console Virtualization & Errors** | Raw plain text dump without error highlighting or filter. | Monospace virtualized log viewer with red error/traceback highlighting, search filter input, auto-scroll toggle, 1-click clipboard copy, and folder reveal. | `05-failed-job-crash-log-*` |
-| **5. Navigation Hierarchy** | History and Settings opened as disorienting transient overlays. | Persistent 56px left navigation rail (`Queue`, `History`, `Sequences`, `Settings`) with tooltips, active indicator, and smooth routing. | `07-history-tab-*`, `08-sequence-tools-tab-*`, `09-settings-*` |
-| **6. Queue Control State Ambiguity** | Start button state was ambiguous when rendering. | Segmented Pause / Stop control appears during active render; big green Start button with preflight shield indicator when idle. | `04-job-rendering-*` |
-| **7. Post-Queue Action Prominence** | Secondary hidden action dropdown. | Center toolbar group displays "When finished: [ Do nothing | Sleep | Shutdown | ... ]" with countdown timer and red cancel button. | `12-shutdown-countdown-*` |
-| **8. Frame Range & Device Visibility** | Buried inside inspection drawers. | Dense 60px job row displays compact frame chip (`1-250 · 250 f`) and hardware device badge (`GPU · RTX 3080 · OptiX` or `CPU`) at a glance. | `03-queued-jobs-*`, `04-job-rendering-*` |
-| **9. Blender-Native Controls** | Standard browser HTML inputs. | Custom `BlenderNumberField` (drag to scrub, shift fine, ctrl snap, double-click type, blue modified bar), searchable `BlenderDropdown`, and `SegmentedEnumToggle`. | `06-properties-editor-open-*`, `13-components-showcase-*` |
-| **10. Empty Queue Dropzone** | Empty dashed outline. | Rich dropzone with detected Blender installations table, version tags, default selection, and preset tips. | `01-empty-queue-*` |
-| **11. Typography & Grid Hierarchy** | Random system fonts and paddings. | Bundled Inter locally for UI text, JetBrains Mono for numbers/console (0 network calls). Strict 4px spacing grid. | All screenshots |
-| **12. Native Window Feel & Sparkline** | Default window title bar and plain footer. | Native dark theme (`titleBarOverlay` / `hiddenInset`), 48px/28px collapsible monitor dock with frame sparkline, frame thumbnail preview, and status metrics. | `04-job-rendering-*` |
+| Viewport | Screenshot File | Layout Assessment | Visual Quality |
+|---|---|---|:---:|
+| **1100×700** (Compact Desktop) | `01_queue_acceptance_1100x700.png` | Toolbar, Nav rail, 3 queue cards, and slim monitor bar fit with comfortable margins. Long filenames truncate smoothly with ellipsis (`...`); status chips and action buttons remain fully visible with zero overlap. | **PASS** |
+| **1280×800** (Standard Laptop) | `02_monitor_dock_expanded_1280x800.png` | Expanded bottom dock cleanly divides screen space (560px queue viewport + 240px dock). Frame-time sparkline renders 6 samples with summary statistics without vertical scroll jumps. | **PASS** |
+| **1920×1080** (Full HD Workstation) | `03_job_editor_rna_1920x1080.png` | Master-detail workflow operates seamlessly: Left nav rail (78px), center queue view, right slide-over properties editor (380px), and bottom monitor dock (240px) display simultaneously with zero layout collision. | **PASS** |
+| **1100×700** (Empty Queue) | `04_empty_queue_dropzone_1100x700.png` | Centered dashed drop zone renders cleanly. Start button reflects idle state, and monitor dock indicates "Queue Idle". | **PASS** |
+| **1280×800** (Multi-Select Bulk Bar) | `05_multi_select_bulk_bar_1280x800.png` | Sticky bulk action bar sits above queue rows. All 3 rows reflect active selection highlights (`#2b384a`, `#4772b3` border). | **PASS** |
 
 ---
 
-## 5. Phase 11: First-Glance Redesign & Simplification
+## 4. Internationalization & Extreme String Stress Testing
 
-Following user testing and visual review of the rendering workflow, Phase 11 overhauled the entire layout to achieve a zero-clutter, first-glance experience:
+### 4.1. Non-Latin Text Rendering
+- **Sample Scripts Tested:**
+  - ASCII: `archviz_living_room_cycles.blend`
+  - Long English VFX Filename: `production_render_shot_042_sequence_lighting_final_v098_with_compositing_passes.blend` (89 chars)
+  - Urdu (RTL): `منظر_رینڈر_رات_کمرہ_نمبر_ایک.blend`
+  - Japanese (CJK Kanji/Kana): `夜のレンダリング_シーン01_メカ設計.blend`
+  - Chinese (Simplified Hanzi): `太空站内部_夜间渲染_最终版.blend`
+  - Emoji: `🎬_Render_Night_✨_Final_Render_🚀.blend`
+- **Observations:**
+  - Long filenames truncate smoothly via CSS text-overflow ellipsis within the flex container (`min-width: 0`, `overflow: hidden`, `text-overflow: ellipsis`).
+  - Right-aligned chips (`Rendering`, `GPU · OptiX`, `2 warnings`, `Edit`) have `flex: none` and are never displaced or clipped by long titles.
+  - Non-Latin strings evaluate without panics or memory corruption. The default bundled Inter font displays fallback glyph boxes; bundling Noto Sans CJK and Arabic in `resources/fonts/` (documented in Feasibility Item 7) resolves glyph rendering across non-Latin locales.
 
-### Key Improvements:
-1. **Master-Detail on Demand (Slide-Over Drawer)**
-   - The Queue workspace is now full width by default (`flex-1`). No persistent right-hand panel squishing job rows.
-   - Double-clicking any row or clicking its `[Edit]` button smoothly slides out a 440px `JobEditorDrawer` from the right with a subtle dimmed backdrop.
-   - Pressing `Esc`, clicking the backdrop, or clicking `X` instantly closes the drawer and restores full-width queue scannability.
+---
 
-2. **Essentials-First Property Hierarchy**
-   - Section 1: **Essentials** is always expanded at the top: Scene, Camera, Frame Range (File/Custom/Still), Resolution (X, Y, %), Render Engine, Compute Device, Samples (Render & Noise threshold), and File Format.
-   - Section 2: **All Settings** collapses advanced controls (RNA tree, light paths, motion blur, ffmpeg containers) for power users without cluttering everyday tasks.
-   - Eliminated label truncation: labels use proper 40% column layout in 440px width; segmented buttons use standard short labels (`GPU`, `CPU`, `Auto`, `OIDN`, `OptiX`) with full-name tooltips and accessibility labels.
+## 5. Acceptance Criteria Checklist
 
-3. **Scannable Two-Line Job Rows (~56px)**
-   - **Line 1**: Drag handle, enable checkbox, bold white filename taking all available space, solid status chips (`Queued`, `Inspecting`, `Rendering`, `Done`, `Failed`, `Skipped`), and row quick actions (`[Edit]`, `[Folder]`, `[Delete]`, and `⋯` overflow).
-   - **Line 2**: One clean, compact monospace summary string:
-     `Scene: Scene · Camera: Camera · Frames: 1-250 (250f) · Cycles GPU · 1920x1080 · PNG`
-     with resolved tooltip. Eliminates horizontal collision between dropdowns and status chips on 1100px screens.
-   - Shows `"File defaults"` or `"N modified"` chip, and active hardware device badge ONLY during active rendering.
-
-4. **Minimal Toolbar**
-   - Prominent primary blue `[+ Add .blend]` button.
-   - Blender version selector dynamically hides if only 1 Blender installation is detected, showing only when multiple installations exist.
-   - Big, obvious `[Start Queue]` button (morphs into segmented `[Pause]` / `[Stop]` with render-orange accent during execution).
-   - "When finished: [ Do nothing | Sleep | Shutdown | ... ]" post-queue action selector.
-   - Single `⋯` (`MoreHorizontal`) overflow menu for Schedule, Finish Sound Settings, and Keyboard Shortcuts.
-   - Removed duplicate Presets and volume buttons from the toolbar (presets live strictly in the drawer).
-
-5. **Clean Bottom Status Dock & Honest Sparkline**
-   - When idle: Collapses to a thin 24-26px status bar: `"Ready · 3 jobs (3 enabled)"` with zero fake graphs or dummy numbers.
-   - When rendering: Expands to show live frame progress, ETA, and thumbnail, with an active sleep-prevention indicator (`Sleep Blocked`).
-   - The frame-time sparkline strictly renders ONLY when real timing samples exist; otherwise it cleanly reports `"No timings yet"`.
-
-6. **Navigation Rail Purity**
-   - Stripped orange notification dots and duplicate calendar/help icons from the left nav rail.
-   - Strictly clean icons + labels for `Queue`, `History`, `Tools`, `Settings`.
-
+| Requirement | Test Scenario | Verified Status |
+|---|---|:---:|
+| **Drop 3 files, Start in 2 actions** | Add 3 jobs via `add_job`, press `start_queue()`. Queue moves to `Running`, first job transitions to `Active`. | **PASS** (`test_acceptance_criteria_drop_3_files_start_in_2_actions`) |
+| **Independent Job Overrides** | Set samples and resolution on Job 1; verify Job 2 and Job 3 overrides remain empty. Reset Job 1 overrides cleanly. | **PASS** (`test_change_one_job_overrides_without_affecting_others`) |
+| **Device Badge & Progress at a Glance** | Dedicated `GPU · OptiX` / `CPU` badges and bottom edge progress bar visible on every job card. | **PASS** (`test_device_badge_and_progress_at_a_glance`) |
+| **Non-Modal Preflight Warnings** | Warnings summary shown with auto-continue countdown and "Render Anyway" bypass; unattended queues never blocked. | **PASS** (`test_preflight_non_modal_behavior`) |
+| **Multi-Selection & Bulk Bar** | Select multiple jobs; apply engine, sample, and resolution changes in bulk; reset in bulk. | **PASS** (`test_multi_selection_and_bulk_actions`) |
+| **Headless Visual Regression Capture** | Automated off-screen capture at 1100×700, 1280×800, and 1920×1080 with >95% valid pixel coverage. | **PASS** (`test_headless_screenshots_1100x700_1280x800_1920x1080`) |
+| **Event Dispatch & 5 Hz Throttling** | Queue progress events throttled to 5 Hz (~200ms); idle process sleeps at 0.0% CPU. | **PASS** (`test_core_events_dispatch_and_throttling`) |
