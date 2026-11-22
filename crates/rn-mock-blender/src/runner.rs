@@ -194,36 +194,40 @@ pub fn execute_render_runner(
     let failed_count = 0;
 
     let control_file = payload.control_file.as_deref().map(Path::new);
+    let fallback_control_file = control_file.and_then(|p| p.parent()).and_then(|p| p.parent()).map(|p| p.join("control.json"));
 
     for (idx, &f) in frames.iter().enumerate() {
         // Control sentinel check before frame
-        if let Some(ctrl_path) = control_file {
-            loop {
-                if ctrl_path.exists() {
-                    if let Ok(ctrl_content) = fs::read_to_string(ctrl_path) {
+        let check_sentinel = || -> (bool, bool) {
+            let candidates = [control_file, fallback_control_file.as_deref()];
+            for cand in candidates.into_iter().flatten() {
+                if cand.exists() {
+                    if let Ok(ctrl_content) = fs::read_to_string(cand) {
                         if let Ok(cmd) = serde_json::from_str::<ControlCommand>(&ctrl_content) {
-                            if cmd.command == "stop" {
-                                break;
-                            }
-                            if cmd.command == "pause" {
-                                sleep(Duration::from_millis(20));
-                                continue;
-                            }
+                            return (cmd.command == "stop", cmd.command == "pause");
                         }
                     }
                 }
+            }
+            (false, false)
+        };
+
+        let mut stopped = false;
+        loop {
+            let (is_stop, is_pause) = check_sentinel();
+            if is_stop {
+                stopped = true;
                 break;
             }
-
-            if ctrl_path.exists() {
-                if let Ok(ctrl_content) = fs::read_to_string(ctrl_path) {
-                    if let Ok(cmd) = serde_json::from_str::<ControlCommand>(&ctrl_content) {
-                        if cmd.command == "stop" {
-                            break;
-                        }
-                    }
-                }
+            if is_pause {
+                sleep(Duration::from_millis(20));
+                continue;
             }
+            break;
+        }
+
+        if stopped {
+            break;
         }
 
         // Crash simulation: Scenario 1 (crash_114) or Scenario 2 (gpu_oom) or payload.crashConfig

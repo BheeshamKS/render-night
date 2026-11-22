@@ -75,7 +75,7 @@ pub struct QueueEngineOptions {
     pub blender_executable: Vec<String>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct QueueEngineHandle {
     cmd_tx: mpsc::Sender<QueueCommand>,
     event_rx_factory: broadcast::Sender<QueueEvent>,

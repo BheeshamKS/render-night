@@ -4,12 +4,14 @@
 use blenderui::components::*;
 use blenderui::geometry::px;
 use blenderui::html::*;
+use blenderui::window::Context;
 use blenderui::{ParentElement, Styled};
 
 use super::theme;
+use super::AppView;
 use crate::state::{AppState, ModalState};
 
-pub fn render_modal_overlay(state: &AppState) -> blenderui::element::Div {
+pub fn render_modal_overlay(state: &AppState, cx: &Context<AppView>) -> blenderui::element::Div {
     let Some(ref modal) = state.active_modal else {
         return div();
     };
@@ -30,15 +32,15 @@ pub fn render_modal_overlay(state: &AppState) -> blenderui::element::Div {
                 job_id,
                 job_name,
                 last_frame,
-            } => render_resume_after_crash(job_id, job_name, *last_frame),
+            } => render_resume_after_crash(job_id, job_name, *last_frame, cx),
             ModalState::ShutdownCountdown {
                 seconds_remaining,
                 action,
-            } => render_shutdown_countdown(*seconds_remaining, *action),
-            ModalState::ConfirmQuit => render_confirm_quit(),
-            ModalState::ShortcutsCheatSheet => render_shortcuts_sheet(),
-            ModalState::PresetsManager => render_presets_manager(state),
-            ModalState::SkipReport { skipped } => render_skip_report(skipped),
+            } => render_shutdown_countdown(*seconds_remaining, *action, cx),
+            ModalState::ConfirmQuit => render_confirm_quit(cx),
+            ModalState::ShortcutsCheatSheet => render_shortcuts_sheet(cx),
+            ModalState::PresetsManager => render_presets_manager(state, cx),
+            ModalState::SkipReport { skipped } => render_skip_report(skipped, cx),
         })
 }
 
@@ -46,6 +48,7 @@ fn render_resume_after_crash(
     _job_id: &str,
     job_name: &str,
     last_frame: i32,
+    cx: &Context<AppView>,
 ) -> blenderui::element::Div {
     div()
         .styled()
@@ -132,14 +135,31 @@ fn render_resume_after_crash(
                 .flex_row()
                 .justify_end()
                 .gap(px(10.0))
-                .child(Button().child("Discard & Start Fresh"))
-                .child(Button().child(format!("▶ Resume from Frame {}", last_frame + 1))),
+                .child(
+                    Button()
+                        .id("btn-discard-crash")
+                        .child("Discard & Start Fresh")
+                        .on_click(cx.listener(|this, _event, _window, cx| {
+                            this.state.active_modal = None;
+                            cx.notify();
+                        })),
+                )
+                .child(
+                    Button()
+                        .id("btn-resume-crash")
+                        .child(format!("▶ Resume from Frame {}", last_frame + 1))
+                        .on_click(cx.listener(|this, _event, _window, cx| {
+                            this.state.resume_after_crash();
+                            cx.notify();
+                        })),
+                ),
         )
 }
 
 fn render_shutdown_countdown(
     seconds_remaining: u32,
     action: rn_core::schemas::queue_state::PostAction,
+    cx: &Context<AppView>,
 ) -> blenderui::element::Div {
     let action_str = format!("{:?}", action);
 
@@ -209,7 +229,16 @@ fn render_shutdown_countdown(
                 .flex_col()
                 .items_center()
                 .gap(px(6.0))
-                .child(Button().child(format!("CANCEL {} (OR PRESS ANY KEY)", action_str.to_uppercase())))
+                .child(
+                    Button()
+                        .id("btn-cancel-shutdown")
+                        .child(format!("CANCEL {} (OR PRESS ANY KEY)", action_str.to_uppercase()))
+                        .on_click(cx.listener(|this, _event, _window, cx| {
+                            this.state.cancel_shutdown_countdown();
+                            this.state.active_modal = None;
+                            cx.notify();
+                        })),
+                )
                 .child(
                     div()
                         .text_xs()
@@ -219,7 +248,7 @@ fn render_shutdown_countdown(
         )
 }
 
-fn render_confirm_quit() -> blenderui::element::Div {
+fn render_confirm_quit(cx: &Context<AppView>) -> blenderui::element::Div {
     div()
         .styled()
         .w(px(480.0))
@@ -250,12 +279,28 @@ fn render_confirm_quit() -> blenderui::element::Div {
                 .flex_row()
                 .justify_end()
                 .gap(px(10.0))
-                .child(Button().child("Keep Rendering (Cancel)"))
-                .child(Button().child("Stop & Quit")),
+                .child(
+                    Button()
+                        .id("btn-cancel-quit")
+                        .child("Keep Rendering (Cancel)")
+                        .on_click(cx.listener(|this, _event, _window, cx| {
+                            this.state.active_modal = None;
+                            cx.notify();
+                        })),
+                )
+                .child(
+                    Button()
+                        .id("btn-confirm-quit")
+                        .child("Stop & Quit")
+                        .on_click(cx.listener(|this, _event, _window, _cx| {
+                            this.state.stop_queue();
+                            std::process::exit(0);
+                        })),
+                ),
         )
 }
 
-fn render_shortcuts_sheet() -> blenderui::element::Div {
+fn render_shortcuts_sheet(cx: &Context<AppView>) -> blenderui::element::Div {
     let shortcuts = [
         ("Ctrl/Cmd + O", "Add .blend file to queue"),
         ("Ctrl/Cmd + Enter", "Start or Pause queue rendering"),
@@ -298,7 +343,15 @@ fn render_shortcuts_sheet() -> blenderui::element::Div {
                         .text_color(theme::TEXT_PRIMARY)
                         .child("Keyboard Shortcuts"),
                 )
-                .child(Button().child("Close (Esc)")),
+                .child(
+                    Button()
+                        .id("btn-close-shortcuts")
+                        .child("Close (Esc)")
+                        .on_click(cx.listener(|this, _event, _window, cx| {
+                            this.state.active_modal = None;
+                            cx.notify();
+                        })),
+                ),
         )
         .child(
             div()
@@ -339,6 +392,7 @@ fn render_shortcuts_sheet() -> blenderui::element::Div {
 
 fn render_skip_report(
     skipped: &[rn_core::overrides::compatibility::SkippedOverride],
+    cx: &Context<AppView>,
 ) -> blenderui::element::Div {
     div()
         .styled()
@@ -424,11 +478,19 @@ fn render_skip_report(
                 .flex()
                 .flex_row()
                 .justify_end()
-                .child(Button().child("Dismiss")),
+                .child(
+                    Button()
+                        .id("btn-dismiss-skip-report")
+                        .child("Dismiss")
+                        .on_click(cx.listener(|this, _event, _window, cx| {
+                            this.state.active_modal = None;
+                            cx.notify();
+                        })),
+                ),
         )
 }
 
-fn render_presets_manager(state: &AppState) -> blenderui::element::Div {
+fn render_presets_manager(state: &AppState, cx: &Context<AppView>) -> blenderui::element::Div {
     div()
         .styled()
         .w(px(620.0))
@@ -453,7 +515,15 @@ fn render_presets_manager(state: &AppState) -> blenderui::element::Div {
                         .text_color(theme::TEXT_PRIMARY)
                         .child("Render Presets Manager"),
                 )
-                .child(Button().child("Close (Esc)")),
+                .child(
+                    Button()
+                        .id("btn-close-presets")
+                        .child("Close (Esc)")
+                        .on_click(cx.listener(|this, _event, _window, cx| {
+                            this.state.active_modal = None;
+                            cx.notify();
+                        })),
+                ),
         )
         .child(
             div()

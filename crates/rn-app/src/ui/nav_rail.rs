@@ -3,9 +3,11 @@
 
 use blenderui::geometry::px;
 use blenderui::html::*;
+use blenderui::window::Context;
 use blenderui::{ParentElement, Styled};
 
 use super::theme;
+use super::AppView;
 use crate::state::{AppState, NavItem};
 
 #[derive(Debug, Clone, Copy)]
@@ -16,7 +18,7 @@ enum NavIcon {
     Settings,
 }
 
-pub fn render_nav_rail(state: &AppState) -> blenderui::element::Div {
+pub fn render_nav_rail(state: &AppState, cx: &Context<AppView>) -> blenderui::element::Div {
     let job_count = state.queue_state.jobs.len();
 
     div()
@@ -32,36 +34,58 @@ pub fn render_nav_rail(state: &AppState) -> blenderui::element::Div {
         .py(px(10.0))
         .gap(px(6.0))
         .child(render_nav_item(
+            "nav-queue",
             NavIcon::Queue,
             "Queue",
             Some(job_count),
             state.active_nav_item == NavItem::Queue,
+            cx.listener(|this, _, _, cx| {
+                this.state.set_nav_item(NavItem::Queue);
+                cx.notify();
+            }),
         ))
         .child(render_nav_item(
+            "nav-history",
             NavIcon::History,
             "History",
             None,
             state.active_nav_item == NavItem::History,
+            cx.listener(|this, _, _, cx| {
+                this.state.set_nav_item(NavItem::History);
+                cx.notify();
+            }),
         ))
         .child(render_nav_item(
+            "nav-tools",
             NavIcon::Tools,
             "Tools",
             None,
             state.active_nav_item == NavItem::Tools,
+            cx.listener(|this, _, _, cx| {
+                this.state.set_nav_item(NavItem::Tools);
+                cx.notify();
+            }),
         ))
         .child(render_nav_item(
+            "nav-settings",
             NavIcon::Settings,
             "Settings",
             None,
             state.active_nav_item == NavItem::Settings,
+            cx.listener(|this, _, _, cx| {
+                this.state.set_nav_item(NavItem::Settings);
+                cx.notify();
+            }),
         ))
 }
 
 fn render_nav_item(
+    id: &'static str,
     icon: NavIcon,
     label: &'static str,
     badge: Option<usize>,
     is_active: bool,
+    click_fn: impl Fn(&blenderui::events::ClickEvent, &mut blenderui::window::Window, &mut blenderui::window::App) + 'static,
 ) -> blenderui::element::Div {
     let bg = if is_active {
         theme::BG_SELECTED
@@ -130,6 +154,8 @@ fn render_nav_item(
     };
 
     div()
+        .id(id)
+        .styled()
         .w(px(66.0))
         .h(px(58.0))
         .rounded_md()
@@ -141,6 +167,8 @@ fn render_nav_item(
         .items_center()
         .justify_center()
         .gap(px(4.0))
+        .cursor_pointer()
+        .on_click(click_fn)
         .child(icon_element)
         .child(
             div()

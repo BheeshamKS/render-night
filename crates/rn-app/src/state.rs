@@ -9,7 +9,7 @@ use std::time::Instant;
 use rn_core::blender::discovery::BlenderInstallation;
 use rn_core::overrides::compatibility::{validate_overrides_for_job, SkippedOverride};
 use rn_core::preflight::checker::{PreflightChecker, PreflightJobInput, PreflightOptions};
-use rn_core::queue::{QueueEvent, QueueStatus};
+use rn_core::queue::{QueueEngineHandle, QueueEvent, QueueStatus};
 use rn_core::ranges::{FrameRangeConfig, FrameRangeMode, SimpleRange};
 use rn_core::schemas::history::{HistoryEntry, HistoryResult};
 use rn_core::schemas::inspect::InspectOutput;
@@ -18,6 +18,9 @@ use rn_core::schemas::preflight::PreflightReport;
 use rn_core::schemas::preset::Preset;
 use rn_core::schemas::queue_state::{Job, JobStatus, PostAction, QueueSettings, QueueState};
 use rn_core::sound::sound_player::SoundPlayer;
+
+use crate::file_dialog::{default_dialog_service, FileDialogService};
+use std::sync::Arc;
 
 pub const SAMPLE_INSPECT_JSON: &str = include_str!("../../../tests/golden/inspect_sample.json");
 static JOB_COUNTER: AtomicU64 = AtomicU64::new(1);
@@ -135,6 +138,10 @@ pub struct AppState {
     // Phase R4 Sequence Player
     pub sequence_player: Option<crate::player::SequencePlayer>,
     pub is_sequence_player_open: bool,
+
+    // Services & Engine
+    pub file_dialog: Arc<dyn FileDialogService>,
+    pub engine_handle: Option<QueueEngineHandle>,
 }
 
 impl Default for AppState {
@@ -196,7 +203,20 @@ impl AppState {
             // Phase R4 defaults
             sequence_player: None,
             is_sequence_player_open: false,
+
+            // Services & Engine
+            file_dialog: default_dialog_service(),
+            engine_handle: None,
         }
+    }
+
+    pub fn with_file_dialog(mut self, file_dialog: Arc<dyn FileDialogService>) -> Self {
+        self.file_dialog = file_dialog;
+        self
+    }
+
+    pub fn attach_engine(&mut self, handle: QueueEngineHandle) {
+        self.engine_handle = Some(handle);
     }
 
     /// Add a job with default or custom configuration
@@ -476,8 +496,22 @@ impl AppState {
 
     /// Start or Resume Queue
     pub fn start_queue(&mut self) {
-        if self.queue_status == QueueStatus::Paused {
+        let is_paused = self.queue_status == QueueStatus::Paused;
+        if is_paused {
             self.queue_status = QueueStatus::Running;
+            if let Some(ref handle) = self.engine_handle {
+                let h = handle.clone();
+                std::thread::spawn(move || {
+                    let rt = tokio::runtime::Builder::new_current_thread()
+                        .enable_all()
+                        .build();
+                    if let Ok(rt) = rt {
+                        rt.block_on(async move {
+                            let _ = h.resume().await;
+                        });
+                    }
+                });
+            }
             return;
         }
         if self.queue_state.jobs.is_empty() {
@@ -490,6 +524,21 @@ impl AppState {
                 first.status = JobStatus::Active;
                 self.active_job_id = Some(first.id.clone());
             }
+        }
+
+        if let Some(ref handle) = self.engine_handle {
+            let _ = handle.update_state(self.queue_state.clone());
+            let h = handle.clone();
+            std::thread::spawn(move || {
+                let rt = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build();
+                if let Ok(rt) = rt {
+                    rt.block_on(async move {
+                        let _ = h.start().await;
+                    });
+                }
+            });
         }
     }
 
@@ -505,6 +554,20 @@ impl AppState {
             {
                 job.status = JobStatus::Paused;
             }
+        }
+
+        if let Some(ref handle) = self.engine_handle {
+            let h = handle.clone();
+            std::thread::spawn(move || {
+                let rt = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build();
+                if let Ok(rt) = rt {
+                    rt.block_on(async move {
+                        let _ = h.pause().await;
+                    });
+                }
+            });
         }
     }
 
@@ -525,6 +588,20 @@ impl AppState {
         self.current_sample = None;
         self.current_frame = None;
         self.eta_seconds = None;
+
+        if let Some(ref handle) = self.engine_handle {
+            let h = handle.clone();
+            std::thread::spawn(move || {
+                let rt = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build();
+                if let Ok(rt) = rt {
+                    rt.block_on(async move {
+                        let _ = h.stop().await;
+                    });
+                }
+            });
+        }
     }
 
     /// Dismiss / Bypass preflight warnings and proceed immediately
@@ -856,23 +933,10 @@ impl AppState {
             .ok();
     }
 
-    /// Prompt user to add .blend files via native non-blocking rfd dialog
+    /// Prompt user to add .blend files via file dialog service
     pub fn prompt_add_blend_files(&mut self) {
-        let (tx, rx) = std::sync::mpsc::channel();
-        std::thread::Builder::new()
-            .name("rn-native-dialog".to_string())
-            .spawn(move || {
-                let files = rfd::FileDialog::new()
-                    .add_filter("Blender File", &["blend"])
-                    .pick_files();
-                let _ = tx.send(files);
-            })
-            .ok();
-
-        if let Ok(Some(files)) = rx.try_recv() {
+        if let Some(files) = self.file_dialog.pick_blend_files() {
             self.add_blend_files(files);
-        } else {
-            self.add_toast("Add .blend file picker opened", None);
         }
     }
 
@@ -894,26 +958,10 @@ impl AppState {
         }
     }
 
-    /// Prompt user to locate a Blender executable via native non-blocking rfd dialog
+    /// Prompt user to locate a Blender executable via file dialog service
     pub fn prompt_locate_blender(&mut self) {
-        let (tx, rx) = std::sync::mpsc::channel();
-        std::thread::Builder::new()
-            .name("rn-locate-blender".to_string())
-            .spawn(move || {
-                #[cfg(target_os = "windows")]
-                let dialog = rfd::FileDialog::new().add_filter("Blender Executable", &["exe"]);
-                #[cfg(not(target_os = "windows"))]
-                let dialog = rfd::FileDialog::new();
-
-                let picked = dialog.pick_file();
-                let _ = tx.send(picked);
-            })
-            .ok();
-
-        if let Ok(Some(exe_path)) = rx.try_recv() {
+        if let Some(exe_path) = self.file_dialog.pick_blender_executable() {
             self.add_custom_blender_path(exe_path);
-        } else {
-            self.add_toast("Locate Blender executable picker opened", None);
         }
     }
 

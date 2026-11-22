@@ -20,6 +20,26 @@ use runner::{run_cli_queue, CliRunOptions};
 async fn main() -> ExitCode {
     let cli = Cli::parse();
 
+    if cli.smoke_test {
+        let current_exe = std::env::current_exe().expect("Failed to get current executable path");
+        let parent_dir = current_exe.parent().expect("Failed to get parent directory");
+        let gui_bin_name = format!("render-night-gui{}", std::env::consts::EXE_SUFFIX);
+        let gui_path = parent_dir.join(&gui_bin_name);
+        if !gui_path.exists() {
+            eprintln!("Error: GUI binary not found at {}", gui_path.display());
+            return ExitCode::from(1);
+        }
+        let status = std::process::Command::new(&gui_path)
+            .arg("--smoke-test")
+            .status()
+            .expect("Failed to execute render-night-gui --smoke-test");
+        return if status.success() {
+            ExitCode::from(0)
+        } else {
+            ExitCode::from(status.code().unwrap_or(1) as u8)
+        };
+    }
+
     // 1. Check Subcommands
     if let Some(cmd) = cli.command {
         match cmd {

@@ -51,52 +51,63 @@ impl Render for AppView {
     fn render(
         &mut self,
         _window: &mut Window,
-        _cx: &mut Context<Self>,
+        cx: &mut Context<Self>,
     ) -> impl blenderui::element::IntoElement {
-        div()
+        html()
             .styled()
-            .w_full()
-            .h_full()
-            .bg(theme::BG_WINDOW)
-            .flex()
-            .flex_col()
-            .overflow_hidden()
-            .relative()
-            // Top Toolbar
-            .child(render_toolbar(&self.state))
-            // Center Work Area (Nav Rail + Queue / History / Tools / Settings OR Sequence Player)
-            .child(if self.state.is_sequence_player_open {
-                if let Some(ref player) = self.state.sequence_player {
-                    div()
-                        .flex_1()
-                        .w_full()
-                        .h_full()
-                        .child(render_sequence_player_view(player))
-                } else {
-                    div()
-                }
-            } else {
-                div()
-                    .flex_1()
+            .child(
+                head()
+                    .child(title().child("Render Night"))
+                    .child(style().child(
+                        "html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #181818; overflow: hidden; }"
+                    )),
+            )
+            .child(
+                body()
+                    .styled()
                     .w_full()
+                    .h_full()
+                    .bg(theme::BG_WINDOW)
                     .flex()
-                    .flex_row()
+                    .flex_col()
                     .overflow_hidden()
-                    .child(render_nav_rail(&self.state))
-                    .child(match self.state.active_nav_item {
-                        NavItem::Queue => render_queue_view(&self.state),
-                        NavItem::History => render_history_view(&self.state),
-                        NavItem::Tools => render_tools_view(&self.state),
-                        NavItem::Settings => render_settings_view(&self.state),
+                    .relative()
+                    // Top Toolbar
+                    .child(render_toolbar(&self.state, cx))
+                    // Center Work Area (Nav Rail + Queue / History / Tools / Settings OR Sequence Player)
+                    .child(if self.state.is_sequence_player_open {
+                        if let Some(ref player) = self.state.sequence_player {
+                            div()
+                                .flex_1()
+                                .w_full()
+                                .h_full()
+                                .child(render_sequence_player_view(player))
+                        } else {
+                            div()
+                        }
+                    } else {
+                        div()
+                            .flex_1()
+                            .w_full()
+                            .flex()
+                            .flex_row()
+                            .overflow_hidden()
+                            .child(render_nav_rail(&self.state, cx))
+                            .child(match self.state.active_nav_item {
+                                NavItem::Queue => render_queue_view(&self.state, cx),
+                                NavItem::History => render_history_view(&self.state),
+                                NavItem::Tools => render_tools_view(&self.state),
+                                NavItem::Settings => render_settings_view(&self.state),
+                            })
                     })
-            })
-            // Bottom Slim Monitor Bar or Full Dock
-            .child(render_monitor_dock(&self.state))
-            // Floating Context Menu (if any)
-            .child(render_context_menu(&self.state))
-            // Floating Toasts with Undo (if any)
-            .child(render_toasts(&self.state))
-            // Top-Level Modal Dialogs (if any)
-            .child(render_modal_overlay(&self.state))
+                    // Bottom Slim Monitor Bar or Full Dock
+                    .child(render_monitor_dock(&self.state, cx))
+                    // Floating Context Menu (if any)
+                    .child(render_context_menu(&self.state))
+                    // Floating Toasts with Undo (if any)
+                    .child(render_toasts(&self.state))
+                    // Top-Level Modal Dialogs (if any)
+                    .child(render_modal_overlay(&self.state, cx)),
+            )
     }
 }

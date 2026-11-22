@@ -4,14 +4,16 @@
 use blenderui::components::*;
 use blenderui::geometry::px;
 use blenderui::html::*;
+use blenderui::window::Context;
 use blenderui::{ParentElement, Styled};
 
 use super::theme;
-use crate::state::AppState;
+use super::AppView;
+use crate::state::{AppState, ModalState};
 use rn_core::queue::QueueStatus;
 use rn_core::schemas::queue_state::PostAction;
 
-pub fn render_toolbar(state: &AppState) -> blenderui::element::Div {
+pub fn render_toolbar(state: &AppState, cx: &Context<AppView>) -> blenderui::element::Div {
     let warning_count = state
         .preflight_report
         .as_ref()
@@ -20,6 +22,9 @@ pub fn render_toolbar(state: &AppState) -> blenderui::element::Div {
 
     let is_running = state.queue_status == QueueStatus::Running;
     let is_paused = state.queue_status == QueueStatus::Paused;
+    let has_jobs = !state.queue_state.jobs.is_empty();
+
+    let version_str = format!("v{}", env!("CARGO_PKG_VERSION"));
 
     div()
         .styled()
@@ -62,7 +67,7 @@ pub fn render_toolbar(state: &AppState) -> blenderui::element::Div {
                                 .rounded_sm()
                                 .bg(theme::BG_PANEL_ALT)
                                 .text_color(theme::TEXT_MUTED)
-                                .child("v0.1.0"),
+                                .child(version_str),
                         ),
                 )
                 .child(
@@ -72,7 +77,15 @@ pub fn render_toolbar(state: &AppState) -> blenderui::element::Div {
                         .bg(theme::BORDER_LIGHT)
                         .mx(px(4.0)),
                 )
-                .child(Button().child("+ Add .blend"))
+                .child(
+                    Button()
+                        .id("btn-add-blend")
+                        .child("+ Add .blend")
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            this.state.prompt_add_blend_files();
+                            cx.notify();
+                        })),
+                )
                 .child(
                     div()
                         .flex()
@@ -80,14 +93,39 @@ pub fn render_toolbar(state: &AppState) -> blenderui::element::Div {
                         .items_center()
                         .gap(px(4.0))
                         .child(if is_running {
-                            Button().child("|| Pause")
+                            Button()
+                                .id("btn-pause-queue")
+                                .child("|| Pause")
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    this.state.pause_queue();
+                                    cx.notify();
+                                }))
                         } else if is_paused {
-                            Button().child("▶ Resume")
+                            Button()
+                                .id("btn-resume-queue")
+                                .child("▶ Resume")
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    this.state.start_queue();
+                                    cx.notify();
+                                }))
                         } else {
-                            Button().child("▶ Start Queue")
+                            let mut btn = Button().id("btn-start-queue").child("▶ Start Queue");
+                            if has_jobs {
+                                btn = btn.on_click(cx.listener(|this, _, _, cx| {
+                                    this.state.start_queue();
+                                    cx.notify();
+                                }));
+                            }
+                            btn
                         })
                         .child(if is_running || is_paused {
-                            Button().child("Stop")
+                            Button()
+                                .id("btn-stop-queue")
+                                .child("Stop")
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    this.state.stop_queue();
+                                    cx.notify();
+                                }))
                         } else {
                             div()
                         }),
@@ -114,12 +152,25 @@ pub fn render_toolbar(state: &AppState) -> blenderui::element::Div {
                         )
                         .child(
                             Dropdown()
+                                .id("dropdown-when-finished")
+                                .on_change(cx.listener(|this, e: &blenderui::events::ChangeEvent, _, cx| {
+                                    let action = match e.value.as_str() {
+                                        "sleep" => PostAction::Sleep,
+                                        "hibernate" => PostAction::Hibernate,
+                                        "shutdown" => PostAction::Shutdown,
+                                        "restart" => PostAction::Restart,
+                                        "close_app" => PostAction::CloseApp,
+                                        _ => PostAction::None,
+                                    };
+                                    this.state.set_when_finished(action);
+                                    cx.notify();
+                                }))
                                 .child(
                                     option()
                                         .value("none")
                                         .selected(state.when_finished == PostAction::None)
                                         .child("Do nothing"),
-                                )
+                                 )
                                 .child(
                                     option()
                                         .value("sleep")
@@ -174,6 +225,29 @@ pub fn render_toolbar(state: &AppState) -> blenderui::element::Div {
                 } else {
                     div()
                 })
-                .child(Button().child("...")),
+                .child(
+                    div()
+                        .id("btn-overflow-menu")
+                        .styled()
+                        .w(px(28.0))
+                        .h(px(28.0))
+                        .rounded_sm()
+                        .bg(theme::BG_PANEL_ALT)
+                        .border_1()
+                        .border_color(theme::BORDER)
+                        .flex()
+                        .flex_col()
+                        .items_center()
+                        .justify_center()
+                        .gap(px(3.0))
+                        .cursor_pointer()
+                        .child(div().size(px(3.0)).rounded_full().bg(theme::TEXT_PRIMARY))
+                        .child(div().size(px(3.0)).rounded_full().bg(theme::TEXT_PRIMARY))
+                        .child(div().size(px(3.0)).rounded_full().bg(theme::TEXT_PRIMARY))
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            this.state.active_modal = Some(ModalState::ShortcutsCheatSheet);
+                            cx.notify();
+                        })),
+                ),
         )
 }
