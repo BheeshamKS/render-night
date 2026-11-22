@@ -11,6 +11,7 @@ use rn_app::state::AppState;
 use rn_app::ui::AppView;
 
 fn main() {
+    rn_app::init_fonts();
     let args: Vec<String> = std::env::args().collect();
 
     // Check for headless audit / screenshot mode

@@ -4,6 +4,7 @@
 use blenderui::components::*;
 use blenderui::geometry::px;
 use blenderui::html::*;
+use blenderui::list::uniform_list;
 use blenderui::{ParentElement, Styled};
 
 use super::sparkline::render_sparkline;
@@ -145,15 +146,15 @@ fn render_full_dock(state: &AppState) -> blenderui::element::Div {
                         .items_center()
                         .gap(px(4.0))
                         .child(render_dock_tab(
-                            "🖼 Live Preview",
+                            "Preview",
                             state.active_dock_tab == DockTab::Preview,
                         ))
                         .child(render_dock_tab(
-                            "📈 Frame Times",
+                            "Frame Times",
                             state.active_dock_tab == DockTab::FrameTimes,
                         ))
                         .child(render_dock_tab(
-                            "💻 Console & Log",
+                            "Console & Log",
                             state.active_dock_tab == DockTab::Console,
                         )),
                 )
@@ -237,7 +238,18 @@ fn render_preview_tab(state: &AppState) -> blenderui::element::Div {
                 .justify_center()
                 .p(px(10.0))
                 .gap(px(6.0))
-                .child(span().text_base().child("🖼"))
+                .child(
+                    div()
+                        .w(px(28.0))
+                        .h(px(20.0))
+                        .rounded_sm()
+                        .border_2()
+                        .border_color(theme::TEXT_MUTED)
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .child(div().w(px(12.0)).h(px(8.0)).bg(theme::BG_PANEL_ALT)),
+                )
                 .child(
                     span()
                         .text_xs()
@@ -300,6 +312,9 @@ fn render_preview_tab(state: &AppState) -> blenderui::element::Div {
 }
 
 fn render_console_tab(state: &AppState) -> blenderui::element::Div {
+    let logs_clone = state.console_logs.clone();
+    let count = logs_clone.len();
+
     div()
         .styled()
         .w_full()
@@ -309,31 +324,40 @@ fn render_console_tab(state: &AppState) -> blenderui::element::Div {
         .border_color(theme::BORDER)
         .rounded_sm()
         .p(px(6.0))
-        .flex()
-        .flex_col()
-        .gap(px(2.0))
-        .children(state.console_logs.iter().rev().take(15).rev().map(|log| {
-            let color = if log.is_error {
-                theme::ACCENT_RED
-            } else {
-                theme::TEXT_SECONDARY
-            };
-
-            div()
-                .flex()
-                .flex_row()
-                .gap(px(6.0))
-                .child(
-                    span()
-                        .text_xs()
-                        .font_bold()
-                        .text_color(if log.is_error {
+        .overflow_y_scroll()
+        .child(
+            uniform_list("console_logs", count, move |range, _window, _cx| {
+                range
+                    .filter_map(|i| logs_clone.get(i))
+                    .map(|log| {
+                        let color = if log.is_error {
                             theme::ACCENT_RED
                         } else {
-                            theme::TEXT_DIM
-                        })
-                        .child(format!("[{}]", log.stream)),
-                )
-                .child(span().text_xs().text_color(color).child(log.line.clone()))
-        }))
+                            theme::TEXT_SECONDARY
+                        };
+
+                        div()
+                            .h(px(20.0))
+                            .flex()
+                            .flex_row()
+                            .items_center()
+                            .gap(px(6.0))
+                            .child(
+                                span()
+                                    .text_xs()
+                                    .font_bold()
+                                    .text_color(if log.is_error {
+                                        theme::ACCENT_RED
+                                    } else {
+                                        theme::TEXT_DIM
+                                    })
+                                    .child(format!("[{}]", log.stream)),
+                            )
+                            .child(span().text_xs().text_color(color).child(log.line.clone()))
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .item_height(px(20.0))
+            .w_full(),
+        )
 }

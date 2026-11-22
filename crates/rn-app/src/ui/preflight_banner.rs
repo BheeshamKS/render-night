@@ -24,12 +24,12 @@ pub fn render_preflight_banner(state: &AppState) -> blenderui::element::Div {
 
     let summary_msg = if error_count > 0 {
         format!(
-            "⚠️ {} blocking issue(s) and {} warning(s) detected.{}",
+            "[!] {} blocking issue(s) and {} warning(s) detected.{}",
             error_count, warning_count, countdown_text
         )
     } else {
         format!(
-            "⚠️ {} pre-flight warning(s) detected. Queue will proceed automatically.{}",
+            "! {} pre-flight warning(s) detected. Queue will proceed automatically.{}",
             warning_count, countdown_text
         )
     };
@@ -59,7 +59,22 @@ pub fn render_preflight_banner(state: &AppState) -> blenderui::element::Div {
                         .flex_row()
                         .items_center()
                         .gap(px(8.0))
-                        .child(span().text_base().child("⚠️"))
+                        .child(
+                            div()
+                                .size(px(16.0))
+                                .rounded_sm()
+                                .bg(theme::WARNING_BORDER)
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .child(
+                                    span()
+                                        .text_xs()
+                                        .font_bold()
+                                        .text_color(theme::WARNING_TEXT)
+                                        .child("!"),
+                                ),
+                        )
                         .child(
                             span()
                                 .text_sm()

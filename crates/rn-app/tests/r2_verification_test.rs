@@ -7,6 +7,28 @@ use rn_core::queue::{QueueEvent, QueueStatus};
 use rn_core::schemas::queue_state::JobStatus;
 
 #[test]
+fn test_acceptance_scenario_clean_non_blocking_warnings() {
+    let mut state = AppState::new();
+    state.load_acceptance_scenario();
+    assert_eq!(state.queue_state.jobs.len(), 3);
+    assert!(state.preflight_report.is_some());
+    let report = state.preflight_report.as_ref().unwrap();
+    assert_eq!(
+        report.errors.len(),
+        0,
+        "Acceptance scenario must have zero blocking errors"
+    );
+    assert!(
+        !report.warnings.is_empty(),
+        "Acceptance scenario exhibits non-blocking warnings"
+    );
+    assert!(
+        !report.is_blocked,
+        "Queue must never be blocked in acceptance scenario"
+    );
+}
+
+#[test]
 fn test_acceptance_criteria_drop_3_files_start_in_2_actions() {
     let mut state = AppState::new();
     assert_eq!(state.queue_state.jobs.len(), 0);

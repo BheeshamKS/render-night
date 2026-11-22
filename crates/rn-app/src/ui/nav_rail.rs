@@ -8,6 +8,14 @@ use blenderui::{ParentElement, Styled};
 use super::theme;
 use crate::state::{AppState, NavItem};
 
+#[derive(Debug, Clone, Copy)]
+enum NavIcon {
+    Queue,
+    History,
+    Tools,
+    Settings,
+}
+
 pub fn render_nav_rail(state: &AppState) -> blenderui::element::Div {
     let job_count = state.queue_state.jobs.len();
 
@@ -24,25 +32,25 @@ pub fn render_nav_rail(state: &AppState) -> blenderui::element::Div {
         .py(px(10.0))
         .gap(px(6.0))
         .child(render_nav_item(
-            "📋",
+            NavIcon::Queue,
             "Queue",
             Some(job_count),
             state.active_nav_item == NavItem::Queue,
         ))
         .child(render_nav_item(
-            "📜",
+            NavIcon::History,
             "History",
             None,
             state.active_nav_item == NavItem::History,
         ))
         .child(render_nav_item(
-            "🔧",
+            NavIcon::Tools,
             "Tools",
             None,
             state.active_nav_item == NavItem::Tools,
         ))
         .child(render_nav_item(
-            "⚙",
+            NavIcon::Settings,
             "Settings",
             None,
             state.active_nav_item == NavItem::Settings,
@@ -50,7 +58,7 @@ pub fn render_nav_rail(state: &AppState) -> blenderui::element::Div {
 }
 
 fn render_nav_item(
-    icon: &'static str,
+    icon: NavIcon,
     label: &'static str,
     badge: Option<usize>,
     is_active: bool,
@@ -70,6 +78,56 @@ fn render_nav_item(
     } else {
         theme::TEXT_MUTED
     };
+    let icon_col = if is_active {
+        theme::ACCENT_BLUE
+    } else {
+        theme::TEXT_SECONDARY
+    };
+
+    let icon_element = match icon {
+        NavIcon::Queue => div()
+            .w(px(18.0))
+            .h(px(14.0))
+            .flex()
+            .flex_col()
+            .justify_between()
+            .child(div().w_full().h(px(2.5)).bg(icon_col).rounded_sm())
+            .child(div().w_full().h(px(2.5)).bg(icon_col).rounded_sm())
+            .child(div().w(px(12.0)).h(px(2.5)).bg(icon_col).rounded_sm()),
+        NavIcon::History => div()
+            .size(px(15.0))
+            .rounded_full()
+            .border_2()
+            .border_color(icon_col)
+            .flex()
+            .items_center()
+            .justify_center()
+            .child(div().w(px(2.0)).h(px(5.0)).bg(icon_col)),
+        NavIcon::Tools => div()
+            .size(px(15.0))
+            .flex()
+            .flex_col()
+            .justify_center()
+            .gap(px(3.0))
+            .child(div().w_full().h(px(2.5)).bg(icon_col).rounded_sm())
+            .child(
+                div()
+                    .flex()
+                    .flex_row()
+                    .gap(px(3.0))
+                    .child(div().size(px(4.0)).rounded_full().bg(icon_col))
+                    .child(div().size(px(4.0)).rounded_full().bg(icon_col)),
+            ),
+        NavIcon::Settings => div()
+            .size(px(15.0))
+            .flex()
+            .flex_col()
+            .justify_between()
+            .py(px(1.0))
+            .child(div().w_full().h(px(2.0)).bg(icon_col).rounded_sm())
+            .child(div().w_full().h(px(2.0)).bg(icon_col).rounded_sm())
+            .child(div().w_full().h(px(2.0)).bg(icon_col).rounded_sm()),
+    };
 
     div()
         .w(px(66.0))
@@ -82,8 +140,8 @@ fn render_nav_item(
         .flex_col()
         .items_center()
         .justify_center()
-        .gap(px(2.0))
-        .child(span().text_base().child(icon))
+        .gap(px(4.0))
+        .child(icon_element)
         .child(
             div()
                 .flex()

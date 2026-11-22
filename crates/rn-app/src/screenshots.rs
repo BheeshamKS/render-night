@@ -6,6 +6,7 @@ use std::path::Path;
 use blenderui::geometry::{px, Bounds, Point, Size};
 use blenderui::window::{Application, WindowBounds, WindowOptions};
 
+use crate::init_fonts;
 use crate::state::{AppState, DockTab};
 use crate::ui::AppView;
 
@@ -16,6 +17,7 @@ pub fn capture_view(
     height: u32,
     output_path: &Path,
 ) -> (u32, u32, usize) {
+    init_fonts();
     let mut rendered_w = 0;
     let mut rendered_h = 0;
     let mut non_zero_pixels = 0;

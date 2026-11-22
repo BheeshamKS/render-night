@@ -50,6 +50,6 @@ pub fn render_bulk_bar(state: &AppState) -> blenderui::element::Div {
                 .child(Button().child("Res: 100%"))
                 .child(Button().child("Reset Overrides"))
                 .child(Button().child("Remove Selected"))
-                .child(Button().child("✕ Deselect")),
+                .child(Button().child("Deselect")),
         )
 }

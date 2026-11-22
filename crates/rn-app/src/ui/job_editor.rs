@@ -101,21 +101,15 @@ pub fn render_job_editor(job: &Job, _state: &AppState) -> blenderui::element::Di
                 .justify_between()
                 .px(px(12.0))
                 .child(
-                    div()
-                        .flex()
-                        .flex_row()
-                        .items_center()
-                        .gap(px(6.0))
-                        .child(span().text_sm().child("✎"))
-                        .child(
-                            span()
-                                .text_sm()
-                                .font_bold()
-                                .text_color(theme::TEXT_PRIMARY)
-                                .child("Job Settings"),
-                        ),
+                    div().flex().flex_row().items_center().gap(px(6.0)).child(
+                        span()
+                            .text_sm()
+                            .font_bold()
+                            .text_color(theme::TEXT_PRIMARY)
+                            .child("Job Settings"),
+                    ),
                 )
-                .child(Button().child("✕ Close")),
+                .child(Button().child("Close")),
         )
         // Scrollable settings body
         .child(
@@ -218,7 +212,7 @@ pub fn render_job_editor(job: &Job, _state: &AppState) -> blenderui::element::Di
                                                 span()
                                                     .text_xs()
                                                     .text_color(theme::CHANGES_TEXT)
-                                                    .child("• modified")
+                                                    .child("modified")
                                             } else {
                                                 span()
                                             },
@@ -303,10 +297,9 @@ pub fn render_job_editor(job: &Job, _state: &AppState) -> blenderui::element::Di
                             TextField().value(output_path),
                         )),
                 )
-                // SECTION 2: ALL SETTINGS (SCHEMA-DRIVEN RNA METADATA)
+                // SECTION 2: ALL SETTINGS (SCHEMA-DRIVEN RNA METADATA - COLLAPSED)
                 .child(
                     details()
-                        .open(true)
                         .child(
                             summary()
                                 .text_xs()
@@ -359,12 +352,12 @@ fn render_setting_row(
                             span()
                                 .text_xs()
                                 .text_color(theme::CHANGES_TEXT)
-                                .child("• modified")
+                                .child("modified")
                         } else {
                             span()
                         })
                         .child(if is_modified {
-                            Button().child("↺")
+                            Button().child("Reset")
                         } else {
                             div()
                         }),

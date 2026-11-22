@@ -101,14 +101,17 @@ pub fn render_job_row(job: &Job, state: &AppState) -> blenderui::element::Div {
                                 .flex_1()
                                 .min_w(px(0.0))
                                 .child(Checkbox().checked(is_selected))
-                                .child(
-                                    span()
+                                .child({
+                                    let mut s = span()
                                         .text_sm()
                                         .font_semibold()
                                         .text_color(theme::TEXT_PRIMARY)
-                                        .truncate()
-                                        .child(job.name.clone()),
-                                ),
+                                        .truncate();
+                                    if job.name.chars().any(|c| (c as u32) > 0x0590) {
+                                        s = s.font_family("dejavu");
+                                    }
+                                    s.child(job.name.clone())
+                                }),
                         )
                         // Right group: Status chip + Device badge + Badges + Actions
                         .child(
@@ -155,7 +158,7 @@ pub fn render_job_row(job: &Job, state: &AppState) -> blenderui::element::Div {
                                         .border_color(theme::WARNING_BORDER)
                                         .text_color(theme::WARNING_TEXT)
                                         .child(format!(
-                                            "⚠️ {} warning{}",
+                                            "! {} warning{}",
                                             warning_count,
                                             if warning_count > 1 { "s" } else { "" }
                                         ))
@@ -174,17 +177,13 @@ pub fn render_job_row(job: &Job, state: &AppState) -> blenderui::element::Div {
                                         .border_1()
                                         .border_color(theme::CHANGES_BORDER)
                                         .text_color(theme::CHANGES_TEXT)
-                                        .child(format!(
-                                            "⚡ {} change{}",
-                                            change_count,
-                                            if change_count > 1 { "s" } else { "" }
-                                        ))
+                                        .child(format!("{} modified", change_count,))
                                 } else {
                                     span()
                                 })
                                 // Quick action buttons
-                                .child(Button().child("✎ Edit"))
-                                .child(Button().child("✕")),
+                                .child(Button().child("Edit"))
+                                .child(Button().child("×")),
                         ),
                 )
                 // Line 2: Effective-settings summary
@@ -203,13 +202,16 @@ pub fn render_job_row(job: &Job, state: &AppState) -> blenderui::element::Div {
             div().w_full().h(px(4.0)).bg(theme::BG_INPUT).child(
                 div()
                     .h_full()
-                    .w(px(((job.progress.clamp(0.0, 1.0) * 100.0) as f32).max(
-                        if job.status == JobStatus::Active {
-                            4.0
-                        } else {
-                            0.0
-                        },
-                    )))
+                    .style(format!(
+                        "width: {:.1}%;",
+                        (job.progress.clamp(0.0, 1.0) * 100.0).max(
+                            if job.status == JobStatus::Active {
+                                2.0
+                            } else {
+                                0.0
+                            }
+                        )
+                    ))
                     .bg(if job.status == JobStatus::Failed {
                         theme::ACCENT_RED
                     } else if job.status == JobStatus::Active {

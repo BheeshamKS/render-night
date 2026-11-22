@@ -80,14 +80,14 @@ pub fn render_toolbar(state: &AppState) -> blenderui::element::Div {
                         .items_center()
                         .gap(px(4.0))
                         .child(if is_running {
-                            Button().child("⏸ Pause")
+                            Button().child("|| Pause")
                         } else if is_paused {
                             Button().child("▶ Resume")
                         } else {
                             Button().child("▶ Start Queue")
                         })
                         .child(if is_running || is_paused {
-                            Button().child("⏹ Stop")
+                            Button().child("Stop")
                         } else {
                             div()
                         }),
@@ -169,11 +169,11 @@ pub fn render_toolbar(state: &AppState) -> blenderui::element::Div {
                                 .text_xs()
                                 .font_medium()
                                 .text_color(theme::WARNING_TEXT)
-                                .child(format!("⚠️ {} warnings", warning_count)),
+                                .child(format!("! {} warnings", warning_count)),
                         )
                 } else {
                     div()
                 })
-                .child(Button().child("⋮")),
+                .child(Button().child("...")),
         )
 }
