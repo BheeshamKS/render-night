@@ -2646,6 +2646,7 @@ dependencies = [
  "clap",
  "directories",
  "libc",
+ "rn-app",
  "rn-core",
  "serde",
  "serde_json",

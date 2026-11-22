@@ -1,0 +1,54 @@
+name: E2E Real Blender
+
+on:
+  push:
+    branches: [main, "fix/**"]
+    paths:
+      - "crates/rn-cli/tests/real_blender_e2e_test.rs"
+      - "crates/rn-core/src/blender/**"
+      - "resources/python/**"
+      - "tools/make-test-blend.py"
+      - ".github/workflows/e2e-real-blender.yml"
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  real-blender-e2e:
+    name: Real Blender E2E Tests (Ubuntu)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Linux Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libgl1-mesa-dev libxext-dev libxcursor-dev \
+            libxinerama-dev libxi-dev libxrandr-dev libasound2-dev libdbus-1-dev pkg-config cmake ninja-build xvfb
+
+      - name: Install Blender 4.2 LTS
+        run: |
+          sudo mkdir -p /opt/blender
+          curl -fL https://download.blender.org/release/Blender4.2/blender-4.2.3-linux-x64.tar.xz | sudo tar -xJ --strip-components=1 -C /opt/blender
+          sudo ln -s /opt/blender/blender /usr/local/bin/blender
+          blender --version
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run Real Blender E2E Suite
+        run: |
+          xvfb-run --auto-servernum cargo test -p rn-cli --test real_blender_e2e_test -- --nocapture

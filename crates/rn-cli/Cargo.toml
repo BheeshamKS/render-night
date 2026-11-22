@@ -29,4 +29,5 @@ directories = { workspace = true }
 libc = { workspace = true }
 
 [dev-dependencies]
+rn-app = { path = "../rn-app" }
 libc = { workspace = true }
