@@ -5,6 +5,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -17,7 +18,7 @@ pub enum ProxyStatus {
 
 #[derive(Debug, Clone)]
 pub struct ProxyManager {
-    pub status: ProxyStatus,
+    status: Arc<Mutex<ProxyStatus>>,
     high_drop_start: Option<Instant>,
 }
 
@@ -30,8 +31,25 @@ impl Default for ProxyManager {
 impl ProxyManager {
     pub fn new() -> Self {
         Self {
-            status: ProxyStatus::Inactive,
+            status: Arc::new(Mutex::new(ProxyStatus::Inactive)),
             high_drop_start: None,
+        }
+    }
+
+    pub fn status(&self) -> ProxyStatus {
+        self.status
+            .lock()
+            .map(|s| s.clone())
+            .unwrap_or(ProxyStatus::Inactive)
+    }
+
+    pub fn is_ready(&self) -> bool {
+        matches!(self.status(), ProxyStatus::Ready(_))
+    }
+
+    pub fn set_status(&self, new_status: ProxyStatus) {
+        if let Ok(mut lock) = self.status.lock() {
+            *lock = new_status;
         }
     }
 
@@ -44,7 +62,10 @@ impl ProxyManager {
         drop_rate_pct: f64,
         is_heavy_exr_or_hdr: bool,
     ) -> bool {
-        if matches!(self.status, ProxyStatus::Ready(_) | ProxyStatus::Generating) {
+        if matches!(
+            self.status(),
+            ProxyStatus::Ready(_) | ProxyStatus::Generating
+        ) {
             return false;
         }
 
@@ -86,6 +107,16 @@ impl ProxyManager {
         fps: f64,
         output_file: &Path,
     ) -> Vec<String> {
+        let pattern_converted = if input_pattern.contains("#####") {
+            input_pattern.replace("#####", "%05d")
+        } else if input_pattern.contains("####") {
+            input_pattern.replace("####", "%04d")
+        } else if input_pattern.contains("###") {
+            input_pattern.replace("###", "%03d")
+        } else {
+            input_pattern.to_string()
+        };
+
         vec![
             "-y".to_string(),
             "-framerate".to_string(),
@@ -93,7 +124,7 @@ impl ProxyManager {
             "-start_number".to_string(),
             start_frame.to_string(),
             "-i".to_string(),
-            input_pattern.to_string(),
+            pattern_converted,
             "-c:v".to_string(),
             "libx264".to_string(),
             "-g".to_string(),
@@ -116,8 +147,9 @@ impl ProxyManager {
         fps: f64,
         output_file: &Path,
     ) -> Result<(), String> {
-        self.status = ProxyStatus::Generating;
+        self.set_status(ProxyStatus::Generating);
 
+        let status_arc = Arc::clone(&self.status);
         let args = Self::build_ffmpeg_args(input_pattern, start_frame, fps, output_file);
         let out_path = output_file.to_path_buf();
 
@@ -128,12 +160,23 @@ impl ProxyManager {
                 match status {
                     Ok(s) if s.success() => {
                         tracing::info!("Proxy generation succeeded: {}", out_path.display());
+                        if let Ok(mut lock) = status_arc.lock() {
+                            *lock = ProxyStatus::Ready(out_path);
+                        }
                     }
                     Ok(s) => {
-                        tracing::warn!("ffmpeg proxy returned non-zero exit: {:?}", s.code());
+                        let msg = format!("ffmpeg proxy returned non-zero exit: {:?}", s.code());
+                        tracing::warn!("{}", msg);
+                        if let Ok(mut lock) = status_arc.lock() {
+                            *lock = ProxyStatus::Failed(msg);
+                        }
                     }
                     Err(e) => {
-                        tracing::warn!("Failed to execute ffmpeg for proxy: {}", e);
+                        let msg = format!("Failed to execute ffmpeg for proxy: {}", e);
+                        tracing::warn!("{}", msg);
+                        if let Ok(mut lock) = status_arc.lock() {
+                            *lock = ProxyStatus::Failed(msg);
+                        }
                     }
                 }
             })

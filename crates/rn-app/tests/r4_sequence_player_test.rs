@@ -1,7 +1,7 @@
 // Render Night - Phase R4 Sequence Player Verification Suite
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use rn_app::player::clock::{LoopMode, PlaybackClock, PlaybackMode};
@@ -284,4 +284,118 @@ fn test_benchmarks_zero_dropped_frames_and_sub_100ms_scrub() {
     assert_eq!(stats.drop_rate_pct, 0.0);
     assert!(stats.cached_count > 0);
     assert!(stats.ram_usage_mb > 0.0);
+}
+
+#[test]
+fn test_clock_loop_wrap_does_not_drop_frames() {
+    let mut clock = PlaybackClock::new(1, 10, 24.0);
+    clock.seek(10);
+    clock.play();
+
+    let t0 = Instant::now();
+
+    // After 50ms at 24fps = 1.2 frames -> frame advances from 10 to 1
+    let (f, changed) = clock.update(t0 + Duration::from_millis(50), true);
+    assert!(changed);
+    assert_eq!(f, 1, "Frame 10 must wrap seamlessly to frame 1");
+    assert_eq!(
+        clock.dropped_frames, 0,
+        "Seamless loop wrap must NOT increment dropped_frames"
+    );
+
+    // After 170ms at 24fps = 4.08 frames -> advances from 1 to 4 (skipping frames 2 and 3)
+    let (f2, _) = clock.update(t0 + Duration::from_millis(170), true);
+    assert_eq!(f2, 4);
+    assert_eq!(
+        clock.dropped_frames, 2,
+        "Skipping frames 2 and 3 must increment dropped_frames by exactly 2"
+    );
+
+    // Test reverse loop wrap (25ms at 24fps = 0.6 frames backward -> wraps from frame 1 to frame 10)
+    let mut rev_clock = PlaybackClock::new(1, 10, 24.0);
+    rev_clock.seek(1);
+    rev_clock.set_shuttle(-1);
+    rev_clock.play();
+
+    let (rf, r_changed) = rev_clock.update(t0 + Duration::from_millis(25), true);
+    assert!(r_changed);
+    assert_eq!(
+        rf, 10,
+        "Frame 1 must wrap seamlessly to frame 10 in reverse"
+    );
+    assert_eq!(
+        rev_clock.dropped_frames, 0,
+        "Reverse loop wrap must NOT increment dropped_frames"
+    );
+}
+
+#[test]
+fn test_ring_buffer_loop_wrap_read_ahead() {
+    let mut ring = ReadAheadRingBuffer::new(ReadAheadConfig {
+        read_ahead_seconds: 0.5, // 12 frames at 24fps
+        max_in_flight: 8,
+    });
+
+    // Playing near the end of a 1..100 sequence at frame 96
+    ring.update_priority(96, 1, 100, 24.0, true, true, &[]);
+
+    // Must queue: [96 (if not cached), 97, 98, 99, 100, 1, 2, 3, ...]
+    let mut queued = Vec::new();
+    while let Some(f) = ring.pop_next_to_decode() {
+        queued.push(f);
+    }
+
+    assert!(queued.contains(&97));
+    assert!(queued.contains(&100));
+    assert!(
+        queued.contains(&1),
+        "Ring buffer must wrap around into frame 1 for seamless looping"
+    );
+    assert!(
+        queued.contains(&2),
+        "Ring buffer must read ahead into frame 2 across loop boundary"
+    );
+}
+
+#[test]
+fn test_proxy_ffmpeg_hashes_and_thread_safe_status() {
+    // Verify #### is converted to %04d for ffmpeg
+    let args = ProxyManager::build_ffmpeg_args(
+        "/renders/shot/frame_####.exr",
+        1,
+        24.0,
+        Path::new("/renders/proxy.mp4"),
+    );
+    let input_idx = args
+        .iter()
+        .position(|a| a == "-i")
+        .expect("-i flag missing");
+    assert_eq!(args[input_idx + 1], "/renders/shot/frame_%04d.exr");
+
+    // Verify ##### is converted to %05d
+    let args5 = ProxyManager::build_ffmpeg_args(
+        "/renders/shot/f_#####.png",
+        1,
+        24.0,
+        Path::new("/renders/proxy.mp4"),
+    );
+    let input_idx5 = args5
+        .iter()
+        .position(|a| a == "-i")
+        .expect("-i flag missing");
+    assert_eq!(args5[input_idx5 + 1], "/renders/shot/f_%05d.png");
+
+    // Verify ProxyManager thread-safe status
+    let proxy = ProxyManager::new();
+    assert_eq!(proxy.status(), rn_app::player::proxy::ProxyStatus::Inactive);
+    assert!(!proxy.is_ready());
+
+    proxy.set_status(rn_app::player::proxy::ProxyStatus::Ready(PathBuf::from(
+        "/renders/proxy.mp4",
+    )));
+    assert!(proxy.is_ready());
+    assert_eq!(
+        proxy.status(),
+        rn_app::player::proxy::ProxyStatus::Ready(PathBuf::from("/renders/proxy.mp4"))
+    );
 }

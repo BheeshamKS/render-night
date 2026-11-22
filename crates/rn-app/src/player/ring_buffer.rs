@@ -66,16 +66,26 @@ impl ReadAheadRingBuffer {
 
         let frame_count = (self.config.read_ahead_seconds * fps).ceil().max(24.0) as i32;
         let mut new_targets = Vec::new();
+        let range_len = (end_frame - start_frame + 1).max(1);
+
+        // If current playhead frame is not cached or in flight, prioritize it immediately
+        if current_frame >= start_frame
+            && current_frame <= end_frame
+            && !cached_frames.contains(&current_frame)
+            && !self.in_flight.contains(&current_frame)
+        {
+            new_targets.push(current_frame);
+        }
 
         if is_playing {
-            // Forward or reverse linear read-ahead
+            // Forward or reverse linear read-ahead with seamless loop wrap
             let step = if is_forward { 1 } else { -1 };
             for i in 1..=frame_count {
-                let target = current_frame + i * step;
-                if target >= start_frame
-                    && target <= end_frame
-                    && !cached_frames.contains(&target)
+                let raw_target = current_frame + i * step;
+                let target = (raw_target - start_frame).rem_euclid(range_len) + start_frame;
+                if !cached_frames.contains(&target)
                     && !self.in_flight.contains(&target)
+                    && !new_targets.contains(&target)
                 {
                     new_targets.push(target);
                 }

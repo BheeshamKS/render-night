@@ -2,7 +2,9 @@
 set -euo pipefail
 
 VERSION="${1:-0.1.0}"
-APP_DIR="target/appimage/RenderNight.AppDir"
+ROOT_DIR="$(pwd)"
+APP_DIR="${ROOT_DIR}/target/appimage/RenderNight.AppDir"
+OUT_IMG="${ROOT_DIR}/target/release/Render-Night-${VERSION}-x86_64.AppImage"
 
 rm -rf "${APP_DIR}"
 mkdir -p "${APP_DIR}/usr/bin"
@@ -36,10 +38,10 @@ chmod 755 "${APP_DIR}/AppRun"
 
 # Download appimagetool if not present
 if ! command -v appimagetool >/dev/null 2>&1; then
-    if [ ! -f "target/appimage/appimagetool" ]; then
+    if [ ! -f "target/appimage/appimagetool" ] || [ ! -s "target/appimage/appimagetool" ] || grep -q "Not Found" "target/appimage/appimagetool" 2>/dev/null; then
         mkdir -p target/appimage
-        curl -sLo target/appimage/appimagetool https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage || true
-        chmod +x target/appimage/appimagetool || true
+        curl -sLo target/appimage/appimagetool https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+        chmod +x target/appimage/appimagetool
     fi
     APPIMAGETOOL="target/appimage/appimagetool"
 else
@@ -47,6 +49,6 @@ else
 fi
 
 if [ -x "${APPIMAGETOOL}" ]; then
-    ARCH=x86_64 "${APPIMAGETOOL}" "${APP_DIR}" "target/release/Render-Night-${VERSION}-x86_64.AppImage" || true
-    echo "AppImage packaging complete."
+    ARCH=x86_64 "${APPIMAGETOOL}" --appimage-extract-and-run "${APP_DIR}" "${OUT_IMG}"
+    echo "AppImage packaging complete: ${OUT_IMG}"
 fi

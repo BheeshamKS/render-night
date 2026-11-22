@@ -35,6 +35,7 @@ pub struct PlaybackClock {
     anchor_frame: f64,
     pub dropped_frames: u64,
     pub total_presented_frames: u64,
+    pub playback_start_frames: u64,
     pub last_frame_time: Instant,
     is_ping_pong_reverse: bool,
 }
@@ -58,6 +59,7 @@ impl PlaybackClock {
             anchor_frame: start_frame as f64,
             dropped_frames: 0,
             total_presented_frames: 0,
+            playback_start_frames: 0,
             last_frame_time: now,
             is_ping_pong_reverse: false,
         }
@@ -76,6 +78,7 @@ impl PlaybackClock {
             self.is_playing = true;
             self.t0 = Instant::now();
             self.anchor_frame = self.current_frame as f64;
+            self.playback_start_frames = self.total_presented_frames;
             self.last_frame_time = self.t0;
         }
     }
@@ -166,7 +169,33 @@ impl PlaybackClock {
                 let frame_changed = next_frame != self.current_frame;
 
                 if frame_changed {
-                    let skipped = (next_frame - self.current_frame).abs() - 1;
+                    let skipped = if self.loop_mode == LoopMode::Loop {
+                        if effective_speed >= 0.0 {
+                            let delta =
+                                (next_frame - self.current_frame).rem_euclid(range_len as i32);
+                            if delta > 1 {
+                                delta - 1
+                            } else {
+                                0
+                            }
+                        } else {
+                            let delta =
+                                (self.current_frame - next_frame).rem_euclid(range_len as i32);
+                            if delta > 1 {
+                                delta - 1
+                            } else {
+                                0
+                            }
+                        }
+                    } else {
+                        let delta = (next_frame - self.current_frame).abs();
+                        if delta > 1 {
+                            delta - 1
+                        } else {
+                            0
+                        }
+                    };
+
                     if skipped > 0 {
                         self.dropped_frames += skipped as u64;
                     }
@@ -264,8 +293,11 @@ impl PlaybackClock {
 
     pub fn measured_fps(&self) -> f64 {
         let elapsed = (Instant::now() - self.t0).as_secs_f64();
-        if elapsed > 0.05 && self.total_presented_frames > 0 {
-            self.total_presented_frames as f64 / elapsed
+        let presented_since_t0 = self
+            .total_presented_frames
+            .saturating_sub(self.playback_start_frames);
+        if elapsed > 0.05 && presented_since_t0 > 0 {
+            presented_since_t0 as f64 / elapsed
         } else {
             self.fps * self.speed_multiplier * (self.shuttle_speed as f64).abs()
         }

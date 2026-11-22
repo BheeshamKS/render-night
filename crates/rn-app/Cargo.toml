@@ -31,3 +31,4 @@ directories = { workspace = true }
 exr = "1.7"
 zune-jpeg = "0.4"
 notify = { workspace = true }
+libc = { workspace = true }

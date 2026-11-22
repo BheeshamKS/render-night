@@ -81,17 +81,30 @@ impl FrameDecoder {
                 let info = decoder.info().ok_or("Failed to get JPEG info")?;
                 let width = info.width as u32;
                 let height = info.height as u32;
+                let expected_rgb_len = (width * height * 3) as usize;
+                let expected_gray_len = (width * height) as usize;
 
-                // Convert RGB to RGBA
                 let mut rgba = Vec::with_capacity((width * height * 4) as usize);
-                #[allow(clippy::chunks_exact_to_as_chunks)]
-                for chunk in pixels.chunks_exact(3) {
-                    rgba.push(chunk[0]);
-                    rgba.push(chunk[1]);
-                    rgba.push(chunk[2]);
-                    rgba.push(255);
+                if pixels.len() == expected_rgb_len {
+                    #[allow(clippy::chunks_exact_to_as_chunks)]
+                    for chunk in pixels.chunks_exact(3) {
+                        rgba.push(chunk[0]);
+                        rgba.push(chunk[1]);
+                        rgba.push(chunk[2]);
+                        rgba.push(255);
+                    }
+                    Ok((width, height, rgba))
+                } else if pixels.len() == expected_gray_len {
+                    for &gray in &pixels {
+                        rgba.push(gray);
+                        rgba.push(gray);
+                        rgba.push(gray);
+                        rgba.push(255);
+                    }
+                    Ok((width, height, rgba))
+                } else {
+                    Self::decode_generic(path)
                 }
-                Ok((width, height, rgba))
             }
             Err(_) => Self::decode_generic(path),
         }
@@ -116,11 +129,27 @@ impl FrameDecoder {
 
         let mut rgba = Vec::with_capacity((width * height * 4) as usize);
         for pixel in image.layer_data.channel_data.pixels {
-            // sRGB tone map & clamp HDR float values into 8-bit RGBA
-            let r = (pixel[0].clamp(0.0, 1.0).powf(1.0 / 2.2) * 255.0) as u8;
-            let g = (pixel[1].clamp(0.0, 1.0).powf(1.0 / 2.2) * 255.0) as u8;
-            let b = (pixel[2].clamp(0.0, 1.0).powf(1.0 / 2.2) * 255.0) as u8;
-            let a = (pixel[3].clamp(0.0, 1.0) * 255.0) as u8;
+            // sRGB tone map & clamp HDR float values into 8-bit RGBA (NaN-safe)
+            let r = if pixel[0].is_nan() {
+                0
+            } else {
+                (pixel[0].clamp(0.0, 1.0).powf(1.0 / 2.2) * 255.0) as u8
+            };
+            let g = if pixel[1].is_nan() {
+                0
+            } else {
+                (pixel[1].clamp(0.0, 1.0).powf(1.0 / 2.2) * 255.0) as u8
+            };
+            let b = if pixel[2].is_nan() {
+                0
+            } else {
+                (pixel[2].clamp(0.0, 1.0).powf(1.0 / 2.2) * 255.0) as u8
+            };
+            let a = if pixel[3].is_nan() {
+                255
+            } else {
+                (pixel[3].clamp(0.0, 1.0) * 255.0) as u8
+            };
             rgba.push(r);
             rgba.push(g);
             rgba.push(b);

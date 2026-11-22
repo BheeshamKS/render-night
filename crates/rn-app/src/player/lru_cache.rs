@@ -64,8 +64,20 @@ impl FrameCache {
     }
 
     pub fn default_budget() -> usize {
-        // Default 4 GB RAM budget
-        4 * 1024 * 1024 * 1024
+        let min_budget = 4 * 1024 * 1024 * 1024; // 4 GB minimum
+
+        #[cfg(unix)]
+        unsafe {
+            let pages = libc::sysconf(libc::_SC_PHYS_PAGES);
+            let page_size = libc::sysconf(libc::_SC_PAGESIZE);
+            if pages > 0 && page_size > 0 {
+                let total_bytes = (pages as usize).saturating_mul(page_size as usize);
+                let forty_pct = (total_bytes / 10).saturating_mul(4);
+                return forty_pct.max(min_budget);
+            }
+        }
+
+        min_budget
     }
 
     pub fn contains(&self, frame: i32) -> bool {

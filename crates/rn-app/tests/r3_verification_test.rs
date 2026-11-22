@@ -270,3 +270,44 @@ fn test_full_headless_screenshots_audit() {
         );
     }
 }
+
+#[test]
+fn test_native_dialogs_and_reveal_and_confirm_quit_persistence() {
+    let mut state = AppState::new();
+    state.load_acceptance_scenario();
+
+    // 1. Test add_blend_files
+    let p = std::env::temp_dir().join("shot_99.blend");
+    std::fs::write(&p, b"BLENDER_V402").ok();
+    let initial_count = state.queue_state.jobs.len();
+    state.add_blend_files(vec![p.clone()]);
+    assert_eq!(state.queue_state.jobs.len(), initial_count + 1);
+    assert_eq!(state.queue_state.jobs.last().unwrap().name, "shot_99.blend");
+
+    // 2. Test add_custom_blender_path
+    let blender_exe = std::env::temp_dir().join("blender_custom");
+    std::fs::write(&blender_exe, b"").ok();
+    state.add_custom_blender_path(blender_exe.clone());
+    assert!(state.custom_blender_paths.contains(&blender_exe));
+    assert!(state
+        .discovered_blenders
+        .iter()
+        .any(|b| b.display_path == blender_exe.to_string_lossy()));
+
+    // 3. Test reveal_in_file_manager (non-blocking call runs without panic)
+    state.reveal_in_file_manager(&p.to_string_lossy());
+
+    // 4. Test confirm_quit persists queue state to disk
+    state.active_modal = Some(ModalState::ConfirmQuit);
+    state.confirm_quit();
+    assert_eq!(state.active_modal, None);
+
+    let app_dir = directories::ProjectDirs::from("com", "rendernight", "Render-Night")
+        .map(|dirs| dirs.data_local_dir().to_path_buf())
+        .unwrap_or_else(|| std::env::temp_dir().join("render_night"));
+    let saved_queue = app_dir.join("queue-state.json");
+    assert!(
+        saved_queue.exists(),
+        "Queue state must be persisted upon confirm_quit"
+    );
+}

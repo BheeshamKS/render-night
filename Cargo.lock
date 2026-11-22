@@ -2627,6 +2627,7 @@ dependencies = [
  "directories",
  "exr",
  "image",
+ "libc",
  "notify",
  "rfd",
  "rn-core",

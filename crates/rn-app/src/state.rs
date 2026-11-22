@@ -822,10 +822,137 @@ impl AppState {
         }
     }
 
+    /// Reveal a file or directory in the host OS file manager non-blockingly
+    pub fn reveal_in_file_manager(&self, path: &str) {
+        let p = std::path::Path::new(path);
+        let resolved = if p.is_file() {
+            p.parent().unwrap_or(p)
+        } else {
+            p
+        };
+
+        let target = resolved.to_path_buf();
+        std::thread::Builder::new()
+            .name("rn-reveal-file-manager".to_string())
+            .spawn(move || {
+                #[cfg(target_os = "windows")]
+                {
+                    let _ = std::process::Command::new("explorer.exe")
+                        .arg(&target)
+                        .spawn();
+                }
+                #[cfg(target_os = "macos")]
+                {
+                    let _ = std::process::Command::new("open")
+                        .arg("-R")
+                        .arg(&target)
+                        .spawn();
+                }
+                #[cfg(all(unix, not(target_os = "macos")))]
+                {
+                    let _ = std::process::Command::new("xdg-open").arg(&target).spawn();
+                }
+            })
+            .ok();
+    }
+
+    /// Prompt user to add .blend files via native non-blocking rfd dialog
+    pub fn prompt_add_blend_files(&mut self) {
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::Builder::new()
+            .name("rn-native-dialog".to_string())
+            .spawn(move || {
+                let files = rfd::FileDialog::new()
+                    .add_filter("Blender File", &["blend"])
+                    .pick_files();
+                let _ = tx.send(files);
+            })
+            .ok();
+
+        if let Ok(Some(files)) = rx.try_recv() {
+            self.add_blend_files(files);
+        } else {
+            self.add_toast("Add .blend file picker opened", None);
+        }
+    }
+
+    /// Add multiple .blend files to queue
+    pub fn add_blend_files(&mut self, paths: Vec<PathBuf>) {
+        let count = paths.len();
+        let default_device = self.compute_device_preference.clone();
+        for p in paths {
+            let file_name = p
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("untitled.blend")
+                .to_string();
+            let p_str = p.to_string_lossy().to_string();
+            self.add_job(&file_name, &p_str, 1, 250, &default_device, "CYCLES", None);
+        }
+        if count > 0 {
+            self.add_toast(&format!("Added {} .blend file(s) to queue", count), None);
+        }
+    }
+
+    /// Prompt user to locate a Blender executable via native non-blocking rfd dialog
+    pub fn prompt_locate_blender(&mut self) {
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::Builder::new()
+            .name("rn-locate-blender".to_string())
+            .spawn(move || {
+                #[cfg(target_os = "windows")]
+                let dialog = rfd::FileDialog::new().add_filter("Blender Executable", &["exe"]);
+                #[cfg(not(target_os = "windows"))]
+                let dialog = rfd::FileDialog::new();
+
+                let picked = dialog.pick_file();
+                let _ = tx.send(picked);
+            })
+            .ok();
+
+        if let Ok(Some(exe_path)) = rx.try_recv() {
+            self.add_custom_blender_path(exe_path);
+        } else {
+            self.add_toast("Locate Blender executable picker opened", None);
+        }
+    }
+
+    /// Add a custom Blender executable path
+    pub fn add_custom_blender_path(&mut self, exe_path: PathBuf) {
+        if !self.custom_blender_paths.contains(&exe_path) {
+            let display = exe_path.to_string_lossy().to_string();
+            self.custom_blender_paths.push(exe_path.clone());
+            let install = BlenderInstallation {
+                id: format!("blender-custom-{}", self.discovered_blenders.len() + 1),
+                executable: vec![display.clone()],
+                display_path: display.clone(),
+                version: "Custom".to_string(),
+                major: 4,
+                minor: 0,
+                patch: 0,
+                is_portable: true,
+                source: rn_core::blender::discovery::BlenderSource::Custom,
+            };
+            self.discovered_blenders.push(install);
+            self.add_toast(&format!("Registered Blender: {}", display), None);
+        }
+    }
+
+    /// Persist current queue state to disk
+    pub fn persist_queue(&self) -> std::io::Result<()> {
+        let app_dir = directories::ProjectDirs::from("com", "rendernight", "Render-Night")
+            .map(|dirs| dirs.data_local_dir().to_path_buf())
+            .unwrap_or_else(|| std::env::temp_dir().join("render_night"));
+        std::fs::create_dir_all(&app_dir)?;
+        let persistence = rn_core::persistence::QueuePersistence::new(&app_dir);
+        persistence.save_state(&self.queue_state)
+    }
+
     /// Confirm quit logic: cancels active worker, disarms post-actions, persists queue state
     pub fn confirm_quit(&mut self) {
         self.stop_queue();
         self.when_finished = PostAction::None;
+        let _ = self.persist_queue();
         self.active_modal = None;
     }
 
@@ -907,7 +1034,7 @@ impl AppState {
         if ctrl {
             match key {
                 "o" | "O" => {
-                    self.add_toast("Add .blend shortcut triggered", None);
+                    self.prompt_add_blend_files();
                 }
                 "Enter" => {
                     if self.queue_status == QueueStatus::Running {
