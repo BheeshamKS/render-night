@@ -27,6 +27,38 @@ pub fn resolve_inspect_script_path(resources_path: Option<&Path>) -> PathBuf {
         }
     }
 
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(parent) = exe.parent() {
+            let candidates = [
+                parent.join("resources/python/inspect_blend.py"),
+                parent.join("../share/render-night/python/inspect_blend.py"),
+                parent.join("../resources/python/inspect_blend.py"),
+            ];
+            for c in &candidates {
+                if c.exists() {
+                    return c.clone();
+                }
+            }
+        }
+    }
+
+    if let Ok(home) = std::env::var("HOME") {
+        let p = PathBuf::from(home).join(".local/share/render-night/python/inspect_blend.py");
+        if p.exists() {
+            return p;
+        }
+    }
+
+    let sys_candidates = [
+        PathBuf::from("/usr/share/render-night/python/inspect_blend.py"),
+        PathBuf::from("/usr/local/share/render-night/python/inspect_blend.py"),
+    ];
+    for c in &sys_candidates {
+        if c.exists() {
+            return c.clone();
+        }
+    }
+
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let candidates = [
         manifest_dir.join("../../resources/python/inspect_blend.py"),
