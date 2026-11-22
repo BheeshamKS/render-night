@@ -7,8 +7,10 @@ use blenderui::geometry::{px, Bounds, Point, Size};
 use blenderui::window::{Application, WindowBounds, WindowOptions};
 
 use crate::init_fonts;
-use crate::state::{AppState, DockTab};
+use crate::state::{AppState, DockTab, ModalState, NavItem};
 use crate::ui::AppView;
+use rn_core::overrides::compatibility::SkippedOverride;
+use rn_core::schemas::queue_state::PostAction;
 
 /// Capture a headless screenshot of AppView at a specific viewport resolution
 pub fn capture_view(
@@ -125,6 +127,101 @@ pub fn run_full_audit_suite(output_dir: &Path) -> Vec<(String, u32, u32, usize)>
     let path_bulk = output_dir.join("05_multi_select_bulk_bar_1280x800.png");
     let (w, h, p) = capture_view(&state_bulk, 1280, 800, &path_bulk);
     results.push(("05_multi_select_bulk_bar_1280x800".to_string(), w, h, p));
+
+    // 6. History View at 1280x800 (Search, status filters, re-add, reveal)
+    let mut state_history = AppState::new();
+    state_history.load_acceptance_scenario();
+    state_history.active_nav_item = NavItem::History;
+    let path_history = output_dir.join("06_history_view_1280x800.png");
+    let (w, h, p) = capture_view(&state_history, 1280, 800, &path_history);
+    results.push(("06_history_view_1280x800".to_string(), w, h, p));
+
+    // 7. Settings View at 1280x800 (Blender, Rendering, Performance, Sound, Power, Preflight)
+    let mut state_settings = AppState::new();
+    state_settings.load_acceptance_scenario();
+    state_settings.active_nav_item = NavItem::Settings;
+    let path_settings = output_dir.join("07_settings_view_1280x800.png");
+    let (w, h, p) = capture_view(&state_settings, 1280, 800, &path_settings);
+    results.push(("07_settings_view_1280x800".to_string(), w, h, p));
+
+    // 8. Tools Tab Shell at 1100x700 (Sequence Player, Presets Manager, Format Converter)
+    let mut state_tools = AppState::new();
+    state_tools.load_acceptance_scenario();
+    state_tools.active_nav_item = NavItem::Tools;
+    let path_tools = output_dir.join("08_tools_tab_shell_1100x700.png");
+    let (w, h, p) = capture_view(&state_tools, 1100, 700, &path_tools);
+    results.push(("08_tools_tab_shell_1100x700".to_string(), w, h, p));
+
+    // 9. Resume-after-crash Modal Dialog at 1280x800
+    let mut state_resume = AppState::new();
+    state_resume.load_acceptance_scenario();
+    state_resume.active_modal = Some(ModalState::ResumeAfterCrash {
+        job_id: "job_1_1".to_string(),
+        job_name: "archviz_living_room_cycles.blend".to_string(),
+        last_frame: 114,
+    });
+    let path_resume = output_dir.join("09_resume_after_crash_modal_1280x800.png");
+    let (w, h, p) = capture_view(&state_resume, 1280, 800, &path_resume);
+    results.push(("09_resume_after_crash_modal_1280x800".to_string(), w, h, p));
+
+    // 10. 60-Second Shutdown Countdown Modal at 1280x800
+    let mut state_shutdown = AppState::new();
+    state_shutdown.load_acceptance_scenario();
+    state_shutdown.active_modal = Some(ModalState::ShutdownCountdown {
+        seconds_remaining: 54,
+        action: PostAction::Shutdown,
+    });
+    let path_shutdown = output_dir.join("10_shutdown_countdown_modal_1280x800.png");
+    let (w, h, p) = capture_view(&state_shutdown, 1280, 800, &path_shutdown);
+    results.push(("10_shutdown_countdown_modal_1280x800".to_string(), w, h, p));
+
+    // 11. Confirm-Quit Modal Dialog at 1100x700
+    let mut state_quit = AppState::new();
+    state_quit.load_acceptance_scenario();
+    state_quit.active_modal = Some(ModalState::ConfirmQuit);
+    let path_quit = output_dir.join("11_confirm_quit_modal_1100x700.png");
+    let (w, h, p) = capture_view(&state_quit, 1100, 700, &path_quit);
+    results.push(("11_confirm_quit_modal_1100x700".to_string(), w, h, p));
+
+    // 12. Keyboard Shortcut Cheat Sheet Modal at 1280x800
+    let mut state_shortcuts = AppState::new();
+    state_shortcuts.load_acceptance_scenario();
+    state_shortcuts.active_modal = Some(ModalState::ShortcutsCheatSheet);
+    let path_shortcuts = output_dir.join("12_shortcuts_cheat_sheet_modal_1280x800.png");
+    let (w, h, p) = capture_view(&state_shortcuts, 1280, 800, &path_shortcuts);
+    results.push((
+        "12_shortcuts_cheat_sheet_modal_1280x800".to_string(),
+        w,
+        h,
+        p,
+    ));
+
+    // 13. Skip Report Modal at 1280x800
+    let mut state_skip = AppState::new();
+    state_skip.load_acceptance_scenario();
+    state_skip.active_modal = Some(ModalState::SkipReport {
+        skipped: vec![
+            SkippedOverride {
+                rna_path: "scene.cycles.samples".to_string(),
+                reason: "Property \"scene.cycles.samples\" is not supported by engine BLENDER_EEVEE_NEXT".to_string(),
+            },
+            SkippedOverride {
+                rna_path: "scene.cycles.use_denoising".to_string(),
+                reason: "Property \"scene.cycles.use_denoising\" is not supported by engine BLENDER_EEVEE_NEXT".to_string(),
+            },
+        ],
+    });
+    let path_skip = output_dir.join("13_skip_report_modal_1280x800.png");
+    let (w, h, p) = capture_view(&state_skip, 1280, 800, &path_skip);
+    results.push(("13_skip_report_modal_1280x800".to_string(), w, h, p));
+
+    // 14. Floating Toast Notification with Undo at 1280x800
+    let mut state_toast = AppState::new();
+    state_toast.load_acceptance_scenario();
+    state_toast.remove_job_with_undo("job_1_1");
+    let path_toast = output_dir.join("14_toasts_with_undo_overlay_1280x800.png");
+    let (w, h, p) = capture_view(&state_toast, 1280, 800, &path_toast);
+    results.push(("14_toasts_with_undo_overlay_1280x800".to_string(), w, h, p));
 
     results
 }

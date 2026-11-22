@@ -102,6 +102,15 @@ Headless rendering verification at 1100×700, 1280×800, and 1920×1080 confirms
 | **1920×1080** (Full HD Workstation) | `03_job_editor_rna_1920x1080.png` | Master-detail workflow operates seamlessly: Left nav rail (78px), center queue view, right slide-over properties editor (380px), and bottom monitor dock (240px) display simultaneously with zero layout collision. | **PASS** |
 | **1100×700** (Empty Queue) | `04_empty_queue_dropzone_1100x700.png` | Centered dashed drop zone renders cleanly with vector file icon. Start button reflects idle state, and monitor dock indicates "Queue Idle". Zero `[NO GLYPH]` artifacts. | **PASS** |
 | **1280×800** (Multi-Select Bulk Bar) | `05_multi_select_bulk_bar_1280x800.png` | Sticky bulk action bar sits above queue rows. All 3 rows reflect active selection highlights (`#2b384a`, `#4772b3` border). Deselect and bulk actions render without missing glyphs. | **PASS** |
+| **1280×800** (History View) | `06_history_view_1280x800.png` | Complete historical audit view with search input, status filter dropdown (`Completed`, `Warnings`, `Failed`, `Canceled`), job execution metrics (`240 f in 04m 48s`), `+ Re-add to Queue`, and `Reveal` actions. | **PASS** |
+| **1280×800** (Settings View) | `07_settings_view_1280x800.png` | 6 structured settings categories: Blender installation discovery (`v4.2.0`, `v3.6.14`), rendering defaults, thread limits, memory cache budgets, "to-DUNG" sound volume slider, power post-actions with safety disarm notice, and pre-flight modes. | **PASS** |
+| **1100×700** (Tools Tab Shell) | `08_tools_tab_shell_1100x700.png` | Clean utility launchpad cards for Realtime Sequence Player, Presets Manager, and Format Converter. Vector badges and primary action buttons maintain proper responsiveness. | **PASS** |
+| **1280×800** (Resume-after-Crash Modal) | `09_resume_after_crash_modal_1280x800.png` | High-priority blocking dialog displayed on unclean shutdown lock detection. Prominently offers to resume queue from Frame X+1 with post-actions strictly disarmed. | **PASS** |
+| **1280×800** (60s Shutdown Countdown Modal) | `10_shutdown_countdown_modal_1280x800.png` | Fullscreen dimmed overlay with 110px animated countdown clock. Large prominent cancel button; disarms on any user keystroke or click. | **PASS** |
+| **1100×700** (Confirm-Quit Modal) | `11_confirm_quit_modal_1100x700.png` | Clean dialog warning of active background render worker. Offers clean subprocess shutdown, post-action disarm, and queue state persistence. | **PASS** |
+| **1280×800** (Shortcuts Cheat Sheet Modal) | `12_shortcuts_cheat_sheet_modal_1280x800.png` | Clean 2-column shortcut overlay detailing key bindings (`Ctrl+O`, `Ctrl+Enter`, `Ctrl+D`, `Delete`, `Ctrl+C/V`, `Ctrl+A`, `?`, shuttle controls). | **PASS** |
+| **1280×800** (Skip Report Modal) | `13_skip_report_modal_1280x800.png` | Detailed warning modal displaying skipped RNA override paths and reasons when pasting incompatible overrides across different render engines. | **PASS** |
+| **1280×800** (Toasts with Undo Overlay) | `14_toasts_with_undo_overlay_1280x800.png` | Floating toast notification positioned non-intrusively in bottom-right corner with direct `Undo` restoration affordance for deleted jobs. | **PASS** |
 
 ---
 
@@ -133,3 +142,10 @@ Headless rendering verification at 1100×700, 1280×800, and 1920×1080 confirms
 | **Headless Visual Regression Capture** | Automated off-screen capture at 1100×700, 1280×800, and 1920×1080 with 100% valid pixel coverage. | **PASS** (`test_headless_screenshots_1100x700_1280x800_1920x1080`) |
 | **Event Dispatch & 5 Hz Throttling** | Queue progress events throttled to 5 Hz (~200ms); idle process sleeps at 0.0% CPU. | **PASS** (`test_core_events_dispatch_and_throttling`) |
 | **List Virtualization** | Job queue and console log driven by `uniform_list` with $O(\text{visible})$ DOM nodes. | **PASS** (`render_queue_view`, `render_console_tab`) |
+| **History View & Re-add** | Search, filter by status, re-add job to queue, reveal in file manager, clear history. | **PASS** (`test_history_search_filter_and_readd`) |
+| **Settings & Audio Alert** | Discovered Blenders, rendering defaults, worker threads, memory cache, "to-DUNG" sound volume & mute. | **PASS** (`test_settings_and_sound_synthesis`) |
+| **Presets CRUD & Import/Export** | Save overrides as preset, export to JSON, import from JSON. | **PASS** (`test_presets_crud_and_import_export`) |
+| **Override Copy/Paste & Skip Report** | Copy overrides between jobs with automatic engine compatibility verification and skip report modal. | **PASS** (`test_copy_paste_overrides_with_engine_compatibility_skip_report`) |
+| **Crash Recovery & Countdown Disarm** | Resume from last frame with post-actions strictly disarmed; keystroke aborts shutdown countdown modal. | **PASS** (`test_resume_after_crash_modal_flow`, `test_shutdown_countdown_and_disarm_on_keystroke`) |
+| **Keyboard Shortcuts & Toasts with Undo** | `Ctrl+O/Enter/D/C/V/A`, `Delete`, `?`; floating toast notification with instantaneous undo recovery. | **PASS** (`test_keyboard_shortcuts_and_undo_toasts`) |
+| **14-Screen Headless Visual Audit** | Off-screen headless capture for all 14 screens and modal states across 1100×700, 1280×800, and 1920×1080. | **PASS** (`test_full_headless_screenshots_audit`) |
