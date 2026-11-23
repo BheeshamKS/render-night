@@ -11,6 +11,7 @@ use rn_app::state::AppState;
 use rn_app::ui::AppView;
 
 fn main() {
+    rn_app::install_panic_hook();
     rn_app::EventTracer::init();
     rn_app::trace_event!(
         "SYSTEM",
@@ -26,6 +27,13 @@ fn main() {
         .any(|a| a == "--version" || a == "-V" || a == "-v")
     {
         println!("render-night-gui {}", env!("RN_FULL_VERSION"));
+        return;
+    }
+
+    // Handle system diagnostics flag
+    if args.iter().any(|a| a == "--doctor") {
+        let report = rn_core::diagnostics::run_diagnostics(None);
+        println!("{}", report.to_markdown());
         return;
     }
 
@@ -146,6 +154,9 @@ fn main() {
 
     let app = Application::new();
     app.run(move |cx| {
+        let ui_sender = cx.ui_sender();
+        let _watchdog = rn_app::start_watchdog(Some(ui_sender));
+
         let bounds = Bounds {
             origin: Point {
                 x: px(100.0),

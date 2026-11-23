@@ -354,6 +354,53 @@
   test result: ok. 4 passed; 0 failed; 0 ignored; finished in 8.76s
   ```
 
+### 7.7 Stage G: Anti-Stuck Watchdog, Panic Hook & Doctor Diagnostics
+- **Status**: **VERIFIED**
+- **Non-Silent Panic Hook**:
+  - Installed standard `std::panic::set_hook` capturing panic payload, source code location (`file:line:col`), and full backtrace.
+  - Automatically writes structured panic report to `stderr`, to `~/.local/share/render-night/logs/panic.log`, and dispatches through `EventTracer`.
+  - Ensures the application never crashes silently without diagnostic logs.
+- **UI Heartbeat Watchdog**:
+  - Implemented background monitor thread (`crates/rn-app/src/watchdog.rs`) running every 500ms.
+  - Evaluates monotonic UI tick timestamps recorded by the main thread on every render and event loop dispatch.
+  - Dispatches UI ping tasks via `blenderui::window::UiSender`.
+  - If main thread does not tick for >2000ms, immediately logs a `WATCHDOG_STALL` warning event to `event-trace.log` and alerts stderr. Emits `WATCHDOG_RECOVERED` when the main loop resumes.
+- **System Diagnostics Engine & Doctor (`--doctor`)**:
+  - Implemented `rn_core::diagnostics::run_diagnostics(target_out_dir)` covering all 6 critical subsystems:
+    1. **Blender Discovery**: Discovered paths, versions, default designation, and source (System, Flatpak, Snap, Steam, Portable).
+    2. **Bundled Scripts**: Extracted path, checksum comparison against embedded `INSPECT_BLEND_PY` and `RENDER_RUNNER_PY`.
+    3. **File Picker Subsystem**: Active tier detection across Native Portal (`rfd`), Zenity, Kdialog, and built-in in-app browser.
+    4. **Audio Subsystem**: Audio device output status and Todung chime synthesizer PCM buffer readiness (52,920 samples).
+    5. **GPU & Hardware Telemetry**: GPU name, VRAM used/total, and query tool via `sample_gpu_utilization()`.
+    6. **Storage & Permissions**: Filesystem free/total capacity via `libc::statvfs` and runtime probe write verification.
+- **CLI & GUI Access Points**:
+  - CLI flag `--doctor` on both `render-night` and `render-night-gui`.
+  - CLI subcommand `render-night doctor [--target-dir <path>]`.
+  - GUI button in Settings > About: "System Diagnostics" (`btn-open-diagnostics`) opening non-modal overlay dialog (`ModalState::DiagnosticsReport`).
+  - Modal features scrollable markdown report and "Copy Report" button (`btn-copy-diagnostics`) writing to clipboard (`wl-copy`/`xclip`), saving `~/.local/share/render-night/diagnostics.md`, and displaying an undo toast.
+- **Stage G Automated Test Suite**: [`crates/rn-app/tests/stage_g_anti_stuck_test.rs`](file:///mnt/SSD_Storage/Coding/Render-Night/crates/rn-app/tests/stage_g_anti_stuck_test.rs)
+  ```
+  running 5 tests
+  test test_panic_hook_log_path ... ok
+  test test_ui_watchdog_heartbeat ... ok
+  test test_system_diagnostics_report_generation ... ok
+  test test_system_diagnostics_with_custom_target_dir ... ok
+  test test_gui_diagnostics_modal_flow ... ok
+  test result: ok. 5 passed; 0 failed; 0 ignored; finished in 0.54s
+  ```
+- **CLI Empirical Verification**:
+  ```
+  $ cargo run -p rn-cli -- --doctor
+  # Render Night Diagnostic Report (v0.1.0-alpha.7)
+  ## 1. Blender Installations: Blender 5.3.0 (Default): flatpak run org.blender.Blender
+  ## 2. Bundled Python Scripts: inspect_blend.py (Match: ✓ Yes), render_runner.py (Match: ✓ Yes)
+  ## 3. File Picker Subsystem: Active Primary Tier: Native File Dialog (rfd / xdg-desktop-portal)
+  ## 4. Audio Subsystem: Audio Device Output: ✓ Available, Todung Chime: ✓ Ready (52920 PCM samples)
+  ## 5. GPU & Compute Device: Quadro M5000M via nvidia-smi (Used: 7 MB / Total: 8192 MB)
+  ## 6. Output Storage & Filesystem: /mnt/SSD_Storage/Coding/Render-Night (30.4 GB free / 172.7 GB total, Write: ✓ Writable)
+  ```
+
+
 
 
 

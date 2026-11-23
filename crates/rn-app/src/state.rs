@@ -236,6 +236,10 @@ pub enum ModalState {
         job_id: String,
         job_name: String,
     },
+    DiagnosticsReport {
+        report: String,
+        copied: bool,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -698,6 +702,55 @@ impl AppState {
                     .unwrap_or_else(|| "Blender inspect failed or timed out".to_string()),
                 log_path,
             });
+        }
+    }
+
+    /// Open System Diagnostics modal dialog
+    pub fn open_diagnostics(&mut self) {
+        crate::trace_event!("DIAGNOSTICS", "Opening System Diagnostics report");
+        let report = rn_core::diagnostics::run_diagnostics(None);
+        self.active_modal = Some(ModalState::DiagnosticsReport {
+            report: report.to_markdown(),
+            copied: false,
+        });
+    }
+
+    /// Copy diagnostic report to system clipboard / log file
+    pub fn copy_diagnostics_report(&mut self) {
+        if let Some(ModalState::DiagnosticsReport { report, copied }) = &mut self.active_modal {
+            *copied = true;
+            let report_text = report.clone();
+            std::thread::spawn(move || {
+                if let Ok(mut child) = std::process::Command::new("wl-copy")
+                    .stdin(std::process::Stdio::piped())
+                    .spawn()
+                {
+                    if let Some(mut stdin) = child.stdin.take() {
+                        use std::io::Write;
+                        let _ = stdin.write_all(report_text.as_bytes());
+                    }
+                    let _ = child.wait();
+                } else if let Ok(mut child) = std::process::Command::new("xclip")
+                    .args(["-selection", "clipboard"])
+                    .stdin(std::process::Stdio::piped())
+                    .spawn()
+                {
+                    if let Some(mut stdin) = child.stdin.take() {
+                        use std::io::Write;
+                        let _ = stdin.write_all(report_text.as_bytes());
+                    }
+                    let _ = child.wait();
+                }
+            });
+
+            if let Some(base_dirs) = directories::BaseDirs::new() {
+                let diag_file = base_dirs
+                    .data_local_dir()
+                    .join("render-night/diagnostics.md");
+                let _ = std::fs::write(diag_file, report.as_bytes());
+            }
+
+            self.add_toast("Diagnostic report copied to clipboard", None);
         }
     }
 

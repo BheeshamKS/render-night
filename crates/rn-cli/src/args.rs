@@ -61,6 +61,10 @@ pub struct Cli {
     /// Run quick UI smoke test and exit
     #[arg(long)]
     pub smoke_test: bool,
+
+    /// Run system diagnostics and report system readiness
+    #[arg(long)]
+    pub doctor: bool,
 }
 
 #[derive(Subcommand, Debug, Clone)]
@@ -77,4 +81,11 @@ pub enum Commands {
     /// Discover and list all installed Blender versions
     #[command(name = "list-blenders")]
     ListBlenders,
+    /// Run system diagnostics and report system readiness
+    #[command(name = "doctor")]
+    Doctor {
+        /// Optional directory to verify write permissions
+        #[arg(long)]
+        target_dir: Option<String>,
+    },
 }

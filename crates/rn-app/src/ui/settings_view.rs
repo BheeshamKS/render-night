@@ -4,13 +4,15 @@
 use blenderui::components::*;
 use blenderui::geometry::px;
 use blenderui::html::*;
+use blenderui::window::Context;
 use blenderui::{ParentElement, Styled};
 
 use super::theme;
+use super::AppView;
 use crate::state::AppState;
 use rn_core::schemas::queue_state::PostAction;
 
-pub fn render_settings_view(state: &AppState) -> blenderui::element::Div {
+pub fn render_settings_view(state: &AppState, cx: &Context<AppView>) -> blenderui::element::Div {
     div()
         .styled()
         .flex_1()
@@ -53,7 +55,7 @@ pub fn render_settings_view(state: &AppState) -> blenderui::element::Div {
         // 6. Pre-flight Safety Checks Section
         .child(render_preflight_section(state))
         // 7. About Render Night Section
-        .child(render_about_section(state))
+        .child(render_about_section(state, cx))
 }
 
 fn render_blender_section(state: &AppState) -> blenderui::element::Div {
@@ -592,7 +594,7 @@ fn render_preflight_section(state: &AppState) -> blenderui::element::Div {
         )
 }
 
-fn render_about_section(_state: &AppState) -> blenderui::element::Div {
+fn render_about_section(_state: &AppState, cx: &Context<AppView>) -> blenderui::element::Div {
     div()
         .styled()
         .w_full()
@@ -688,6 +690,17 @@ fn render_about_section(_state: &AppState) -> blenderui::element::Div {
                                 .text_color(theme::TEXT_MUTED)
                                 .child("Blender 3.6 LTS, 4.2 LTS, 5.x"),
                         ),
+                )
+                .child(
+                    div().pt(px(8.0)).flex().flex_row().justify_start().child(
+                        Button()
+                            .id("btn-open-diagnostics")
+                            .child("System Diagnostics")
+                            .on_click(cx.listener(|this, _event, _window, cx| {
+                                this.state.open_diagnostics();
+                                cx.notify();
+                            })),
+                    ),
                 ),
         )
 }

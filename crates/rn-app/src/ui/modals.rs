@@ -51,6 +51,9 @@ pub fn render_modal_overlay(state: &AppState, cx: &Context<AppView>) -> blenderu
             ModalState::JobWarnings { job_id, job_name } => {
                 render_job_warnings(job_id, job_name, state, cx)
             }
+            ModalState::DiagnosticsReport { report, copied } => {
+                render_diagnostics_report(report, *copied, cx)
+            }
         })
 }
 
@@ -1205,6 +1208,111 @@ fn render_job_warnings(
                                     cx.notify();
                                 })),
                         ),
+                ),
+        )
+}
+
+fn render_diagnostics_report(
+    report_text: &str,
+    copied: bool,
+    cx: &Context<AppView>,
+) -> blenderui::element::Div {
+    let copy_label = if copied {
+        "✓ Copied to Clipboard"
+    } else {
+        "Copy Report"
+    };
+
+    div()
+        .styled()
+        .w(px(720.0))
+        .max_h(px(600.0))
+        .bg(theme::BG_PANEL)
+        .rounded_lg()
+        .border_1()
+        .border_color(theme::BORDER)
+        .p(px(24.0))
+        .flex()
+        .flex_col()
+        .gap(px(16.0))
+        // Header
+        .child(
+            div()
+                .flex()
+                .flex_row()
+                .items_center()
+                .justify_between()
+                .child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .gap(px(2.0))
+                        .child(
+                            div()
+                                .text_base()
+                                .font_bold()
+                                .text_color(theme::TEXT_PRIMARY)
+                                .child("System Diagnostics & Readiness Report"),
+                        )
+                        .child(
+                            div()
+                                .text_xs()
+                                .text_color(theme::TEXT_MUTED)
+                                .child("Self-check results for Blender, scripts, pickers, audio, GPU, and storage."),
+                        ),
+                )
+                .child(
+                    Button()
+                        .id("btn-close-diagnostics-top")
+                        .child("✕")
+                        .on_click(cx.listener(|this, _event, _window, cx| {
+                            this.state.active_modal = None;
+                            cx.notify();
+                        })),
+                ),
+        )
+        // Report text content
+        .child(
+            div()
+                .flex_1()
+                .max_h(px(440.0))
+                .overflow_y_scroll()
+                .bg(theme::BG_INPUT)
+                .border_1()
+                .border_color(theme::BORDER)
+                .rounded_md()
+                .p(px(12.0))
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(theme::TEXT_SECONDARY)
+                        .child(report_text.to_string()),
+                ),
+        )
+        // Footer Actions
+        .child(
+            div()
+                .flex()
+                .flex_row()
+                .items_center()
+                .justify_between()
+                .child(
+                    Button()
+                        .id("btn-copy-diagnostics")
+                        .child(copy_label)
+                        .on_click(cx.listener(|this, _event, _window, cx| {
+                            this.state.copy_diagnostics_report();
+                            cx.notify();
+                        })),
+                )
+                .child(
+                    Button()
+                        .id("btn-close-diagnostics")
+                        .child("Close (Esc)")
+                        .on_click(cx.listener(|this, _event, _window, cx| {
+                            this.state.active_modal = None;
+                            cx.notify();
+                        })),
                 ),
         )
 }

@@ -19,7 +19,7 @@ pub use header_reader::{
 pub use inspector::{inspect_blend, InspectOptions};
 pub use scripts::{
     ensure_extracted_scripts, get_scripts_dir, resolve_inspect_script_path,
-    resolve_render_runner_script_path,
+    resolve_render_runner_script_path, INSPECT_BLEND_PY, RENDER_RUNNER_PY,
 };
 pub use version_compare::{
     compare_versions, compare_versions_num, is_blend_version_newer, is_blend_version_str_newer,

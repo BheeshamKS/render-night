@@ -53,6 +53,7 @@ impl Render for AppView {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl blenderui::element::IntoElement {
+        crate::watchdog::record_ui_tick();
         self.state.poll_inspect_results();
         html()
             .styled()
@@ -98,7 +99,7 @@ impl Render for AppView {
                                 NavItem::Queue => render_queue_view(&self.state, cx),
                                 NavItem::History => render_history_view(&self.state),
                                 NavItem::Tools => render_tools_view(&self.state),
-                                NavItem::Settings => render_settings_view(&self.state),
+                                NavItem::Settings => render_settings_view(&self.state, cx),
                             })
                     })
                     // Bottom Slim Monitor Bar or Full Dock
