@@ -233,6 +233,13 @@ impl AppState {
     ) -> String {
         let seq = JOB_COUNTER.fetch_add(1, Ordering::SeqCst);
         let job_id = format!("job_{}_{}", self.queue_state.jobs.len() + 1, seq);
+        crate::trace_event!(
+            "STATE_MUTATION",
+            "add_job: id={} name='{}' path='{}'",
+            job_id,
+            name,
+            blend_path
+        );
         let inspect_val = inspect_data.unwrap_or_else(|| {
             serde_json::from_str(SAMPLE_INSPECT_JSON).unwrap_or(serde_json::Value::Null)
         });
@@ -496,6 +503,12 @@ impl AppState {
 
     /// Start or Resume Queue
     pub fn start_queue(&mut self) {
+        crate::trace_event!(
+            "CORE_EVENT",
+            "start_queue: current_status={:?} job_count={}",
+            self.queue_status,
+            self.queue_state.jobs.len()
+        );
         let is_paused = self.queue_status == QueueStatus::Paused;
         if is_paused {
             self.queue_status = QueueStatus::Running;
@@ -545,6 +558,7 @@ impl AppState {
 
     /// Pause Queue
     pub fn pause_queue(&mut self) {
+        crate::trace_event!("CORE_EVENT", "pause_queue called");
         self.queue_status = QueueStatus::Paused;
         if let Some(ref active_id) = self.active_job_id {
             if let Some(job) = self
@@ -574,6 +588,7 @@ impl AppState {
 
     /// Stop Queue
     pub fn stop_queue(&mut self) {
+        crate::trace_event!("CORE_EVENT", "stop_queue called");
         self.queue_status = QueueStatus::Idle;
         if let Some(ref active_id) = self.active_job_id {
             if let Some(job) = self
@@ -936,13 +951,40 @@ impl AppState {
 
     /// Prompt user to add .blend files via file dialog service
     pub fn prompt_add_blend_files(&mut self) {
-        if let Some(files) = self.file_dialog.pick_blend_files() {
+        crate::trace_event!(
+            "FILE_PICKER",
+            "invoking file dialog service for .blend files"
+        );
+        let files = self.file_dialog.pick_blend_files();
+        match &files {
+            Some(f) => {
+                crate::trace_event!(
+                    "FILE_PICKER",
+                    "file dialog returned {} file(s): {:?}",
+                    f.len(),
+                    f
+                );
+            }
+            None => {
+                crate::trace_event!(
+                    "FILE_PICKER",
+                    "file dialog returned None (cancelled or portal error) [DROPPED]"
+                );
+            }
+        }
+        if let Some(files) = files {
             self.add_blend_files(files);
         }
     }
 
     /// Add multiple .blend files to queue
     pub fn add_blend_files(&mut self, paths: Vec<PathBuf>) {
+        crate::trace_event!(
+            "STATE_MUTATION",
+            "add_blend_files with {} path(s): {:?}",
+            paths.len(),
+            paths
+        );
         let count = paths.len();
         let default_device = self.compute_device_preference.clone();
         for p in paths {

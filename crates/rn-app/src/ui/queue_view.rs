@@ -124,6 +124,10 @@ fn render_empty_drop_zone(cx: &Context<AppView>) -> blenderui::element::Div {
                     .id("btn-browse-blend")
                     .child("+ Browse .blend Files")
                     .on_click(cx.listener(|this, _event, _window, cx| {
+                        crate::trace_event!(
+                            "UI_EVENT",
+                            "click -> node: btn-browse-blend -> handler: prompt_add_blend_files [HANDLED]"
+                        );
                         this.state.prompt_add_blend_files();
                         cx.notify();
                     })),

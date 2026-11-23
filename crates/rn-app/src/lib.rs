@@ -5,6 +5,7 @@ pub mod file_dialog;
 pub mod player;
 pub mod screenshots;
 pub mod state;
+pub mod tracer;
 pub mod ui;
 
 pub use file_dialog::{
@@ -13,6 +14,7 @@ pub use file_dialog::{
 pub use player::SequencePlayer;
 pub use screenshots::{capture_view, run_full_audit_suite};
 pub use state::AppState;
+pub use tracer::EventTracer;
 pub use ui::AppView;
 
 /// Initialize system fallback fonts if available

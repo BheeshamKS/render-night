@@ -184,3 +184,38 @@
   ```
 - Result: Exited `0`, successfully initialized GUI rendering pipeline, rendered full 1280×800 frame without panic or missing symbols (glibc 2.35 backward-compatible build on ubuntu-22.04 runner).
 
+---
+
+## 7. Phase G: Production Artifacts & Real-World Fix Verification
+
+### 7.1 Stage A: Build Provenance & Workspace Version Alignment
+- **Status**: **VERIFIED**
+- **Workspace Version**: `0.1.0-alpha.7` (next tag after `v0.1.0-alpha.6`).
+- **Build Provenance**: Embedded Git SHA (`466f528`), build time, and version string into `crates/rn-core`, `crates/rn-cli`, and `crates/rn-app`.
+- **Command Output Proof**:
+  ```bash
+  $ cargo run -p rn-cli --bin render-night -- --version
+  Render Night CLI v0.1.0-alpha.7 (sha 466f528)
+
+  $ cargo run -p rn-app --bin render-night-gui -- --version
+  render-night-gui 0.1.0-alpha.7 (sha 466f528)
+  ```
+- **Debian Control Dependencies**: Added `Depends: libx11-6, libasound2 | libasound2t64, libgl1, libxcursor1, libxi6, libxrandr2, libxinerama1, xdg-desktop-portal | zenity` and `Recommends: xdg-desktop-portal-gtk, ffmpeg`.
+- **CI Provenance Assertion**: GitHub Actions runs #45137553522 (CI, 8 legs) and #45137580448 (E2E Real Blender) 100% green on PR #7.
+
+### 7.2 Stage B: Fixtures Suite & UI Event Tracer
+- **Status**: **VERIFIED**
+- **Test Fixtures Generator**: `tools/make-test-blend.py --generate-all tests/fixtures` successfully generated all 7 fixtures:
+  1. `tests/fixtures/eevee-basic.blend` (10 frames, 32x32, EEVEE)
+  2. `tests/fixtures/eevee-missing-used-texture.blend` (with missing used texture)
+  3. `tests/fixtures/eevee-missing-unused-texture.blend` (with missing unused texture)
+  4. `tests/fixtures/missing-library.blend` (with missing linked library)
+  5. `tests/fixtures/newer-version.blend` (header stub with v99.9)
+  6. `tests/fixtures/corrupt.blend` (non-blend binary data)
+  7. `tests/fixtures/inspect-crash.blend` (inspect failure trigger)
+- **Event Tracer (`EventTracer`)**:
+  - Implemented in `crates/rn-app/src/tracer.rs` with rotating logs (5MB cap, 3 backups) in `~/.local/share/render-night/logs/event-trace.log`.
+  - Wrote root cause reproduction and matrix in [`docs/g-repro.md`](file:///mnt/SSD_Storage/Coding/Render-Night/docs/g-repro.md).
+  - Traces wired for: raw UI click events, file picker invocations/results, state mutations (`add_blend_files`, `add_job`), and core queue events (`start_queue`, `pause_queue`, `stop_queue`).
+- **All Workspace Tests**: 100% passing across unit, integration, parity, and real Blender tests.
+

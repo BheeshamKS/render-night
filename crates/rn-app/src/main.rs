@@ -11,6 +11,12 @@ use rn_app::state::AppState;
 use rn_app::ui::AppView;
 
 fn main() {
+    rn_app::EventTracer::init();
+    rn_app::trace_event!(
+        "SYSTEM",
+        "Render Night GUI starting - version {}",
+        env!("RN_FULL_VERSION")
+    );
     rn_app::init_fonts();
     let args: Vec<String> = std::env::args().collect();
 
@@ -104,6 +110,22 @@ fn main() {
     let mut state = AppState::new();
     if args.iter().any(|a| a == "--demo") {
         state.load_acceptance_scenario();
+    }
+
+    let blend_args: Vec<std::path::PathBuf> = args
+        .iter()
+        .skip(1)
+        .filter(|a| !a.starts_with('-') && a.ends_with(".blend"))
+        .map(std::path::PathBuf::from)
+        .collect();
+    if !blend_args.is_empty() {
+        rn_app::trace_event!(
+            "INPUT",
+            "CLI args specified {} .blend file(s): {:?}",
+            blend_args.len(),
+            blend_args
+        );
+        state.add_blend_files(blend_args);
     }
 
     let has_display = std::env::var("DISPLAY").is_ok()
