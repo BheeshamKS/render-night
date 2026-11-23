@@ -279,4 +279,48 @@
   test result: ok. 7 passed; 0 failed; 0 ignored; finished in 5.05s
   ```
 
+### 7.5 Stage E: Pre-Flight Never Blocks & Button Wiring
+- **Status**: **VERIFIED**
+- **Root Causes Fixed**:
+  1. `render_preflight_banner` lacked `cx: &Context<AppView>`, so buttons `Render Anyway`, `Dismiss`, `Fix`, and `Ignore` had no `.on_click` listeners.
+  2. `render_job_row` buttons `Edit`, `×` (Remove), `! N warnings` chip, and `⚡ Basic mode` chip were rendered as inert elements without click listeners.
+  3. Preflight was showing blocking modal on Add/Start in prior versions instead of adhering to `docs/behavior/preflight.md`.
+- **Implementation & Behavioral Adherence**:
+  1. **Never-Block Enforcement**:
+     - `never_block` is default. `start_queue()` starts execution immediately without modal interruption or countdown.
+     - `ask` mode displays a non-modal banner with a 30s auto-start countdown timer and "Render Anyway" button.
+     - `strict` mode blocks unattended start if errors or warnings are unresolved.
+  2. **Non-Modal Warnings Panel & Drawer**:
+     - Warnings live in a non-modal banner (`show_preflight_banner`) and as an `! N warnings` chip on the job row.
+     - Clicking the `! N warnings` chip opens a dedicated non-modal `JobWarnings` drawer (`ModalState::JobWarnings`) displaying all detected issues, severity, codes, quick fix buttons, and granular ignore options:
+       - `btn-fix-warning-<id>`: Applies automated quick fix (`SwitchToCpu`, `SelectCamera`, `SwitchRangeToContinuous`, `CreateOutputDir`).
+       - `btn-ignore-issue-<id>`: Granular per-issue dismissal (`job.ignored_warning_ids`).
+       - `btn-ignore-code-<code>`: Granular per-code dismissal (`job.ignored_warning_codes`).
+       - `btn-ignore-all-job-warnings`: Ignore all warnings for this file (`job.ignore_all_warnings`).
+  3. **Wired Job Row Controls**:
+     - Job selection checkbox toggles selection in `state.selected_job_ids`.
+     - `btn-job-warnings-<id>` opens `ModalState::JobWarnings`.
+     - `btn-basic-mode-<id>` opens `ModalState::BasicModeDetails`.
+     - `btn-edit-job-<id>` opens job editor drawer.
+     - `btn-remove-job-<id>` removes job from queue.
+  4. **Wired Preflight Banner Controls**:
+     - `btn-preflight-render-anyway` starts queue and dismisses banner.
+     - `btn-preflight-dismiss` clears banner and countdown.
+     - `btn-preflight-fix-<id>` applies quick fix.
+     - `btn-preflight-ignore-<id>` ignores specific issue.
+- **Stage E Automated Test Suite**: [`crates/rn-app/tests/stage_e_preflight_test.rs`](file:///mnt/SSD_Storage/Coding/Render-Night/crates/rn-app/tests/stage_e_preflight_test.rs)
+  ```
+  running 7 tests
+  test test_banner_dismiss_clears_without_starting ... ok
+  test test_job_row_actions_edit_and_remove ... ok
+  test test_ask_mode_shows_banner_with_countdown_and_render_anyway ... ok
+  test test_never_block_default_does_not_show_modal_or_block_queue ... ok
+  test test_ignore_code_and_ignore_all_warnings ... ok
+  test test_open_warnings_modal_and_ignore_issue ... ok
+  test test_quick_fix_actions ... ok
+  test result: ok. 7 passed; 0 failed; 0 ignored; finished in 0.00s
+  ```
+- **Workspace Verification**: 100% passing across all 11 test binaries in workspace.
+
+
 

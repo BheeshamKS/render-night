@@ -4,13 +4,19 @@
 use blenderui::components::*;
 use blenderui::geometry::px;
 use blenderui::html::*;
+use blenderui::window::WeakEntity;
 use blenderui::{ParentElement, Styled};
 
 use super::theme;
+use super::AppView;
 use crate::state::AppState;
 use rn_core::schemas::queue_state::{Job, JobStatus};
 
-pub fn render_job_row(job: &Job, state: &AppState) -> blenderui::element::Div {
+pub fn render_job_row(
+    job: &Job,
+    state: &AppState,
+    weak: WeakEntity<AppView>,
+) -> blenderui::element::Div {
     let is_selected = state.selected_job_ids.contains(&job.id);
     let is_editing = state.editing_job_id.as_deref() == Some(&job.id);
 
@@ -105,7 +111,23 @@ pub fn render_job_row(job: &Job, state: &AppState) -> blenderui::element::Div {
                                 .gap(px(8.0))
                                 .flex_1()
                                 .min_w(px(0.0))
-                                .child(Checkbox().checked(is_selected))
+                                .child({
+                                    let jid = job.id.clone();
+                                    Checkbox()
+                                        .id(format!("chk-job-{}", job.id))
+                                        .checked(is_selected)
+                                        .on_click(move |_e, _window, app| {
+                                            let jid_c = jid.clone();
+                                            weak.update(app, |this, cx| {
+                                                if this.state.selected_job_ids.contains(&jid_c) {
+                                                    this.state.selected_job_ids.remove(&jid_c);
+                                                } else {
+                                                    this.state.selected_job_ids.insert(jid_c);
+                                                }
+                                                cx.notify();
+                                            });
+                                        })
+                                })
                                 .child({
                                     let mut s = span()
                                         .text_sm()
@@ -152,7 +174,10 @@ pub fn render_job_row(job: &Job, state: &AppState) -> blenderui::element::Div {
                                 )
                                 // Basic mode chip
                                 .child(if job.is_basic_mode == Some(true) {
-                                    span()
+                                    let jid = job.id.clone();
+                                    Button()
+                                        .id(format!("btn-basic-mode-{}", job.id))
+                                        .cursor_pointer()
                                         .text_xs()
                                         .font_medium()
                                         .px(px(6.0))
@@ -163,12 +188,22 @@ pub fn render_job_row(job: &Job, state: &AppState) -> blenderui::element::Div {
                                         .border_color(theme::WARNING_BORDER)
                                         .text_color(theme::WARNING_TEXT)
                                         .child("⚡ Basic mode")
+                                        .on_click(move |_e, _window, app| {
+                                            let jid_c = jid.clone();
+                                            weak.update(app, |this, cx| {
+                                                this.state.open_basic_mode_details(&jid_c);
+                                                cx.notify();
+                                            });
+                                        })
                                 } else {
-                                    span()
+                                    Button().hidden()
                                 })
                                 // Warnings chip
                                 .child(if warning_count > 0 {
-                                    span()
+                                    let jid = job.id.clone();
+                                    Button()
+                                        .id(format!("btn-job-warnings-{}", job.id))
+                                        .cursor_pointer()
                                         .text_xs()
                                         .font_medium()
                                         .px(px(6.0))
@@ -183,8 +218,15 @@ pub fn render_job_row(job: &Job, state: &AppState) -> blenderui::element::Div {
                                             warning_count,
                                             if warning_count > 1 { "s" } else { "" }
                                         ))
+                                        .on_click(move |_e, _window, app| {
+                                            let jid_c = jid.clone();
+                                            weak.update(app, |this, cx| {
+                                                this.state.open_job_warnings(&jid_c);
+                                                cx.notify();
+                                            });
+                                        })
                                 } else {
-                                    span()
+                                    Button().hidden()
                                 })
                                 // Changes chip
                                 .child(if change_count > 0 {
@@ -203,8 +245,32 @@ pub fn render_job_row(job: &Job, state: &AppState) -> blenderui::element::Div {
                                     span()
                                 })
                                 // Quick action buttons
-                                .child(Button().child("Edit"))
-                                .child(Button().child("×")),
+                                .child({
+                                    let jid = job.id.clone();
+                                    Button()
+                                        .id(format!("btn-edit-job-{}", job.id))
+                                        .child("Edit")
+                                        .on_click(move |_e, _window, app| {
+                                            let jid_c = jid.clone();
+                                            weak.update(app, |this, cx| {
+                                                this.state.open_editor(&jid_c);
+                                                cx.notify();
+                                            });
+                                        })
+                                })
+                                .child({
+                                    let jid = job.id.clone();
+                                    Button()
+                                        .id(format!("btn-remove-job-{}", job.id))
+                                        .child("×")
+                                        .on_click(move |_e, _window, app| {
+                                            let jid_c = jid.clone();
+                                            weak.update(app, |this, cx| {
+                                                this.state.remove_job(&jid_c);
+                                                cx.notify();
+                                            });
+                                        })
+                                }),
                         ),
                 )
                 // Line 2: Effective-settings summary

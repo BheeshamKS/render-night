@@ -48,6 +48,9 @@ pub fn render_modal_overlay(state: &AppState, cx: &Context<AppView>) -> blenderu
                 reason,
                 log_path,
             } => render_basic_mode_details(job_id, job_name, reason, log_path, cx),
+            ModalState::JobWarnings { job_id, job_name } => {
+                render_job_warnings(job_id, job_name, state, cx)
+            }
         })
 }
 
@@ -935,6 +938,273 @@ fn render_basic_mode_details(
                             this.state.active_modal = None;
                             cx.notify();
                         })),
+                ),
+        )
+}
+
+fn render_job_warnings(
+    job_id: &str,
+    job_name: &str,
+    state: &AppState,
+    cx: &Context<AppView>,
+) -> blenderui::element::Div {
+    let job_warnings: Vec<_> = state
+        .preflight_report
+        .as_ref()
+        .map(|r| {
+            r.warnings
+                .iter()
+                .filter(|w| w.job_id == job_id)
+                .cloned()
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let job_id_owned = job_id.to_string();
+
+    div()
+        .styled()
+        .w(px(580.0))
+        .max_h(px(520.0))
+        .bg(theme::BG_PANEL)
+        .rounded_lg()
+        .border_2()
+        .border_color(theme::WARNING_BORDER)
+        .shadow_xl()
+        .p(px(20.0))
+        .flex()
+        .flex_col()
+        .gap(px(14.0))
+        // Header
+        .child(
+            div()
+                .flex()
+                .flex_row()
+                .items_center()
+                .justify_between()
+                .child(
+                    div()
+                        .flex()
+                        .flex_row()
+                        .items_center()
+                        .gap(px(8.0))
+                        .child(
+                            div()
+                                .size(px(22.0))
+                                .rounded_sm()
+                                .bg(theme::WARNING_BORDER)
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .child(
+                                    span()
+                                        .text_xs()
+                                        .font_bold()
+                                        .text_color(theme::WARNING_TEXT)
+                                        .child("!"),
+                                ),
+                        )
+                        .child(
+                            span()
+                                .text_base()
+                                .font_bold()
+                                .text_color(theme::TEXT_PRIMARY)
+                                .child(format!("Pre-Flight Warnings: {}", job_name)),
+                        ),
+                )
+                .child(
+                    Button()
+                        .id("btn-close-warnings-modal-x")
+                        .child("×")
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            this.state.active_modal = None;
+                            cx.notify();
+                        })),
+                ),
+        )
+        // Subtitle / Policy explanation
+        .child(
+            div()
+                .text_xs()
+                .text_color(theme::TEXT_MUTED)
+                .child("Render Night follows Never-Block policy: warnings do not prevent rendering unless strictly fatal. You can resolve or ignore warnings below."),
+        )
+        // Warnings List
+        .child(
+            div()
+                .flex_1()
+                .overflow_y_scroll()
+                .flex()
+                .flex_col()
+                .gap(px(8.0))
+                .children(if job_warnings.is_empty() {
+                    vec![div()
+                        .p(px(12.0))
+                        .rounded_sm()
+                        .bg(theme::BG_PANEL_ALT)
+                        .text_xs()
+                        .text_color(theme::TEXT_SECONDARY)
+                        .child("No active warnings for this job.")]
+                } else {
+                    job_warnings
+                        .into_iter()
+                        .map(|issue| {
+                            let jid = issue.job_id.clone();
+                            let iid = issue.id.clone();
+                            let code = issue.code.clone();
+                            let quick_fix = issue.quick_fix.clone();
+
+                            div()
+                                .styled()
+                                .p(px(10.0))
+                                .bg(theme::BG_PANEL_ALT)
+                                .border_1()
+                                .border_color(theme::BORDER)
+                                .rounded_md()
+                                .flex()
+                                .flex_col()
+                                .gap(px(6.0))
+                                // Issue top row
+                                .child(
+                                    div()
+                                        .flex()
+                                        .flex_row()
+                                        .items_center()
+                                        .justify_between()
+                                        .child(
+                                            div()
+                                                .flex()
+                                                .flex_row()
+                                                .items_center()
+                                                .gap(px(6.0))
+                                                .child(
+                                                    span()
+                                                        .text_xs()
+                                                        .font_bold()
+                                                        .px(px(4.0))
+                                                        .py(px(1.0))
+                                                        .rounded_sm()
+                                                        .bg(theme::WARNING_BG)
+                                                        .text_color(theme::WARNING_TEXT)
+                                                        .child(format!("[{}]", issue.code)),
+                                                )
+                                                .child(
+                                                    span()
+                                                        .text_xs()
+                                                        .font_semibold()
+                                                        .text_color(theme::TEXT_PRIMARY)
+                                                        .child(issue.message.clone()),
+                                                ),
+                                        ),
+                                )
+                                // Issue details
+                                .child(if let Some(details) = &issue.details {
+                                    div()
+                                        .p(px(6.0))
+                                        .bg(theme::BG_INPUT)
+                                        .rounded_sm()
+                                        .text_xs()
+                                        .text_color(theme::TEXT_MUTED)
+                                        .child(details.clone())
+                                } else {
+                                    div()
+                                })
+                                // Issue Actions: Quick Fix + Ignore
+                                .child(
+                                    div()
+                                        .flex()
+                                        .flex_row()
+                                        .items_center()
+                                        .justify_end()
+                                        .gap(px(6.0))
+                                        .child(if let Some(fix) = quick_fix {
+                                            let jid_c = jid.clone();
+                                            Button()
+                                                .id(format!("btn-fix-warning-{}", iid))
+                                                .child(format!("Fix: {}", fix.label))
+                                                .on_click(cx.listener(move |this, _, _, cx| {
+                                                    this.state.apply_preflight_quick_fix(
+                                                        &jid_c,
+                                                        &fix.action,
+                                                        fix.data.as_ref(),
+                                                    );
+                                                    cx.notify();
+                                                }))
+                                        } else {
+                                            Button().hidden()
+                                        })
+                                        .child({
+                                            let jid_c = jid.clone();
+                                            let iid_c = iid.clone();
+                                            Button()
+                                                .id(format!("btn-ignore-issue-{}", iid_c))
+                                                .child("Ignore this")
+                                                .on_click(cx.listener(move |this, _, _, cx| {
+                                                    this.state.ignore_preflight_issue(&jid_c, &iid_c);
+                                                    cx.notify();
+                                                }))
+                                        })
+                                        .child({
+                                            let jid_c = jid.clone();
+                                            let code_c = code.clone();
+                                            Button()
+                                                .id(format!("btn-ignore-code-{}", code_c))
+                                                .child(format!("Ignore all [{}]", code_c))
+                                                .on_click(cx.listener(move |this, _, _, cx| {
+                                                    this.state.ignore_preflight_code(&jid_c, &code_c);
+                                                    cx.notify();
+                                                }))
+                                        }),
+                                )
+                        })
+                        .collect::<Vec<_>>()
+                }),
+        )
+        // Bottom actions
+        .child(
+            div()
+                .flex()
+                .flex_row()
+                .items_center()
+                .justify_between()
+                .pt(px(10.0))
+                .border_t_1()
+                .border_color(theme::BORDER)
+                .child({
+                    let jid_c = job_id_owned.clone();
+                    Button()
+                        .id("btn-ignore-all-job-warnings")
+                        .child("Ignore all warnings for this file")
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            this.state.ignore_all_job_warnings(&jid_c);
+                            cx.notify();
+                        }))
+                })
+                .child(
+                    div()
+                        .flex()
+                        .flex_row()
+                        .items_center()
+                        .gap(px(8.0))
+                        .child(
+                            Button()
+                                .id("btn-close-warnings-modal")
+                                .child("Close")
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    this.state.active_modal = None;
+                                    cx.notify();
+                                })),
+                        )
+                        .child(
+                            Button()
+                                .id("btn-start-queue-from-warnings")
+                                .child("Start Render")
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    this.state.active_modal = None;
+                                    this.state.start_queue();
+                                    cx.notify();
+                                })),
+                        ),
                 ),
         )
 }

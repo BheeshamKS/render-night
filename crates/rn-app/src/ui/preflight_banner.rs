@@ -4,12 +4,14 @@
 use blenderui::components::*;
 use blenderui::geometry::px;
 use blenderui::html::*;
+use blenderui::window::Context;
 use blenderui::{ParentElement, Styled};
 
 use super::theme;
+use super::AppView;
 use crate::state::AppState;
 
-pub fn render_preflight_banner(state: &AppState) -> blenderui::element::Div {
+pub fn render_preflight_banner(state: &AppState, cx: &Context<AppView>) -> blenderui::element::Div {
     let report = match &state.preflight_report {
         Some(r) if (r.has_warnings || r.has_errors) && state.show_preflight_banner => r,
         _ => return div(),
@@ -89,8 +91,24 @@ pub fn render_preflight_banner(state: &AppState) -> blenderui::element::Div {
                         .flex_row()
                         .items_center()
                         .gap(px(6.0))
-                        .child(Button().child("Render Anyway"))
-                        .child(Button().child("Dismiss")),
+                        .child(
+                            Button()
+                                .id("btn-preflight-render-anyway")
+                                .child("Render Anyway")
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    this.state.render_anyway();
+                                    cx.notify();
+                                })),
+                        )
+                        .child(
+                            Button()
+                                .id("btn-preflight-dismiss")
+                                .child("Dismiss")
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    this.state.dismiss_preflight_banner();
+                                    cx.notify();
+                                })),
+                        ),
                 ),
         )
         // Collapsible issue items
@@ -100,6 +118,10 @@ pub fn render_preflight_banner(state: &AppState) -> blenderui::element::Div {
                 .flex_col()
                 .gap(px(4.0))
                 .children(report.warnings.iter().take(3).map(|issue| {
+                    let jid = issue.job_id.clone();
+                    let iid = issue.id.clone();
+                    let quick_fix = issue.quick_fix.clone();
+
                     div()
                         .flex()
                         .flex_row()
@@ -135,12 +157,33 @@ pub fn render_preflight_banner(state: &AppState) -> blenderui::element::Div {
                                 .flex_row()
                                 .items_center()
                                 .gap(px(4.0))
-                                .child(if let Some(fix) = &issue.quick_fix {
-                                    Button().child(format!("Fix: {}", fix.label))
+                                .child(if let Some(fix) = quick_fix {
+                                    let jid_c = jid.clone();
+                                    Button()
+                                        .id(format!("btn-preflight-fix-{}", iid))
+                                        .child(format!("Fix: {}", fix.label))
+                                        .on_click(cx.listener(move |this, _, _, cx| {
+                                            this.state.apply_preflight_quick_fix(
+                                                &jid_c,
+                                                &fix.action,
+                                                fix.data.as_ref(),
+                                            );
+                                            cx.notify();
+                                        }))
                                 } else {
-                                    div()
+                                    Button().hidden()
                                 })
-                                .child(Button().child("Ignore")),
+                                .child({
+                                    let jid_c = jid.clone();
+                                    let iid_c = iid.clone();
+                                    Button()
+                                        .id(format!("btn-preflight-ignore-{}", iid_c))
+                                        .child("Ignore")
+                                        .on_click(cx.listener(move |this, _, _, cx| {
+                                            this.state.ignore_preflight_issue(&jid_c, &iid_c);
+                                            cx.notify();
+                                        }))
+                                }),
                         )
                 })),
         )

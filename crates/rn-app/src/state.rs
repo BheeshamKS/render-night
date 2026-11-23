@@ -9,7 +9,8 @@ use std::time::Instant;
 use rn_core::blender::discovery::BlenderInstallation;
 use rn_core::overrides::compatibility::{validate_overrides_for_job, SkippedOverride};
 use rn_core::preflight::checker::{PreflightChecker, PreflightJobInput, PreflightOptions};
-use rn_core::queue::{QueueEngineHandle, QueueEvent, QueueStatus};
+pub use rn_core::queue::QueueStatus;
+use rn_core::queue::{QueueEngineHandle, QueueEvent};
 use rn_core::ranges::{FrameRangeConfig, FrameRangeMode, SimpleRange};
 use rn_core::schemas::history::{HistoryEntry, HistoryResult};
 use rn_core::schemas::inspect::InspectOutput;
@@ -230,6 +231,10 @@ pub enum ModalState {
         job_name: String,
         reason: String,
         log_path: PathBuf,
+    },
+    JobWarnings {
+        job_id: String,
+        job_name: String,
     },
 }
 
@@ -762,14 +767,23 @@ impl AppState {
         };
 
         let report = PreflightChecker::check_all_jobs(&preflight_inputs, &options);
+        let mode = self
+            .queue_state
+            .settings
+            .preflight_mode
+            .as_deref()
+            .unwrap_or(&self.preflight_mode);
+
         if report.has_warnings || report.has_errors {
             self.show_preflight_banner = true;
-            if self.queue_state.settings.preflight_mode.as_deref() == Some("ask") {
+            if mode == "ask" {
                 self.preflight_countdown = self
                     .queue_state
                     .settings
                     .preflight_countdown_seconds
                     .or(Some(30));
+            } else {
+                self.preflight_countdown = None;
             }
         } else {
             self.show_preflight_banner = false;
@@ -1050,6 +1064,103 @@ impl AppState {
         self.show_preflight_banner = false;
         self.preflight_countdown = None;
         self.start_queue();
+    }
+
+    /// Dismiss preflight banner without starting queue
+    pub fn dismiss_preflight_banner(&mut self) {
+        self.show_preflight_banner = false;
+        self.preflight_countdown = None;
+    }
+
+    /// Open job warnings details modal
+    pub fn open_job_warnings(&mut self, job_id: &str) {
+        let name = self
+            .queue_state
+            .jobs
+            .iter()
+            .find(|j| j.id == job_id)
+            .map(|j| j.name.clone())
+            .unwrap_or_else(|| "Job".to_string());
+        self.active_modal = Some(ModalState::JobWarnings {
+            job_id: job_id.to_string(),
+            job_name: name,
+        });
+    }
+
+    /// Ignore a specific preflight warning on a job
+    pub fn ignore_preflight_issue(&mut self, job_id: &str, issue_id: &str) {
+        if let Some(job) = self.queue_state.jobs.iter_mut().find(|j| j.id == job_id) {
+            let mut ids = job.ignored_warning_ids.clone().unwrap_or_default();
+            if !ids.contains(&issue_id.to_string()) {
+                ids.push(issue_id.to_string());
+                job.ignored_warning_ids = Some(ids);
+            }
+        }
+        self.run_preflight_check();
+    }
+
+    /// Ignore all preflight warnings sharing a code on a job
+    pub fn ignore_preflight_code(&mut self, job_id: &str, code: &str) {
+        if let Some(job) = self.queue_state.jobs.iter_mut().find(|j| j.id == job_id) {
+            let mut codes = job.ignored_warning_codes.clone().unwrap_or_default();
+            if !codes.contains(&code.to_string()) {
+                codes.push(code.to_string());
+                job.ignored_warning_codes = Some(codes);
+            }
+        }
+        self.run_preflight_check();
+    }
+
+    /// Ignore all preflight warnings for a job
+    pub fn ignore_all_job_warnings(&mut self, job_id: &str) {
+        if let Some(job) = self.queue_state.jobs.iter_mut().find(|j| j.id == job_id) {
+            job.ignore_all_warnings = Some(true);
+        }
+        self.run_preflight_check();
+    }
+
+    /// Apply an automated preflight quick fix
+    pub fn apply_preflight_quick_fix(
+        &mut self,
+        job_id: &str,
+        action: &rn_core::preflight::QuickFixAction,
+        data: Option<&serde_json::Value>,
+    ) {
+        use rn_core::preflight::QuickFixAction;
+        match action {
+            QuickFixAction::SwitchToCpu => {
+                if let Some(job) = self.queue_state.jobs.iter_mut().find(|j| j.id == job_id) {
+                    job.device = Some("CPU".to_string());
+                }
+            }
+            QuickFixAction::SelectCamera => {
+                if let Some(job) = self.queue_state.jobs.iter_mut().find(|j| j.id == job_id) {
+                    if let Some(cam) = data.and_then(|d| d.as_str()) {
+                        job.overrides
+                            .insert("camera".to_string(), serde_json::json!(cam));
+                    }
+                }
+            }
+            QuickFixAction::CreateOutputDir => {
+                if let Some(job) = self.queue_state.jobs.iter().find(|j| j.id == job_id) {
+                    if let Some(out_dir) = &job.output_dir {
+                        let _ = std::fs::create_dir_all(out_dir);
+                    }
+                }
+            }
+            QuickFixAction::SwitchRangeToContinuous => {
+                if let Some(job) = self.queue_state.jobs.iter_mut().find(|j| j.id == job_id) {
+                    job.range_config = Some(FrameRangeConfig {
+                        mode: FrameRangeMode::SceneDefault,
+                        simple: None,
+                        custom_expression: None,
+                        single_still_frame: None,
+                    });
+                }
+            }
+            QuickFixAction::Custom => {}
+        }
+        self.run_preflight_check();
     }
 
     /// Ignore a specific preflight warning
