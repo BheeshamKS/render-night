@@ -111,9 +111,7 @@ fn ensure_blender_configured(state: &mut AppState) {
     }
     let cmd = state.get_blender_cmd();
     let has_real = if let Some(exe) = cmd.first() {
-        if exe == "flatpak" {
-            true
-        } else if std::path::Path::new(exe).exists() {
+        if exe == "flatpak" || std::path::Path::new(exe).exists() {
             true
         } else if let Ok(path_var) = std::env::var("PATH") {
             std::env::split_paths(&path_var).any(|p| p.join(exe).is_file())
