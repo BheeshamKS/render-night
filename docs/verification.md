@@ -149,3 +149,38 @@
   - Pre-flight Non-Modal Behavior: `r2_verification_test.rs:test_preflight_non_modal_behavior`
   - Real Blender Rendering: `real_blender_e2e_test.rs`
   - Sequence Player Engine: `r4_sequence_player_test.rs`
+
+---
+
+## 6. Packaging & Draft Release Verification (Step 5)
+
+- **Status**: **VERIFIED**
+- **Draft Release Tag**: `v0.1.0-alpha.1`
+- **Release State**: `Draft: true`, `Pre-release: true` (NOT published)
+- **GitHub Release URL**: https://github.com/BheeshamKS/render-night/releases/tag/v0.1.0-alpha.1
+- **GitHub Actions Workflow Run**: [Run #45093965356](https://github.com/BheeshamKS/render-night/actions/runs/45093965356) (100% Green across all Quality Gates, Linux, Windows, macOS, and Draft Release creation)
+
+### 6.1 Package Matrix Artifacts
+| Platform | Artifact Name | Size | SHA256 Checksum |
+| :--- | :--- | :--- | :--- |
+| **Linux (AppImage)** | `Render-Night-0.1.0-alpha.1-x86_64.AppImage` | 7.65 MiB | `ee4e1990e19d83cffcdfe555ecf54eebe57c3d8684ea5545b2e882ea00546b44` |
+| **Linux (Debian)** | `render-night_0.1.0-alpha.1_amd64.deb` | 5.65 MiB | `941a9b45119062a0c0ddb121c6e6c29444113883ea34d72713a77c8d4130869f` |
+| **Windows (Installer)** | `render-night-0.1.0-alpha.1-windows-x64-setup.exe` | 3.76 MiB | `6e001f669b88078cb1b2c2ada582a225260239c89075500fef6a5f69412da92a` |
+| **Windows (Portable)** | `render-night-0.1.0-alpha.1-windows-x64-portable.zip` | 5.04 MiB | `c54f69e2a614d5cca1325929c0eb7b9a295b1ce5284bdd549a4dc06fac886ed6` |
+| **macOS (Apple Silicon)** | `Render-Night-0.1.0-alpha.1-macos-arm64.dmg` | 6.05 MiB | `57e05051c4d60bed0e9af357032a30cee09a7a2dad2fbea67fa61576a2b5baba` |
+| **macOS (Intel x64)** | `Render-Night-0.1.0-alpha.1-macos-x64.dmg` | 6.33 MiB | `d856a9944a4e498bf4fa8f808d8011e2b4db891f92f4fb7750298ea73ac947fa` |
+
+### 6.2 Host Execution Verification Proof (Downloaded AppImage)
+- Package downloaded directly from GitHub Release `v0.1.0-alpha.1` via GitHub CLI: `gh release download v0.1.0-alpha.1 --pattern "*AppImage"`
+- Executed on local host machine (`Ubuntu 24.04 LTS`, Linux kernel 6.8):
+  ```bash
+  $ ./target/draft-release-assets/Render-Night-0.1.0-alpha.1-x86_64.AppImage --smoke-test
+  ============================================================
+  RENDER NIGHT: RUNNING SMOKE TEST (1 FRAME DRAW)
+  ============================================================
+  Smoke test passed: rendered 1280x800 viewport with 1024000 non-zero pixels
+  $ echo $?
+  0
+  ```
+- Result: Exited `0`, successfully initialized GUI rendering pipeline, rendered full 1280×800 frame without panic or missing symbols (glibc 2.35 backward-compatible build on ubuntu-22.04 runner).
+
