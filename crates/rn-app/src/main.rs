@@ -14,6 +14,15 @@ fn main() {
     rn_app::init_fonts();
     let args: Vec<String> = std::env::args().collect();
 
+    // Handle version flag
+    if args
+        .iter()
+        .any(|a| a == "--version" || a == "-V" || a == "-v")
+    {
+        println!("render-night-gui {}", env!("RN_FULL_VERSION"));
+        return;
+    }
+
     // Check for quick smoke test mode (draws 1 frame, verifies pixels, exits 0)
     if args.iter().any(|a| a == "--smoke-test") {
         println!("============================================================");

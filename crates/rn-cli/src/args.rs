@@ -6,9 +6,9 @@ use clap::{Parser, Subcommand};
 #[derive(Parser, Debug, Clone)]
 #[command(
     name = "render-night",
-    version = "0.1.0-alpha.6",
+    version = env!("RN_FULL_VERSION"),
     about = "A fast local render queue for Blender.",
-    long_about = "Night Render CLI v0.1.0-alpha.6\nA fast local render queue for Blender."
+    long_about = concat!("Render Night CLI v", env!("RN_FULL_VERSION"), "\nA fast local render queue for Blender.")
 )]
 pub struct Cli {
     #[command(subcommand)]

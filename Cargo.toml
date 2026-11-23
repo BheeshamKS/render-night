@@ -9,7 +9,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.0-alpha.7"
 edition = "2021"
 authors = ["BheeshamKS <bheeshamkumarsajnani3@gmail.com>"]
 license = "GPL-3.0-or-later"

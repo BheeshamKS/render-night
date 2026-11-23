@@ -28,6 +28,9 @@ directories = { workspace = true }
 [target.'cfg(unix)'.dependencies]
 libc = { workspace = true }
 
+[build-dependencies]
+chrono = { workspace = true }
+
 [dev-dependencies]
 rn-app = { path = "../rn-app" }
 libc = { workspace = true }

@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="${1:-0.1.0}"
+if [ -z "${1:-}" ]; then
+    VERSION=$(grep -m1 '^version = ' Cargo.toml | cut -d '"' -f2)
+else
+    VERSION="${1}"
+fi
 ROOT_DIR="$(pwd)"
 APP_DIR="${ROOT_DIR}/target/appimage/RenderNight.AppDir"
 OUT_IMG="${ROOT_DIR}/target/release/Render-Night-${VERSION}-x86_64.AppImage"

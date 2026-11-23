@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="${1:-0.1.0}"
+if [ -z "${1:-}" ]; then
+    VERSION=$(grep -m1 '^version = ' Cargo.toml | cut -d '"' -f2)
+else
+    VERSION="${1}"
+fi
 ARCH="amd64"
 TMP_BASE="$(mktemp -d)"
 PKG_DIR="${TMP_BASE}/render-night_${VERSION}_${ARCH}"
@@ -32,6 +36,8 @@ Version: ${VERSION}
 Section: graphics
 Priority: optional
 Architecture: ${ARCH}
+Depends: libx11-6, libasound2 | libasound2t64, libgl1, libxcursor1, libxi6, libxrandr2, libxinerama1, xdg-desktop-portal | zenity
+Recommends: xdg-desktop-portal-gtk, ffmpeg
 Maintainer: BheeshamKS <bheeshamkumarsajnani3@gmail.com>
 Description: Fast local render queue desktop app for Blender
  A fast local batch render queue desktop application for Blender

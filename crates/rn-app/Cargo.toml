@@ -9,6 +9,9 @@ repository.workspace = true
 [lints]
 workspace = true
 
+[build-dependencies]
+chrono = { workspace = true }
+
 [[bin]]
 name = "render-night-gui"
 path = "src/main.rs"

@@ -197,7 +197,7 @@ impl AppState {
             sound_volume: 80,
             sound_muted: false,
             shutdown_countdown_duration: 60,
-            preflight_mode: "ask".to_string(),
+            preflight_mode: "never_block".to_string(),
             ignored_warning_codes: Vec::new(),
 
             // Phase R4 defaults

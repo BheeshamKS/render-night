@@ -52,6 +52,8 @@ pub fn render_settings_view(state: &AppState) -> blenderui::element::Div {
         .child(render_power_safety_section(state))
         // 6. Pre-flight Safety Checks Section
         .child(render_preflight_section(state))
+        // 7. About Render Night Section
+        .child(render_about_section(state))
 }
 
 fn render_blender_section(state: &AppState) -> blenderui::element::Div {
@@ -539,18 +541,23 @@ fn render_preflight_section(state: &AppState) -> blenderui::element::Div {
                             Dropdown()
                                 .child(
                                     option()
-                                        .value("ask")
-                                        .selected(true)
-                                        .child("Ask with 30s countdown (Recommended)"),
+                                        .value("never_block")
+                                        .selected(
+                                            state.preflight_mode == "never_block"
+                                                || state.preflight_mode.is_empty(),
+                                        )
+                                        .child("Never block / Force-continue (Default)"),
                                 )
                                 .child(
                                     option()
-                                        .value("never")
-                                        .child("Never block / Auto-dismiss warnings"),
+                                        .value("ask")
+                                        .selected(state.preflight_mode == "ask")
+                                        .child("Ask with 30s countdown"),
                                 )
                                 .child(
                                     option()
                                         .value("strict")
+                                        .selected(state.preflight_mode == "strict")
                                         .child("Strict (Require explicit confirmation)"),
                                 ),
                         ),
@@ -580,6 +587,106 @@ fn render_preflight_section(state: &AppState) -> blenderui::element::Div {
                                     ),
                                 ))
                                 .child(Button().child("Clear Ignored")),
+                        ),
+                ),
+        )
+}
+
+fn render_about_section(_state: &AppState) -> blenderui::element::Div {
+    div()
+        .styled()
+        .w_full()
+        .bg(theme::BG_PANEL)
+        .rounded_md()
+        .border_1()
+        .border_color(theme::BORDER)
+        .p(px(16.0))
+        .flex()
+        .flex_col()
+        .gap(px(12.0))
+        .child(
+            div()
+                .text_sm()
+                .font_bold()
+                .text_color(theme::TEXT_PRIMARY)
+                .child("About Render Night"),
+        )
+        .child(
+            div()
+                .flex()
+                .flex_col()
+                .gap(px(6.0))
+                .child(
+                    div()
+                        .flex()
+                        .flex_row()
+                        .justify_between()
+                        .child(
+                            div()
+                                .text_xs()
+                                .text_color(theme::TEXT_SECONDARY)
+                                .child("Version"),
+                        )
+                        .child(
+                            div()
+                                .text_xs()
+                                .font_bold()
+                                .text_color(theme::TEXT_PRIMARY)
+                                .child(env!("RN_FULL_VERSION")),
+                        ),
+                )
+                .child(
+                    div()
+                        .flex()
+                        .flex_row()
+                        .justify_between()
+                        .child(
+                            div()
+                                .text_xs()
+                                .text_color(theme::TEXT_SECONDARY)
+                                .child("Build Date"),
+                        )
+                        .child(
+                            div()
+                                .text_xs()
+                                .text_color(theme::TEXT_MUTED)
+                                .child(env!("RN_BUILD_TIME")),
+                        ),
+                )
+                .child(
+                    div()
+                        .flex()
+                        .flex_row()
+                        .justify_between()
+                        .child(
+                            div()
+                                .text_xs()
+                                .text_color(theme::TEXT_SECONDARY)
+                                .child("License"),
+                        )
+                        .child(
+                            div()
+                                .text_xs()
+                                .text_color(theme::TEXT_MUTED)
+                                .child("GPL-3.0-or-later"),
+                        ),
+                )
+                .child(
+                    div()
+                        .flex()
+                        .flex_row()
+                        .justify_between()
+                        .child(
+                            div()
+                                .text_xs()
+                                .text_color(theme::TEXT_SECONDARY)
+                                .child("Blender Compatibility"),
+                        )
+                        .child(
+                            div()
+                                .text_xs()
+                                .text_color(theme::TEXT_MUTED)
+                                .child("Blender 3.6 LTS, 4.2 LTS, 5.x"),
                         ),
                 ),
         )
