@@ -53,6 +53,7 @@ impl Render for AppView {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl blenderui::element::IntoElement {
+        self.state.poll_inspect_results();
         html()
             .styled()
             .child(

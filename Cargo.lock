@@ -2631,6 +2631,7 @@ dependencies = [
  "notify",
  "rfd",
  "rn-core",
+ "rn-mock-blender",
  "serde",
  "serde_json",
  "tokio",

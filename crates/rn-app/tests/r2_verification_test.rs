@@ -64,9 +64,9 @@ fn test_acceptance_criteria_drop_3_files_start_in_2_actions() {
     );
 
     assert_eq!(state.queue_state.jobs.len(), 3);
-    assert_eq!(state.queue_state.jobs[0].status, JobStatus::Pending);
-    assert_eq!(state.queue_state.jobs[1].status, JobStatus::Pending);
-    assert_eq!(state.queue_state.jobs[2].status, JobStatus::Pending);
+    assert_eq!(state.queue_state.jobs[0].status, JobStatus::Inspecting);
+    assert_eq!(state.queue_state.jobs[1].status, JobStatus::Inspecting);
+    assert_eq!(state.queue_state.jobs[2].status, JobStatus::Inspecting);
 
     // Action 2: Press Start Queue
     state.start_queue();
@@ -75,8 +75,8 @@ fn test_acceptance_criteria_drop_3_files_start_in_2_actions() {
     assert_eq!(state.queue_status, QueueStatus::Running);
     assert_eq!(state.active_job_id.as_deref(), Some(j1.as_str()));
     assert_eq!(state.queue_state.jobs[0].status, JobStatus::Active);
-    assert_eq!(state.queue_state.jobs[1].status, JobStatus::Pending);
-    assert_eq!(state.queue_state.jobs[2].status, JobStatus::Pending);
+    assert_eq!(state.queue_state.jobs[1].status, JobStatus::Inspecting);
+    assert_eq!(state.queue_state.jobs[2].status, JobStatus::Inspecting);
 
     // Verify pause and resume
     state.pause_queue();
@@ -163,7 +163,9 @@ fn test_device_badge_and_progress_at_a_glance() {
         100,
         "GPU · RTX 4090",
         "CYCLES",
-        None,
+        Some(rn_mock_blender::fixtures::create_default_inspect_output(
+            "/p/gpu.blend",
+        )),
     );
     let j2 = state.add_job(
         "cpu_job.blend",
@@ -172,7 +174,9 @@ fn test_device_badge_and_progress_at_a_glance() {
         50,
         "CPU",
         "BLENDER_EEVEE_NEXT",
-        None,
+        Some(rn_mock_blender::fixtures::create_default_inspect_output(
+            "/p/cpu.blend",
+        )),
     );
 
     let job1 = state.queue_state.jobs.iter().find(|j| j.id == j1).unwrap();
@@ -260,7 +264,11 @@ fn test_preflight_non_modal_behavior() {
         100,
         "GPU",
         "CYCLES",
-        None,
+        Some(
+            rn_mock_blender::fixtures::create_missing_assets_inspect_output(
+                temp_blend.to_str().unwrap(),
+            ),
+        ),
     );
 
     assert!(state.preflight_report.is_some());

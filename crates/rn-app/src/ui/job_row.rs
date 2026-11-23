@@ -16,6 +16,11 @@ pub fn render_job_row(job: &Job, state: &AppState) -> blenderui::element::Div {
 
     let (status_text, status_bg, status_color) = match job.status {
         JobStatus::Pending => ("Queued", theme::STATUS_QUEUED_BG, theme::STATUS_QUEUED_TEXT),
+        JobStatus::Inspecting => (
+            "⟳ Inspecting",
+            theme::STATUS_QUEUED_BG,
+            theme::STATUS_QUEUED_TEXT,
+        ),
         JobStatus::Active => (
             "Rendering",
             theme::STATUS_ACTIVE_BG,
@@ -145,6 +150,22 @@ pub fn render_job_row(job: &Job, state: &AppState) -> blenderui::element::Div {
                                         .text_color(device_color)
                                         .child(device_text),
                                 )
+                                // Basic mode chip
+                                .child(if job.is_basic_mode == Some(true) {
+                                    span()
+                                        .text_xs()
+                                        .font_medium()
+                                        .px(px(6.0))
+                                        .py(px(2.0))
+                                        .rounded_sm()
+                                        .bg(theme::WARNING_BG)
+                                        .border_1()
+                                        .border_color(theme::WARNING_BORDER)
+                                        .text_color(theme::WARNING_TEXT)
+                                        .child("⚡ Basic mode")
+                                } else {
+                                    span()
+                                })
                                 // Warnings chip
                                 .child(if warning_count > 0 {
                                     span()

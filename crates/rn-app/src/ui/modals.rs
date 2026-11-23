@@ -42,6 +42,12 @@ pub fn render_modal_overlay(state: &AppState, cx: &Context<AppView>) -> blenderu
             ModalState::PresetsManager => render_presets_manager(state, cx),
             ModalState::SkipReport { skipped } => render_skip_report(skipped, cx),
             ModalState::FileBrowser(browser) => render_file_browser(browser, cx),
+            ModalState::BasicModeDetails {
+                job_id,
+                job_name,
+                reason,
+                log_path,
+            } => render_basic_mode_details(job_id, job_name, reason, log_path, cx),
         })
 }
 
@@ -810,6 +816,125 @@ fn render_file_browser(
                                     cx.notify();
                                 })),
                         ),
+                ),
+        )
+}
+
+fn render_basic_mode_details(
+    _job_id: &str,
+    job_name: &str,
+    reason: &str,
+    log_path: &std::path::Path,
+    cx: &Context<AppView>,
+) -> blenderui::element::Div {
+    let reason_display = if reason.trim().is_empty() {
+        "Blender inspect exited non-zero or timed out."
+    } else {
+        reason
+    };
+    let log_str = log_path.to_string_lossy().to_string();
+
+    div()
+        .styled()
+        .w(px(560.0))
+        .bg(theme::BG_PANEL)
+        .rounded_lg()
+        .border_2()
+        .border_color(theme::WARNING_BORDER)
+        .p(px(24.0))
+        .flex()
+        .flex_col()
+        .gap(px(16.0))
+        // Header
+        .child(
+            div()
+                .flex()
+                .flex_row()
+                .items_center()
+                .gap(px(10.0))
+                .child(
+                    div()
+                        .size(px(28.0))
+                        .rounded_full()
+                        .bg(theme::WARNING_BG)
+                        .border_1()
+                        .border_color(theme::WARNING_BORDER)
+                        .text_sm()
+                        .font_bold()
+                        .text_color(theme::WARNING_TEXT)
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .child("⚡"),
+                )
+                .child(
+                    div()
+                        .text_base()
+                        .font_bold()
+                        .text_color(theme::TEXT_PRIMARY)
+                        .child(format!("Basic Mode - {}", job_name)),
+                ),
+        )
+        // Body text
+        .child(
+            div()
+                .flex()
+                .flex_col()
+                .gap(px(10.0))
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(theme::TEXT_PRIMARY)
+                        .child("Blender inspect failed to extract scene metadata. Render Night safely kept this job in the queue and switched to Basic mode so you can still render it using file defaults."),
+                )
+                .child(
+                    div()
+                        .p(px(10.0))
+                        .bg(theme::BG_AREA)
+                        .rounded_sm()
+                        .border_1()
+                        .border_color(theme::BORDER)
+                        .text_xs()
+                        .text_color(theme::WARNING_TEXT)
+                        .child(format!("Failure: {}", reason_display)),
+                )
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(theme::TEXT_MUTED)
+                        .child(format!("Log file: {}", log_str)),
+                ),
+        )
+        // Actions
+        .child(
+            div()
+                .flex()
+                .flex_row()
+                .justify_end()
+                .gap(px(10.0))
+                .child(
+                    Button()
+                        .id("btn-copy-inspect-details")
+                        .child("Copy details")
+                        .on_click(cx.listener({
+                            let reason_copy = reason.to_string();
+                            move |this, _event, _window, cx| {
+                                this.state.add_toast(
+                                    &format!("Copied details: {}", reason_copy),
+                                    None,
+                                );
+                                cx.notify();
+                            }
+                        })),
+                )
+                .child(
+                    Button()
+                        .id("btn-close-inspect-details")
+                        .child("Close")
+                        .on_click(cx.listener(|this, _event, _window, cx| {
+                            this.state.active_modal = None;
+                            cx.notify();
+                        })),
                 ),
         )
 }

@@ -22,7 +22,6 @@ use rn_core::sound::sound_player::SoundPlayer;
 use crate::file_dialog::{default_dialog_service, FileDialogService};
 use std::sync::Arc;
 
-pub const SAMPLE_INSPECT_JSON: &str = include_str!("../../../tests/golden/inspect_sample.json");
 static JOB_COUNTER: AtomicU64 = AtomicU64::new(1);
 static TOAST_COUNTER: AtomicU64 = AtomicU64::new(1);
 
@@ -226,6 +225,12 @@ pub enum ModalState {
         skipped: Vec<SkippedOverride>,
     },
     FileBrowser(FileBrowserState),
+    BasicModeDetails {
+        job_id: String,
+        job_name: String,
+        reason: String,
+        log_path: PathBuf,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -310,7 +315,12 @@ pub struct AppState {
     // Services & Engine
     pub file_dialog: Arc<dyn FileDialogService>,
     pub engine_handle: Option<QueueEngineHandle>,
+    pub inspect_tx: std::sync::mpsc::Sender<InspectResultMsg>,
+    pub inspect_rx: InspectReceiver,
 }
+
+pub type InspectResultMsg = (String, Result<InspectOutput, String>);
+pub type InspectReceiver = Arc<std::sync::Mutex<std::sync::mpsc::Receiver<InspectResultMsg>>>;
 
 impl Default for AppState {
     fn default() -> Self {
@@ -320,6 +330,7 @@ impl Default for AppState {
 
 impl AppState {
     pub fn new() -> Self {
+        let (inspect_tx, inspect_rx) = std::sync::mpsc::channel();
         Self {
             queue_state: QueueState {
                 version: 1,
@@ -375,6 +386,8 @@ impl AppState {
             // Services & Engine
             file_dialog: default_dialog_service(),
             engine_handle: None,
+            inspect_tx,
+            inspect_rx: Arc::new(std::sync::Mutex::new(inspect_rx)),
         }
     }
 
@@ -408,15 +421,18 @@ impl AppState {
             name,
             blend_path
         );
-        let inspect_val = inspect_data.unwrap_or_else(|| {
-            serde_json::from_str(SAMPLE_INSPECT_JSON).unwrap_or(serde_json::Value::Null)
-        });
+        let is_inspecting = inspect_data.is_none();
+        let status = if is_inspecting {
+            JobStatus::Inspecting
+        } else {
+            JobStatus::Pending
+        };
 
         let job = Job {
             id: job_id.clone(),
             blend_path: blend_path.to_string(),
             name: name.to_string(),
-            status: JobStatus::Pending,
+            status,
             range: SimpleRange {
                 start: frame_start,
                 end: frame_end,
@@ -443,9 +459,9 @@ impl AppState {
             error: None,
             progress: 0.0,
             last_frame: None,
-            inspect: Some(inspect_val),
+            inspect: inspect_data,
             pre_render_hook: None,
-            is_basic_mode: None,
+            is_basic_mode: if is_inspecting { None } else { Some(false) },
             basic_mode_reason: None,
             ignore_all_warnings: Some(false),
             ignored_warning_codes: Some(Vec::new()),
@@ -454,8 +470,210 @@ impl AppState {
         };
 
         self.queue_state.jobs.push(job);
-        self.run_preflight_check();
+        if is_inspecting {
+            self.trigger_job_inspect(&job_id, blend_path);
+        } else {
+            self.run_preflight_check();
+        }
         job_id
+    }
+
+    fn is_executable_in_path(cmd: &str) -> bool {
+        if let Ok(path_var) = std::env::var("PATH") {
+            for p in std::env::split_paths(&path_var) {
+                let full = p.join(cmd);
+                if full.is_file() {
+                    #[cfg(unix)]
+                    {
+                        use std::os::unix::fs::PermissionsExt;
+                        if let Ok(meta) = full.metadata() {
+                            if meta.permissions().mode() & 0o111 != 0 {
+                                return true;
+                            }
+                        }
+                    }
+                    #[cfg(not(unix))]
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    /// Resolve effective blender executable command for inspect or render
+    pub fn get_blender_cmd(&self) -> Vec<String> {
+        if let Some(first) = self.discovered_blenders.first() {
+            return first.executable.clone();
+        }
+        if let Ok(exe) = std::env::var("RN_BLENDER_BIN") {
+            return vec![exe];
+        }
+        if let Ok(mock) = std::env::var("CARGO_BIN_EXE_rn-mock-blender") {
+            return vec![mock];
+        }
+
+        // Fast stat checks (no child processes spawned, < 0.1ms)
+        if Self::is_executable_in_path("blender") {
+            return vec!["blender".to_string()];
+        }
+
+        let home = std::env::var("HOME").unwrap_or_default();
+        let flatpak_user =
+            std::path::Path::new(&home).join(".local/share/flatpak/app/org.blender.Blender");
+        let flatpak_sys = std::path::Path::new("/var/lib/flatpak/app/org.blender.Blender");
+        if flatpak_user.exists() || flatpak_sys.exists() {
+            return vec![
+                "flatpak".to_string(),
+                "run".to_string(),
+                "org.blender.Blender".to_string(),
+            ];
+        }
+
+        let snap_bin = std::path::Path::new("/snap/bin/blender");
+        if snap_bin.exists() {
+            return vec!["/snap/bin/blender".to_string()];
+        }
+
+        vec!["blender".to_string()]
+    }
+
+    /// Trigger background inspect for a newly added job
+    pub fn trigger_job_inspect(&self, job_id: &str, blend_path: &str) {
+        let jid = job_id.to_string();
+        let bpath = PathBuf::from(blend_path);
+        let tx = self.inspect_tx.clone();
+        let blender_cmd = self.get_blender_cmd();
+
+        crate::trace_event!(
+            "INSPECT_PIPELINE",
+            "triggering background inspect for job={} path='{}' blender={:?}",
+            jid,
+            bpath.display(),
+            blender_cmd
+        );
+
+        std::thread::spawn(move || {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build();
+            if let Ok(rt) = rt {
+                rt.block_on(async move {
+                    let opts = rn_core::blender::inspector::InspectOptions {
+                        isolated_mode: true,
+                        auto_exec: false,
+                        timeout_ms: Some(30_000),
+                        script_path: None,
+                    };
+                    let res =
+                        rn_core::blender::inspector::inspect_blend(&bpath, &blender_cmd, &opts)
+                            .await;
+                    let _ = tx.send((jid, res));
+                });
+            }
+        });
+    }
+
+    /// Synchronously inspect a job (used in tests or immediate validation)
+    pub fn inspect_job_sync(&mut self, job_id: &str) {
+        if let Some(job) = self
+            .queue_state
+            .jobs
+            .iter()
+            .find(|j| j.id == job_id)
+            .cloned()
+        {
+            let bpath = PathBuf::from(&job.blend_path);
+            let blender_cmd = self.get_blender_cmd();
+            let opts = rn_core::blender::inspector::InspectOptions {
+                isolated_mode: true,
+                auto_exec: false,
+                timeout_ms: Some(30_000),
+                script_path: None,
+            };
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build();
+            if let Ok(rt) = rt {
+                let res = rt.block_on(async move {
+                    rn_core::blender::inspector::inspect_blend(&bpath, &blender_cmd, &opts).await
+                });
+                self.apply_inspect_result(job_id, res);
+            }
+        }
+    }
+
+    /// Poll any pending background inspect results from the channel
+    pub fn poll_inspect_results(&mut self) {
+        let mut updates = Vec::new();
+        if let Ok(rx) = self.inspect_rx.try_lock() {
+            while let Ok(msg) = rx.try_recv() {
+                updates.push(msg);
+            }
+        }
+        for (job_id, res) in updates {
+            self.apply_inspect_result(&job_id, res);
+        }
+    }
+
+    /// Apply inspect result to a job in the queue
+    pub fn apply_inspect_result(&mut self, job_id: &str, result: Result<InspectOutput, String>) {
+        crate::trace_event!(
+            "INSPECT_PIPELINE",
+            "apply_inspect_result for job={}: {:?}",
+            job_id,
+            result.as_ref().map(|_| "Ok(InspectOutput)")
+        );
+        if let Some(job) = self.queue_state.jobs.iter_mut().find(|j| j.id == job_id) {
+            match result {
+                Ok(inspect_output) => {
+                    job.status = JobStatus::Pending;
+                    job.is_basic_mode = Some(false);
+                    job.basic_mode_reason = None;
+                    if let Some(scene) = inspect_output
+                        .scenes
+                        .iter()
+                        .find(|s| s.name == inspect_output.active_scene)
+                        .or_else(|| inspect_output.scenes.first())
+                    {
+                        job.range = SimpleRange {
+                            start: scene.frame_start,
+                            end: scene.frame_end,
+                            step: scene.frame_step,
+                        };
+                        if let Some(eng) = scene.render.get("engine").and_then(|p| p.value.as_str())
+                        {
+                            job.engine = Some(eng.to_string());
+                        }
+                    }
+                    job.inspect = serde_json::to_value(&inspect_output).ok();
+                }
+                Err(err) => {
+                    job.status = JobStatus::Pending;
+                    job.is_basic_mode = Some(true);
+                    job.basic_mode_reason = Some(err.clone());
+                    if job.engine.is_none() {
+                        job.engine = Some("CYCLES".to_string());
+                    }
+                }
+            }
+        }
+        self.run_preflight_check();
+    }
+
+    /// Open Basic Mode inspect failure details modal
+    pub fn open_basic_mode_details(&mut self, job_id: &str) {
+        if let Some(job) = self.queue_state.jobs.iter().find(|j| j.id == job_id) {
+            let log_path = crate::tracer::EventTracer::get_log_path();
+            self.active_modal = Some(ModalState::BasicModeDetails {
+                job_id: job.id.clone(),
+                job_name: job.name.clone(),
+                reason: job
+                    .basic_mode_reason
+                    .clone()
+                    .unwrap_or_else(|| "Blender inspect failed or timed out".to_string()),
+                log_path,
+            });
+        }
     }
 
     /// Run preflight checks over current queue jobs
@@ -467,24 +685,43 @@ impl AppState {
                 .as_ref()
                 .and_then(|v| serde_json::from_value(v.clone()).ok());
 
+            let active_camera = inspect_out.as_ref().and_then(|i| {
+                i.scenes
+                    .iter()
+                    .find(|s| s.name == i.active_scene)
+                    .or_else(|| i.scenes.first())
+                    .and_then(|s| s.active_camera.clone())
+            });
+            let available_cameras = inspect_out
+                .as_ref()
+                .map(|i| {
+                    i.scenes
+                        .iter()
+                        .find(|s| s.name == i.active_scene)
+                        .or_else(|| i.scenes.first())
+                        .map(|s| s.cameras.clone())
+                        .unwrap_or_default()
+                })
+                .unwrap_or_default();
+
             preflight_inputs.push(PreflightJobInput {
                 id: job.id.clone(),
                 file_name: job.name.clone(),
                 file_path: job.blend_path.clone(),
                 selected_scene: inspect_out.as_ref().map(|i| i.active_scene.clone()),
-                selected_camera: None,
+                selected_camera: active_camera,
                 scenes: inspect_out
                     .as_ref()
                     .map(|i| i.scenes.clone())
                     .unwrap_or_default(),
-                available_cameras: Vec::new(),
+                available_cameras,
                 output_path_pattern: job.output_pattern.clone(),
                 output_preview: job.output_dir.clone(),
                 range_config: job.range_config.clone(),
                 overrides: job.overrides.clone(),
                 saved_with_version: inspect_out.as_ref().map(|i| i.saved_with_version.clone()),
                 inspect_data: inspect_out,
-                inspect_error: None,
+                inspect_error: job.basic_mode_reason.clone(),
                 requested_gpu: job
                     .device
                     .as_deref()
@@ -1500,6 +1737,18 @@ impl AppState {
 
     /// Helper to get effective settings string for a job
     pub fn effective_settings_summary(&self, job: &Job) -> String {
+        if job.status == JobStatus::Inspecting {
+            return "Analyzing scenes, frame ranges, and asset dependencies...".to_string();
+        }
+        if job.is_basic_mode == Some(true) {
+            let frames_count = (job.range.end - job.range.start + 1).max(1);
+            let engine = job.engine.as_deref().unwrap_or("Cycles");
+            return format!(
+                "Basic Mode (using file defaults) • Frames {}-{} ({}f) • {}",
+                job.range.start, job.range.end, frames_count, engine
+            );
+        }
+
         let inspect_scene = job.inspect.as_ref().and_then(|v| {
             let out: Option<InspectOutput> = serde_json::from_value(v.clone()).ok();
             out.and_then(|o| o.scenes.into_iter().next())

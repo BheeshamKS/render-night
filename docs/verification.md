@@ -243,3 +243,40 @@
   test result: ok. 6 passed; 0 failed; 0 ignored; finished in 0.00s
   ```
 
+### 7.4 Stage D: Instant Job Row (<100ms) & Robust Inspect Pipeline
+- **Status**: **VERIFIED**
+- **Instant Row Insertion (<100ms)**:
+  - Picking or dropping files immediately inserts a job row into `queue_state.jobs` in state `JobStatus::Inspecting`.
+  - Queue count is never 0 after a pick. UI shows animated/pulsing placeholder indicators (`⚡ Inspecting...`) while inspection proceeds asynchronously in the background.
+  - Eliminated synchronous subprocess spawns (`blender --version`) on the UI thread during file addition; uses instant filesystem stat checks (<0.1ms).
+- **Embedded Python Scripts Extraction & Resolution**:
+  - `inspect_blend.py` and `render_runner.py` embedded via `include_bytes!` into `rn-core::blender::scripts`.
+  - Automatically extracted on first run or when binary content hash changes to `~/.local/share/render-night/v<version>/scripts/` with `0755` permissions.
+  - Resolvers check extracted path first, then `$APPDIR/usr/share/render-night/`, then source checkout fallbacks. Zero dependence on working directory.
+- **Child Environment Sanitization**:
+  - Implemented `rn_core::process::sanitize_child_env` and `sanitize_tokio_env`.
+  - Strips AppImage and host contamination: `APPDIR`, `APPIMAGE`, `ARGV0`, `OWD`, `PYTHONHOME`, `PYTHONPATH`, `GIO_MODULE_DIR`, and filters `LD_LIBRARY_PATH` to prevent linking errors in spawned Blender processes.
+- **Root Cause Fix: Bogus Missing Textures**:
+  - Completely removed hardcoded `SAMPLE_INSPECT_JSON` fallback from `crates/rn-app/src/state.rs`.
+  - Clean files (such as `blank.blend`) now produce exactly 0 bogus missing textures and 0 preflight warnings.
+- **Basic Mode Fallback on Failure**:
+  - If inspect fails (non-zero exit code, timeout > 30s, or Blender crash):
+    - Row remains in the queue with `status: JobStatus::Pending`.
+    - Marked `is_basic_mode: Some(true)` with detailed failure reason in `basic_mode_reason`.
+    - User can still render using scene defaults (CYCLES, 1..250).
+    - Renders `⚡ Basic mode` chip on the job row.
+    - Clicking the chip or options opens a non-modal details modal (`ModalState::BasicModeDetails`) displaying failure reason, log file path, and a "Copy details" button.
+- **Stage D Automated Test Suite**: [`crates/rn-app/tests/stage_d_inspect_pipeline_test.rs`](file:///mnt/SSD_Storage/Coding/Render-Night/crates/rn-app/tests/stage_d_inspect_pipeline_test.rs)
+  ```
+  running 7 tests
+  test test_child_environment_sanitization ... ok
+  test test_embedded_scripts_extraction_and_resolution ... ok
+  test test_instant_row_insertion_under_100ms ... ok
+  test test_basic_mode_drawer_modal_open_and_close ... ok
+  test test_blank_fixture_inspect_clean_zero_warnings ... ok
+  test test_corrupt_blend_fallback_to_basic_mode ... ok
+  test test_inspect_crash_blend_fallback_to_basic_mode ... ok
+  test result: ok. 7 passed; 0 failed; 0 ignored; finished in 5.05s
+  ```
+
+

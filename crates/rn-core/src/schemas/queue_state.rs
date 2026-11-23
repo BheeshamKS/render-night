@@ -14,6 +14,7 @@ pub enum JobStatus {
     Done,
     Failed,
     Canceled,
+    Inspecting,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]

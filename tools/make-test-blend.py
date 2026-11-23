@@ -22,6 +22,8 @@ except ImportError:
 def build_scene(
     output_blend,
     engine="CYCLES",
+    frame_start=1,
+    frame_end=10,
     with_missing_used=False,
     with_missing_unused=False,
     with_missing_lib=False,
@@ -36,8 +38,8 @@ def build_scene(
     # Create Scene
     scene = bpy.context.scene
     scene.name = "Scene"
-    scene.frame_start = 1
-    scene.frame_end = 10
+    scene.frame_start = frame_start
+    scene.frame_end = frame_end
     scene.render.resolution_x = 32
     scene.render.resolution_y = 32
     scene.render.resolution_percentage = 100
@@ -163,11 +165,15 @@ def main():
 
         output_blend = "test_cube.blend"
         engine = "CYCLES"
+        frame_start = 1
+        frame_end = 10
         with_used = False
         with_unused = False
         with_lib = False
 
-        for arg in args:
+        i = 0
+        while i < len(args):
+            arg = args[i]
             if arg.endswith(".blend"):
                 output_blend = arg
             elif arg in ("--cycles", "CYCLES"):
@@ -180,10 +186,19 @@ def main():
                 with_unused = True
             elif arg == "--missing-lib":
                 with_lib = True
+            elif arg == "--frame-start" and i + 1 < len(args):
+                frame_start = int(args[i + 1])
+                i += 1
+            elif arg == "--frame-end" and i + 1 < len(args):
+                frame_end = int(args[i + 1])
+                i += 1
+            i += 1
 
         build_scene(
             output_blend,
             engine=engine,
+            frame_start=frame_start,
+            frame_end=frame_end,
             with_missing_used=with_used,
             with_missing_unused=with_unused,
             with_missing_lib=with_lib,
@@ -237,6 +252,10 @@ def main():
 
             # Generate real blender scenes
             targets = [
+                (
+                    os.path.join(out_dir, "blank.blend"),
+                    ["--eevee", "--frame-start", "1", "--frame-end", "3"],
+                ),
                 (os.path.join(out_dir, "eevee-basic.blend"), ["--eevee"]),
                 (
                     os.path.join(out_dir, "eevee-missing-used-texture.blend"),
