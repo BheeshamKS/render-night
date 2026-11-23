@@ -105,9 +105,52 @@ fn test_child_environment_sanitization() {
     sanitize_tokio_env(&mut tokio_cmd);
 }
 
+fn ensure_blender_configured(state: &mut AppState) {
+    if std::env::var("RN_BLENDER_BIN").is_ok() {
+        return;
+    }
+    let cmd = state.get_blender_cmd();
+    let has_real = if let Some(exe) = cmd.first() {
+        if exe == "flatpak" {
+            true
+        } else if std::path::Path::new(exe).exists() {
+            true
+        } else if let Ok(path_var) = std::env::var("PATH") {
+            std::env::split_paths(&path_var).any(|p| p.join(exe).is_file())
+        } else {
+            false
+        }
+    } else {
+        false
+    };
+
+    if !has_real {
+        let mut mock_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        mock_path.pop();
+        mock_path.pop();
+        mock_path.push("target");
+        mock_path.push("debug");
+        mock_path.push(format!("rn-mock-blender{}", std::env::consts::EXE_SUFFIX));
+        if mock_path.exists() {
+            state.discovered_blenders = vec![rn_core::blender::discovery::BlenderInstallation {
+                id: "mock-blender".to_string(),
+                executable: vec![mock_path.to_string_lossy().to_string()],
+                display_path: mock_path.to_string_lossy().to_string(),
+                version: "4.2.0".to_string(),
+                major: 4,
+                minor: 2,
+                patch: 0,
+                is_portable: false,
+                source: rn_core::blender::discovery::BlenderSource::Custom,
+            }];
+        }
+    }
+}
+
 #[test]
 fn test_blank_fixture_inspect_clean_zero_warnings() {
     let mut state = AppState::new();
+    ensure_blender_configured(&mut state);
     let blank_path = fixtures_dir().join("blank.blend");
     if !blank_path.exists() {
         return;

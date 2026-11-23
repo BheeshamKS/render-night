@@ -534,6 +534,26 @@ impl AppState {
             return vec!["/snap/bin/blender".to_string()];
         }
 
+        // In test/debug environments without host blender, fall back to target rn-mock-blender
+        #[cfg(debug_assertions)]
+        {
+            if let Ok(exe) = std::env::current_exe() {
+                if let Some(debug_dir) = exe.parent().and_then(|p| {
+                    if p.file_name() == Some(std::ffi::OsStr::new("deps")) {
+                        p.parent()
+                    } else {
+                        Some(p)
+                    }
+                }) {
+                    let mock =
+                        debug_dir.join(format!("rn-mock-blender{}", std::env::consts::EXE_SUFFIX));
+                    if mock.is_file() {
+                        return vec![mock.to_string_lossy().to_string()];
+                    }
+                }
+            }
+        }
+
         vec!["blender".to_string()]
     }
 
