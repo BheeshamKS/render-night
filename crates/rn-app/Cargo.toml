@@ -38,3 +38,4 @@ libc = { workspace = true }
 
 [dev-dependencies]
 rn-mock-blender = { path = "../rn-mock-blender" }
+tempfile = { workspace = true }

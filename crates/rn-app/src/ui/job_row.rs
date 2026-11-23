@@ -245,6 +245,24 @@ pub fn render_job_row(
                                     span()
                                 })
                                 // Quick action buttons
+                                .child(if job.status == JobStatus::Failed {
+                                    let next_frame =
+                                        job.last_frame.map(|f| f + 1).unwrap_or(job.range.start);
+                                    let jid = job.id.clone();
+                                    Button()
+                                        .id(format!("btn-resume-job-{}", job.id))
+                                        .child(format!("Resume from frame {}", next_frame))
+                                        .on_click(move |_e, _window, app| {
+                                            let jid_c = jid.clone();
+                                            weak.update(app, |this, cx| {
+                                                this.state
+                                                    .resume_job_from_frame(&jid_c, next_frame);
+                                                cx.notify();
+                                            });
+                                        })
+                                } else {
+                                    Button().hidden()
+                                })
                                 .child({
                                     let jid = job.id.clone();
                                     Button()

@@ -322,5 +322,38 @@
   ```
 - **Workspace Verification**: 100% passing across all 11 test binaries in workspace.
 
+### 7.6 Stage F: Real Blender Start -> Render -> Finish Verification & Crash Recovery
+- **Status**: **VERIFIED**
+- **Real Blender 10-Frame Render**:
+  - Rendered `tests/fixtures/eevee-basic.blend` (10 frames, 32x32, EEVEE) using real host Blender (`flatpak run org.blender.Blender`).
+  - Output pattern resolved to absolute scratch path inside workspace (`target/scratch_stage_f/render_10_frames/frames/frame_####.png`).
+  - Verified frames 1..10 on disk:
+    - Every file exists: `frame_0001.png` through `frame_0010.png`.
+    - Every file length > 100 bytes (~1,400 bytes each).
+    - Every file header matches standard PNG magic bytes: `\x89PNG\r\n\x1a\n`.
+  - Frame progress verified monotonically increasing (frames 1..10) emitting real-time `SupervisorEvent::FrameDone`.
+  - Final history status returned `HistoryResult::Completed`.
+- **Sound Synthesis & Graceful Fallback**:
+  - `synthesize_todung_samples()` generates full normalized chime waveform (bounded in `[-1.0, 1.0]`).
+  - `SoundPlayer::play_finish_sound()` executes safely on headless / container systems without soundcards; degrades to silent logging without panicking or crashing.
+  - Automatically triggered upon queue completion (`QueueStatus::Running` -> `QueueStatus::Idle`).
+- **Crash Recovery & Resume Invariant**:
+  - Added "Resume from frame N" button (`btn-resume-job-<id>`) on failed job rows.
+  - `state.resume_job_from_frame(job_id, resume_frame)`:
+    - Sets `job.range.start` to `resume_frame` and `render_missing_only` to `true`.
+    - Resumes queue execution without duplicate frame renders.
+    - **Strict Post-Action Safety Disarm**: Invariant strictly enforced: `state.when_finished` is reset to `PostAction::None`.
+  - `ModalState::ResumeAfterCrash` modal restored on unclean shutdown detection with prompt to resume from last frame.
+- **Stage F Automated Test Suite**: [`crates/rn-app/tests/stage_f_render_verification_test.rs`](file:///mnt/SSD_Storage/Coding/Render-Night/crates/rn-app/tests/stage_f_render_verification_test.rs)
+  ```
+  running 4 tests
+  test test_unclean_shutdown_modal_flow ... ok
+  test test_failed_job_shows_resume_from_frame_n_and_disarms_post_actions ... ok
+  test test_sound_synthesis_and_silent_fallback_never_crashes ... ok
+  test test_render_eevee_basic_10_frames_and_verify_png_headers ... ok
+  test result: ok. 4 passed; 0 failed; 0 ignored; finished in 8.76s
+  ```
+
+
 
 

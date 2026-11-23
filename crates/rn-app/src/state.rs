@@ -1691,6 +1691,24 @@ impl AppState {
         }
     }
 
+    /// Resume a failed job directly from frame N
+    pub fn resume_job_from_frame(&mut self, job_id: &str, resume_frame: i32) {
+        if let Some(job) = self.queue_state.jobs.iter_mut().find(|j| j.id == job_id) {
+            job.range.start = resume_frame.min(job.range.end);
+            job.status = JobStatus::Pending;
+            job.render_missing_only = true;
+        }
+        self.when_finished = PostAction::None; // strict safety disarm
+        self.add_toast(
+            &format!(
+                "Resuming from frame {} (post-actions disarmed)",
+                resume_frame
+            ),
+            None,
+        );
+        self.start_queue();
+    }
+
     /// Open realtime sequence player
     pub fn open_sequence_player(&mut self, start: i32, end: i32, fps: f64) {
         let player = crate::player::SequencePlayer::new(start, end, fps);
@@ -1802,8 +1820,13 @@ impl AppState {
                 state,
                 active_job_id,
             } => {
+                let prev = self.queue_status;
                 self.queue_status = state;
                 self.active_job_id = active_job_id;
+                if prev == QueueStatus::Running && state == QueueStatus::Idle && !self.sound_muted {
+                    let player = SoundPlayer::new(true, self.sound_volume);
+                    player.play_finish_sound();
+                }
             }
             QueueEvent::JobStart {
                 job_id,
