@@ -1,3 +1,5 @@
+!cd "..\.."
+
 !define PRODUCT_NAME "Render Night"
 !define PRODUCT_PUBLISHER "BheeshamKS"
 !define PRODUCT_WEB_SITE "https://github.com/BheeshamKS/Render-Night"
