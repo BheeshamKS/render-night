@@ -64,7 +64,7 @@ fn main() {
             exit(1);
         }
         let payload_path = Path::new(&first_py_arg);
-        match execute_render_runner(payload_path, args.mock_scenario) {
+        match execute_render_runner(payload_path, Some(scenario)) {
             Ok(()) => exit(0),
             Err(code) => exit(code),
         }

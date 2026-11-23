@@ -5,6 +5,7 @@ use blenderui::components::*;
 use blenderui::geometry::px;
 use blenderui::html::*;
 use blenderui::list::uniform_list;
+use blenderui::window::Context;
 use blenderui::{ParentElement, Styled};
 
 use super::bulk_bar::render_bulk_bar;
@@ -12,9 +13,10 @@ use super::job_editor::render_job_editor;
 use super::job_row::render_job_row;
 use super::preflight_banner::render_preflight_banner;
 use super::theme;
+use super::AppView;
 use crate::state::AppState;
 
-pub fn render_queue_view(state: &AppState) -> blenderui::element::Div {
+pub fn render_queue_view(state: &AppState, cx: &Context<AppView>) -> blenderui::element::Div {
     let has_jobs = !state.queue_state.jobs.is_empty();
     let editing_job = state
         .editing_job_id
@@ -43,7 +45,7 @@ pub fn render_queue_view(state: &AppState) -> blenderui::element::Div {
                 .child(render_preflight_banner(state))
                 .child(render_bulk_bar(state))
                 .child(if !has_jobs {
-                    div().w_full().child(render_empty_drop_zone())
+                    div().w_full().child(render_empty_drop_zone(cx))
                 } else {
                     div().w_full().flex_1().overflow_y_scroll().child(
                         uniform_list("queue_jobs", job_count, move |range, _window, _cx| {
@@ -66,7 +68,7 @@ pub fn render_queue_view(state: &AppState) -> blenderui::element::Div {
         })
 }
 
-fn render_empty_drop_zone() -> blenderui::element::Div {
+fn render_empty_drop_zone(cx: &Context<AppView>) -> blenderui::element::Div {
     div()
         .styled()
         .w_full()
@@ -108,23 +110,29 @@ fn render_empty_drop_zone() -> blenderui::element::Div {
                 .text_base()
                 .font_semibold()
                 .text_color(theme::TEXT_PRIMARY)
-                .child("Drop .blend files here to start rendering"),
+                .child("Click '+ Add .blend' or Browse to select projects"),
         )
         .child(
             span()
                 .text_xs()
                 .text_color(theme::TEXT_MUTED)
-                .child("or click '+ Add .blend' in the toolbar to browse"),
+                .child("Add Blender files to queue for background batch rendering"),
         )
         .child(
-            div()
-                .mt(px(8.0))
-                .child(Button().child("+ Browse .blend Files")),
+            div().mt(px(8.0)).child(
+                Button()
+                    .id("btn-browse-blend")
+                    .child("+ Browse .blend Files")
+                    .on_click(cx.listener(|this, _event, _window, cx| {
+                        this.state.prompt_add_blend_files();
+                        cx.notify();
+                    })),
+            ),
         )
         .child(
             span()
                 .text_xs()
                 .text_color(theme::TEXT_DIM)
-                .child("Supports Blender 2.80 through 5.0 projects · Automatic GPU/CPU detection"),
+                .child("Tested on Blender 3.6 LTS, 4.2 LTS, 5.x · Automatic GPU/CPU detection"),
         )
 }

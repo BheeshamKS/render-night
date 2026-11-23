@@ -97,7 +97,27 @@ pub fn is_pid_alive(pid: u32) -> bool {
 
     #[cfg(windows)]
     {
-        // On Windows, try opening the process with PROCESS_QUERY_LIMITED_INFORMATION
-        false // Will be handled if on Windows
+        extern "system" {
+            fn OpenProcess(
+                dwDesiredAccess: u32,
+                bInheritHandle: i32,
+                dwProcessId: u32,
+            ) -> *mut std::ffi::c_void;
+            fn CloseHandle(hObject: *mut std::ffi::c_void) -> i32;
+            fn GetExitCodeProcess(hProcess: *mut std::ffi::c_void, lpExitCode: *mut u32) -> i32;
+        }
+        const PROCESS_QUERY_LIMITED_INFORMATION: u32 = 0x1000;
+        const STILL_ACTIVE: u32 = 259;
+
+        unsafe {
+            let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+            if handle.is_null() {
+                return false;
+            }
+            let mut exit_code = 0u32;
+            let res = GetExitCodeProcess(handle, &mut exit_code);
+            CloseHandle(handle);
+            res != 0 && exit_code == STILL_ACTIVE
+        }
     }
 }

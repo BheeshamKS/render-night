@@ -194,36 +194,55 @@ pub fn execute_render_runner(
     let failed_count = 0;
 
     let control_file = payload.control_file.as_deref().map(Path::new);
+    let mut control_candidates: Vec<PathBuf> = Vec::new();
+    if let Some(cf) = control_file {
+        control_candidates.push(cf.to_path_buf());
+        let mut curr = cf.parent();
+        for _ in 0..4 {
+            if let Some(p) = curr {
+                control_candidates.push(p.join("control.json"));
+                curr = p.parent();
+            }
+        }
+    }
 
     for (idx, &f) in frames.iter().enumerate() {
         // Control sentinel check before frame
-        if let Some(ctrl_path) = control_file {
-            loop {
-                if ctrl_path.exists() {
-                    if let Ok(ctrl_content) = fs::read_to_string(ctrl_path) {
+        let check_sentinel = || -> (bool, bool) {
+            let mut is_paused = false;
+            for cand in &control_candidates {
+                if cand.exists() {
+                    if let Ok(ctrl_content) = fs::read_to_string(cand) {
                         if let Ok(cmd) = serde_json::from_str::<ControlCommand>(&ctrl_content) {
                             if cmd.command == "stop" {
-                                break;
+                                return (true, false);
                             }
                             if cmd.command == "pause" {
-                                sleep(Duration::from_millis(20));
-                                continue;
+                                is_paused = true;
                             }
                         }
                     }
                 }
+            }
+            (false, is_paused)
+        };
+
+        let mut stopped = false;
+        loop {
+            let (is_stop, is_pause) = check_sentinel();
+            if is_stop {
+                stopped = true;
                 break;
             }
-
-            if ctrl_path.exists() {
-                if let Ok(ctrl_content) = fs::read_to_string(ctrl_path) {
-                    if let Ok(cmd) = serde_json::from_str::<ControlCommand>(&ctrl_content) {
-                        if cmd.command == "stop" {
-                            break;
-                        }
-                    }
-                }
+            if is_pause {
+                sleep(Duration::from_millis(20));
+                continue;
             }
+            break;
+        }
+
+        if stopped {
+            break;
         }
 
         // Crash simulation: Scenario 1 (crash_114) or Scenario 2 (gpu_oom) or payload.crashConfig

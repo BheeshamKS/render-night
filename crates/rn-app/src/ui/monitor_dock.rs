@@ -5,22 +5,24 @@ use blenderui::components::*;
 use blenderui::geometry::px;
 use blenderui::html::*;
 use blenderui::list::uniform_list;
+use blenderui::window::Context;
 use blenderui::{ParentElement, Styled};
 
 use super::sparkline::render_sparkline;
 use super::theme;
+use super::AppView;
 use crate::state::{AppState, DockTab};
 use rn_core::queue::QueueStatus;
 
-pub fn render_monitor_dock(state: &AppState) -> blenderui::element::Div {
+pub fn render_monitor_dock(state: &AppState, cx: &Context<AppView>) -> blenderui::element::Div {
     if !state.monitor_expanded {
-        render_slim_bar(state)
+        render_slim_bar(state, cx)
     } else {
-        render_full_dock(state)
+        render_full_dock(state, cx)
     }
 }
 
-fn render_slim_bar(state: &AppState) -> blenderui::element::Div {
+fn render_slim_bar(state: &AppState, cx: &Context<AppView>) -> blenderui::element::Div {
     let is_rendering = state.queue_status == QueueStatus::Running;
     let active_job_name = state
         .active_job_id
@@ -105,10 +107,18 @@ fn render_slim_bar(state: &AppState) -> blenderui::element::Div {
                 ),
         )
         // Right: expand toggle
-        .child(Button().child("▲ Expand Monitor Dock"))
+        .child(
+            Button()
+                .id("btn-toggle-dock")
+                .child("▲ Expand Monitor Dock")
+                .on_click(cx.listener(|this, _event, _window, cx| {
+                    this.state.monitor_expanded = true;
+                    cx.notify();
+                })),
+        )
 }
 
-fn render_full_dock(state: &AppState) -> blenderui::element::Div {
+fn render_full_dock(state: &AppState, cx: &Context<AppView>) -> blenderui::element::Div {
     let active_job_name = state
         .active_job_id
         .as_ref()
@@ -148,14 +158,23 @@ fn render_full_dock(state: &AppState) -> blenderui::element::Div {
                         .child(render_dock_tab(
                             "Preview",
                             state.active_dock_tab == DockTab::Preview,
+                            "btn-dock-tab-preview",
+                            DockTab::Preview,
+                            cx,
                         ))
                         .child(render_dock_tab(
                             "Frame Times",
                             state.active_dock_tab == DockTab::FrameTimes,
+                            "btn-dock-tab-frametimes",
+                            DockTab::FrameTimes,
+                            cx,
                         ))
                         .child(render_dock_tab(
                             "Console & Log",
                             state.active_dock_tab == DockTab::Console,
+                            "btn-dock-tab-console",
+                            DockTab::Console,
+                            cx,
                         )),
                 )
                 // Middle info
@@ -166,7 +185,15 @@ fn render_full_dock(state: &AppState) -> blenderui::element::Div {
                         .child(format!("Active: {}", active_job_name)),
                 )
                 // Collapse button
-                .child(Button().child("▼ Collapse Dock")),
+                .child(
+                    Button()
+                        .id("btn-toggle-dock")
+                        .child("▼ Collapse Dock")
+                        .on_click(cx.listener(|this, _event, _window, cx| {
+                            this.state.monitor_expanded = false;
+                            cx.notify();
+                        })),
+                ),
         )
         // Dock Content Viewport
         .child(
@@ -183,7 +210,13 @@ fn render_full_dock(state: &AppState) -> blenderui::element::Div {
         )
 }
 
-fn render_dock_tab(title: &'static str, is_active: bool) -> blenderui::element::Div {
+fn render_dock_tab(
+    title: &'static str,
+    is_active: bool,
+    id_str: &'static str,
+    tab: DockTab,
+    cx: &Context<AppView>,
+) -> blenderui::element::Div {
     let (bg, text_color, border) = if is_active {
         (theme::BG_SELECTED, theme::TEXT_PRIMARY, theme::ACCENT_BLUE)
     } else {
@@ -191,12 +224,18 @@ fn render_dock_tab(title: &'static str, is_active: bool) -> blenderui::element::
     };
 
     div()
+        .id(id_str)
         .px(px(10.0))
         .py(px(4.0))
         .rounded_sm()
         .bg(bg)
         .border_1()
         .border_color(border)
+        .cursor_pointer()
+        .on_click(cx.listener(move |this, _event, _window, cx| {
+            this.state.active_dock_tab = tab;
+            cx.notify();
+        }))
         .child(
             span()
                 .text_xs()

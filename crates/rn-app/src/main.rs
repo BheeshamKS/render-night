@@ -4,7 +4,7 @@
 use std::path::Path;
 
 use blenderui::geometry::{px, Bounds, Point, Size};
-use blenderui::window::{Application, WindowBounds, WindowOptions};
+use blenderui::window::{Application, TitlebarOptions, WindowBounds, WindowOptions};
 
 use rn_app::screenshots::run_full_audit_suite;
 use rn_app::state::AppState;
@@ -13,6 +13,54 @@ use rn_app::ui::AppView;
 fn main() {
     rn_app::init_fonts();
     let args: Vec<String> = std::env::args().collect();
+
+    // Check for quick smoke test mode (draws 1 frame, verifies pixels, exits 0)
+    if args.iter().any(|a| a == "--smoke-test") {
+        println!("============================================================");
+        println!("RENDER NIGHT: RUNNING SMOKE TEST (1 FRAME DRAW)");
+        println!("============================================================");
+        let state = AppState::new();
+        let app = Application::headless();
+        let mut drawn_pixels = 0;
+        let mut width = 0;
+        let mut height = 0;
+        app.run(|cx| {
+            let bounds = Bounds {
+                origin: Point {
+                    x: px(0.0),
+                    y: px(0.0),
+                },
+                size: Size {
+                    width: px(1280.0),
+                    height: px(800.0),
+                },
+            };
+            let options = WindowOptions {
+                window_bounds: Some(WindowBounds::Windowed(bounds)),
+                titlebar: Some(TitlebarOptions {
+                    title: Some("Render Night".into()),
+                }),
+                ..Default::default()
+            };
+
+            let win = cx
+                .open_window(options, |_window, cx| cx.new(|_ctx| AppView::new(state)))
+                .expect("Failed to open window for smoke test");
+
+            let (w, h, pixels) = cx.draw(win.id);
+            width = w;
+            height = h;
+            drawn_pixels = pixels.iter().filter(|&&p| (p & 0x00FFFFFF) != 0).count();
+            cx.close_window(win.id);
+        });
+        println!(
+            "Smoke test passed: rendered {}x{} viewport with {} non-zero pixels",
+            width, height, drawn_pixels
+        );
+        assert!(width > 0 && height > 0, "Window dimension must be positive");
+        assert!(drawn_pixels > 0, "Frame must have rendered non-zero pixels");
+        std::process::exit(0);
+    }
 
     // Check for headless audit / screenshot mode
     if args
@@ -79,6 +127,9 @@ fn main() {
         };
         let options = WindowOptions {
             window_bounds: Some(WindowBounds::Windowed(bounds)),
+            titlebar: Some(TitlebarOptions {
+                title: Some("Render Night".into()),
+            }),
             ..Default::default()
         };
 

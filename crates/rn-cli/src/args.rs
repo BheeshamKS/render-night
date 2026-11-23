@@ -57,6 +57,10 @@ pub struct Cli {
     /// Skip the 60s countdown for post-action (testing)
     #[arg(long, hide = true)]
     pub skip_countdown: bool,
+
+    /// Run quick UI smoke test and exit
+    #[arg(long)]
+    pub smoke_test: bool,
 }
 
 #[derive(Subcommand, Debug, Clone)]

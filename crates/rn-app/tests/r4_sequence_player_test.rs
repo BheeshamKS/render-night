@@ -399,3 +399,106 @@ fn test_proxy_ffmpeg_hashes_and_thread_safe_status() {
         rn_app::player::proxy::ProxyStatus::Ready(PathBuf::from("/renders/proxy.mp4"))
     );
 }
+
+#[test]
+fn test_real_frames_sequence_scrubbing_benchmark() {
+    let mut scratch = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    scratch.pop(); // crates/
+    scratch.pop(); // root/
+    scratch.push("target");
+    scratch.push("bench_scratch_frames");
+    let _ = std::fs::remove_dir_all(&scratch);
+    std::fs::create_dir_all(&scratch).expect("create bench scratch");
+
+    // Write 10 real 1080p PNG frames to disk
+    println!("Writing 10 real 1080p PNG frames to disk for benchmark...");
+    for f in 1..=10 {
+        let frame_path = scratch.join(format!("frame_{:04}.png", f));
+        let mut img = image::RgbaImage::new(1920, 1080);
+        for (x, y, pixel) in img.enumerate_pixels_mut() {
+            let r = ((f * 25) % 256) as u8;
+            let g = (x % 256) as u8;
+            let b = (y % 256) as u8;
+            *pixel = image::Rgba([r, g, b, 255]);
+        }
+        img.save_with_format(&frame_path, image::ImageFormat::Png)
+            .expect("save real test frame");
+    }
+
+    let mut player = SequencePlayer::new(1, 10, 24.0);
+    player.load_sequence(&scratch, "frame_####.png", 1, 10, 24.0);
+
+    // 1. Cold uncached scrub latency across all 10 real frames
+    let mut uncached_latencies = Vec::new();
+    for f in 1..=10 {
+        let t0 = Instant::now();
+        player.seek_and_load(f);
+        let elapsed_ms = (Instant::now() - t0).as_secs_f64() * 1000.0;
+        uncached_latencies.push(elapsed_ms);
+    }
+    let avg_uncached_ms = uncached_latencies.iter().sum::<f64>() / uncached_latencies.len() as f64;
+    println!(
+        "  ✓ Real 1080p PNG Uncached Scrub Latency: avg={:.2} ms (max={:.2} ms, min={:.2} ms)",
+        avg_uncached_ms,
+        uncached_latencies
+            .iter()
+            .cloned()
+            .fold(f64::NEG_INFINITY, f64::max),
+        uncached_latencies
+            .iter()
+            .cloned()
+            .fold(f64::INFINITY, f64::min),
+    );
+
+    // 2. Warm cached scrub latency across 100 rapid scrub seeks (timeline dragging)
+    let scrub_pattern = [1, 5, 8, 2, 10, 3, 7, 4, 9, 6];
+    let mut cached_latencies = Vec::new();
+    let warm_bench_start = Instant::now();
+    for _ in 0..10 {
+        for &target in &scrub_pattern {
+            let t0 = Instant::now();
+            player.seek_and_load(target);
+            let elapsed_ms = (Instant::now() - t0).as_secs_f64() * 1000.0;
+            cached_latencies.push(elapsed_ms);
+        }
+    }
+    let total_warm_time_secs = (Instant::now() - warm_bench_start).as_secs_f64();
+    let scrubbing_fps = 100.0 / total_warm_time_secs;
+    let avg_cached_ms = cached_latencies.iter().sum::<f64>() / cached_latencies.len() as f64;
+    println!(
+        "  ✓ Real 1080p PNG Warm Scrub Latency: avg={:.3} ms, Scrubbing FPS={:.1}",
+        avg_cached_ms, scrubbing_fps
+    );
+
+    // 3. Realtime playback benchmark
+    player.clock.play();
+    let t_play = Instant::now();
+    let frame_dur = Duration::from_micros((1_000_000.0 / 24.0) as u64);
+    for i in 0..10 {
+        player.tick(t_play + frame_dur * i);
+    }
+
+    let stats = player.get_hud_stats();
+    println!(
+        "  ✓ Real Frame HUD Stats: dropped={}, drop_rate={:.1}%, cached={}, ram_usage={:.2} MB",
+        stats.dropped_frames, stats.drop_rate_pct, stats.cached_count, stats.ram_usage_mb
+    );
+
+    assert_eq!(
+        stats.dropped_frames, 0,
+        "Real frame playback must not drop frames"
+    );
+    assert_eq!(stats.drop_rate_pct, 0.0);
+    assert_eq!(
+        stats.cached_count, 10,
+        "All 10 frames should reside in cache"
+    );
+    assert!(
+        stats.ram_usage_mb > 50.0,
+        "10 uncompressed 1080p RGBA frames should occupy ~80MB RAM"
+    );
+    assert!(
+        avg_cached_ms < 5.0,
+        "Cached scrub latency must be under 5 ms"
+    );
+}

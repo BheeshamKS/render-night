@@ -12,7 +12,7 @@ fn rn_cli_bin() -> PathBuf {
     path.pop(); // root/
     path.push("target");
     path.push("debug");
-    path.push("render-night");
+    path.push(format!("render-night{}", std::env::consts::EXE_SUFFIX));
     path
 }
 
@@ -22,7 +22,7 @@ fn mock_blender_bin() -> PathBuf {
     path.pop(); // root/
     path.push("target");
     path.push("debug");
-    path.push("rn-mock-blender");
+    path.push(format!("rn-mock-blender{}", std::env::consts::EXE_SUFFIX));
     path
 }
 

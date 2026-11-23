@@ -97,7 +97,24 @@ pub async fn inspect_blend(
         .clone()
         .unwrap_or_else(|| resolve_inspect_script_path(None));
 
-    let temp_file = NamedTempFile::new().map_err(|e| format!("Failed to create temp file: {e}"))?;
+    let abs_blend_path = blend_path
+        .canonicalize()
+        .unwrap_or_else(|_| blend_path.to_path_buf());
+    let abs_script = script.canonicalize().unwrap_or_else(|_| script.clone());
+
+    let tmp_parent = directories::ProjectDirs::from("com", "rendernight", "RenderNight")
+        .map(|dirs| dirs.cache_dir().to_path_buf())
+        .or_else(|| directories::BaseDirs::new().map(|d| d.cache_dir().join("render-night")))
+        .unwrap_or_else(std::env::temp_dir)
+        .join("tmp");
+    let _ = std::fs::create_dir_all(&tmp_parent);
+
+    let temp_file = tempfile::Builder::new()
+        .prefix("rn_inspect_")
+        .suffix(".json")
+        .tempfile_in(&tmp_parent)
+        .or_else(|_| NamedTempFile::new())
+        .map_err(|e| format!("Failed to create temp file: {e}"))?;
     let temp_output_path = temp_file.path().to_path_buf();
 
     let exe_cmd = &blender_executable[0];
@@ -107,7 +124,7 @@ pub async fn inspect_blend(
         cmd.arg(arg);
     }
 
-    cmd.arg("-b").arg(blend_path);
+    cmd.arg("-b").arg(&abs_blend_path);
 
     if options.isolated_mode {
         cmd.arg("--factory-startup");
@@ -119,7 +136,10 @@ pub async fn inspect_blend(
         cmd.arg("--disable-autoexec");
     }
 
-    cmd.arg("-P").arg(&script).arg("--").arg(&temp_output_path);
+    cmd.arg("-P")
+        .arg(&abs_script)
+        .arg("--")
+        .arg(&temp_output_path);
 
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
 

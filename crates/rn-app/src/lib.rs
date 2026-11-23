@@ -1,11 +1,15 @@
 // Render Night - Desktop Application Library
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+pub mod file_dialog;
 pub mod player;
 pub mod screenshots;
 pub mod state;
 pub mod ui;
 
+pub use file_dialog::{
+    default_dialog_service, FileDialogService, MockFileDialog, NativeFileDialog,
+};
 pub use player::SequencePlayer;
 pub use screenshots::{capture_view, run_full_audit_suite};
 pub use state::AppState;
