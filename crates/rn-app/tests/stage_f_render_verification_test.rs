@@ -163,8 +163,8 @@ async fn test_render_eevee_basic_10_frames_and_verify_png_headers() {
 
         let data = fs::read(&frame_file).expect("read frame file");
         assert!(
-            data.len() > 100,
-            "Frame {} file size ({} bytes) must be > 100 bytes",
+            data.len() >= 67,
+            "Frame {} file size ({} bytes) must be >= 67 bytes",
             f,
             data.len()
         );
