@@ -41,6 +41,7 @@ pub fn render_modal_overlay(state: &AppState, cx: &Context<AppView>) -> blenderu
             ModalState::ShortcutsCheatSheet => render_shortcuts_sheet(cx),
             ModalState::PresetsManager => render_presets_manager(state, cx),
             ModalState::SkipReport { skipped } => render_skip_report(skipped, cx),
+            ModalState::FileBrowser(browser) => render_file_browser(browser, cx),
         })
 }
 
@@ -579,4 +580,236 @@ fn render_presets_manager(state: &AppState, cx: &Context<AppView>) -> blenderui:
                         .child(Button().child("Delete"))
                 }))
         })
+}
+
+fn render_file_browser(
+    browser: &crate::state::FileBrowserState,
+    cx: &Context<AppView>,
+) -> blenderui::element::Div {
+    let is_blend = browser.mode == crate::state::FileBrowserMode::BlendFiles;
+    let title = if is_blend {
+        "Select Blender Files (.blend)"
+    } else {
+        "Locate Blender Executable"
+    };
+
+    let dir_display = browser.current_dir.to_string_lossy().to_string();
+    let selected_count = browser.selected_paths.len();
+
+    let mut list_col = div()
+        .flex()
+        .flex_col()
+        .gap(px(2.0))
+        .w_full()
+        .h(px(280.0))
+        .bg(theme::BG_PANEL_ALT)
+        .rounded_md()
+        .border_1()
+        .border_color(theme::BORDER)
+        .p(px(6.0));
+
+    if browser.entries.is_empty() {
+        list_col = list_col.child(
+            div()
+                .p(px(20.0))
+                .text_center()
+                .text_xs()
+                .text_color(theme::TEXT_MUTED)
+                .child(if is_blend {
+                    "No .blend files found in this directory."
+                } else {
+                    "No Blender executable found in this directory."
+                }),
+        );
+    } else {
+        for entry in &browser.entries {
+            let path = entry.path.clone();
+            let is_dir = entry.is_dir;
+            let is_selected = browser.selected_paths.contains(&path);
+
+            let row_bg = if is_selected {
+                theme::BG_SELECTED
+            } else {
+                theme::BG_PANEL_ALT
+            };
+
+            let icon_str = if is_dir { "📁 " } else { "📄 " };
+            let display_name = format!("{}{}", icon_str, entry.name);
+
+            let item_row = div()
+                .w_full()
+                .h(px(26.0))
+                .px(px(8.0))
+                .rounded_sm()
+                .bg(row_bg)
+                .flex()
+                .flex_row()
+                .items_center()
+                .justify_between()
+                .text_xs()
+                .cursor_pointer()
+                .child(
+                    div()
+                        .flex()
+                        .flex_row()
+                        .items_center()
+                        .gap(px(6.0))
+                        .text_color(if is_dir {
+                            theme::TEXT_PRIMARY
+                        } else {
+                            theme::TEXT_SECONDARY
+                        })
+                        .child(display_name),
+                )
+                .child(
+                    div()
+                        .flex()
+                        .flex_row()
+                        .items_center()
+                        .gap(px(16.0))
+                        .text_color(theme::TEXT_MUTED)
+                        .child(span().child(entry.size_formatted.clone()))
+                        .child(span().child(entry.modified_formatted.clone())),
+                )
+                .on_click(cx.listener(move |this, _event, _window, cx| {
+                    if is_dir {
+                        this.state.navigate_file_browser(path.clone());
+                    } else {
+                        this.state.toggle_file_browser_selection(path.clone());
+                    }
+                    cx.notify();
+                }));
+
+            list_col = list_col.child(item_row);
+        }
+    }
+
+    div()
+        .styled()
+        .w(px(720.0))
+        .bg(theme::BG_PANEL)
+        .rounded_lg()
+        .border_2()
+        .border_color(theme::BORDER)
+        .p(px(20.0))
+        .flex()
+        .flex_col()
+        .gap(px(14.0))
+        // Header
+        .child(
+            div()
+                .flex()
+                .flex_row()
+                .items_center()
+                .justify_between()
+                .child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .child(
+                            div()
+                                .text_base()
+                                .font_bold()
+                                .text_color(theme::TEXT_PRIMARY)
+                                .child(title),
+                        )
+                        .child(div().text_xs().text_color(theme::TEXT_MUTED).child(
+                            "Built-in File Browser · Click folders to navigate, files to select",
+                        )),
+                )
+                .child(
+                    Button()
+                        .id("btn-file-browser-close")
+                        .child("✕")
+                        .on_click(cx.listener(|this, _event, _window, cx| {
+                            this.state.active_modal = None;
+                            cx.notify();
+                        })),
+                ),
+        )
+        // Navigation bar
+        .child(
+            div()
+                .flex()
+                .flex_row()
+                .items_center()
+                .gap(px(8.0))
+                .child(
+                    Button()
+                        .id("btn-file-browser-up")
+                        .child("↑ Up")
+                        .on_click(cx.listener(|this, _event, _window, cx| {
+                            this.state.file_browser_up();
+                            cx.notify();
+                        })),
+                )
+                .child(
+                    Button()
+                        .id("btn-file-browser-home")
+                        .child("⌂ Home")
+                        .on_click(cx.listener(|this, _event, _window, cx| {
+                            this.state.file_browser_home();
+                            cx.notify();
+                        })),
+                )
+                .child(
+                    div()
+                        .flex_1()
+                        .px(px(8.0))
+                        .py(px(4.0))
+                        .bg(theme::BG_PANEL_ALT)
+                        .border_1()
+                        .border_color(theme::BORDER)
+                        .rounded_sm()
+                        .text_xs()
+                        .text_color(theme::TEXT_PRIMARY)
+                        .child(dir_display),
+                ),
+        )
+        // Entries list
+        .child(list_col)
+        // Footer action bar
+        .child(
+            div()
+                .flex()
+                .flex_row()
+                .items_center()
+                .justify_between()
+                .pt(px(4.0))
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(theme::TEXT_MUTED)
+                        .child(format!("{} item(s) selected", selected_count)),
+                )
+                .child(
+                    div()
+                        .flex()
+                        .flex_row()
+                        .items_center()
+                        .gap(px(8.0))
+                        .child(
+                            Button()
+                                .id("btn-file-browser-cancel")
+                                .child("Cancel")
+                                .on_click(cx.listener(|this, _event, _window, cx| {
+                                    this.state.active_modal = None;
+                                    cx.notify();
+                                })),
+                        )
+                        .child(
+                            Button()
+                                .id("btn-file-browser-open")
+                                .child(if is_blend {
+                                    "+ Add to Queue"
+                                } else {
+                                    "Select Executable"
+                                })
+                                .on_click(cx.listener(|this, _event, _window, cx| {
+                                    this.state.commit_file_browser_selection();
+                                    cx.notify();
+                                })),
+                        ),
+                ),
+        )
 }

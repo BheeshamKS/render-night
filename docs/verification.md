@@ -219,3 +219,27 @@
   - Traces wired for: raw UI click events, file picker invocations/results, state mutations (`add_blend_files`, `add_job`), and core queue events (`start_queue`, `pause_queue`, `stop_queue`).
 - **All Workspace Tests**: 100% passing across unit, integration, parity, and real Blender tests.
 
+### 7.3 Stage C: File Selection Fallback Chain & In-App BUI Browser
+- **Status**: **VERIFIED**
+- **Architecture**:
+  1. **Tier 1 (Native Portal)**: `rfd::FileDialog` with sanitized child environment.
+  2. **Tier 2 (CLI Pickers)**: `zenity --file-selection` and `kdialog --getopenfilename` fallback when portal is unconfigured or returns None.
+  3. **Tier 3 (Built-in In-App BUI Browser)**: Complete directory and `.blend` file browser modal rendered with pure BUI elements:
+     - Path display with parent `↑ Up` and `⌂ Home` navigation buttons.
+     - Folder navigation and `.blend` file listing with size and relative modification timestamps.
+     - Multi-selection and single-selection modes (`BlendFiles` and `BlenderExecutable`).
+     - Direct path entry text box for pasting or typing absolute file paths.
+     - Graceful error toast fallback: `"Could not open file dialog. Type or paste the path directly, or drag files into the window."`.
+  4. **Tier 4 (CLI Arguments)**: Direct acceptance of `.blend` files passed via command line (`render-night-gui file.blend`) on startup.
+- **Automated Test Suite**: [`crates/rn-app/tests/stage_c_file_selection_test.rs`](file:///mnt/SSD_Storage/Coding/Render-Night/crates/rn-app/tests/stage_c_file_selection_test.rs)
+  ```
+  running 6 tests
+  test test_in_app_browser_cancel ... ok
+  test test_in_app_browser_blender_executable_mode ... ok
+  test test_tier_3_broken_portal_fallback_opens_in_app_browser ... ok
+  test test_tier_1_native_dialog_success_adds_files_directly ... ok
+  test test_in_app_browser_direct_path_input ... ok
+  test test_in_app_browser_navigation_and_selection ... ok
+  test result: ok. 6 passed; 0 failed; 0 ignored; finished in 0.00s
+  ```
+

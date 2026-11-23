@@ -41,6 +41,173 @@ pub enum DockTab {
     Console,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FileBrowserMode {
+    BlendFiles,
+    BlenderExecutable,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FileBrowserEntry {
+    pub path: PathBuf,
+    pub name: String,
+    pub is_dir: bool,
+    pub size_formatted: String,
+    pub modified_formatted: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FileBrowserState {
+    pub mode: FileBrowserMode,
+    pub current_dir: PathBuf,
+    pub entries: Vec<FileBrowserEntry>,
+    pub selected_paths: Vec<PathBuf>,
+    pub input_path_text: String,
+    pub error_msg: Option<String>,
+}
+
+impl FileBrowserState {
+    pub fn new(mode: FileBrowserMode) -> Self {
+        let initial_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
+        let mut browser = Self {
+            mode,
+            current_dir: initial_dir.clone(),
+            entries: Vec::new(),
+            selected_paths: Vec::new(),
+            input_path_text: initial_dir.to_string_lossy().to_string(),
+            error_msg: None,
+        };
+        browser.refresh_entries();
+        browser
+    }
+
+    pub fn navigate_to(&mut self, dir: PathBuf) {
+        if dir.is_dir() {
+            self.current_dir = dir;
+            self.input_path_text = self.current_dir.to_string_lossy().to_string();
+            self.selected_paths.clear();
+            self.refresh_entries();
+        }
+    }
+
+    pub fn navigate_up(&mut self) {
+        if let Some(parent) = self.current_dir.parent() {
+            self.navigate_to(parent.to_path_buf());
+        }
+    }
+
+    pub fn toggle_selection(&mut self, path: PathBuf) {
+        if let Some(idx) = self.selected_paths.iter().position(|p| p == &path) {
+            self.selected_paths.remove(idx);
+        } else {
+            if self.mode == FileBrowserMode::BlenderExecutable {
+                self.selected_paths.clear();
+            }
+            self.selected_paths.push(path);
+        }
+    }
+
+    pub fn refresh_entries(&mut self) {
+        self.entries.clear();
+        self.error_msg = None;
+
+        let read_res = std::fs::read_dir(&self.current_dir);
+        let Ok(read_dir) = read_res else {
+            self.error_msg = Some(format!(
+                "Could not read directory: {}",
+                self.current_dir.display()
+            ));
+            return;
+        };
+
+        let mut dirs = Vec::new();
+        let mut files = Vec::new();
+
+        for entry_res in read_dir.flatten() {
+            let path = entry_res.path();
+            let name = entry_res.file_name().to_string_lossy().to_string();
+            if name.starts_with('.') && name != ".." {
+                continue; // Skip hidden files
+            }
+
+            let Ok(meta) = entry_res.metadata() else {
+                continue;
+            };
+
+            let is_dir = meta.is_dir();
+            let size = meta.len();
+            let size_str = if is_dir {
+                "—".to_string()
+            } else if size < 1024 {
+                format!("{} B", size)
+            } else if size < 1024 * 1024 {
+                format!("{:.1} KB", size as f64 / 1024.0)
+            } else {
+                format!("{:.1} MB", size as f64 / (1024.0 * 1024.0))
+            };
+
+            let modified_str = meta
+                .modified()
+                .ok()
+                .and_then(|time| {
+                    let dur = std::time::SystemTime::now().duration_since(time).ok()?;
+                    let secs = dur.as_secs();
+                    if secs < 60 {
+                        Some("Just now".to_string())
+                    } else if secs < 3600 {
+                        Some(format!("{}m ago", secs / 60))
+                    } else if secs < 86400 {
+                        Some(format!("{}h ago", secs / 3600))
+                    } else {
+                        Some(format!("{}d ago", secs / 86400))
+                    }
+                })
+                .unwrap_or_else(|| "Unknown".to_string());
+
+            if is_dir {
+                dirs.push(FileBrowserEntry {
+                    path,
+                    name,
+                    is_dir: true,
+                    size_formatted: size_str,
+                    modified_formatted: modified_str,
+                });
+            } else {
+                match self.mode {
+                    FileBrowserMode::BlendFiles => {
+                        if name.ends_with(".blend") {
+                            files.push(FileBrowserEntry {
+                                path,
+                                name,
+                                is_dir: false,
+                                size_formatted: size_str,
+                                modified_formatted: modified_str,
+                            });
+                        }
+                    }
+                    FileBrowserMode::BlenderExecutable => {
+                        if name.to_lowercase().contains("blender") {
+                            files.push(FileBrowserEntry {
+                                path,
+                                name,
+                                is_dir: false,
+                                size_formatted: size_str,
+                                modified_formatted: modified_str,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        dirs.sort_by_key(|a| a.name.to_lowercase());
+        files.sort_by_key(|a| a.name.to_lowercase());
+
+        self.entries.extend(dirs);
+        self.entries.extend(files);
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum ModalState {
     ResumeAfterCrash {
@@ -58,6 +225,7 @@ pub enum ModalState {
     SkipReport {
         skipped: Vec<SkippedOverride>,
     },
+    FileBrowser(FileBrowserState),
 }
 
 #[derive(Debug, Clone)]
@@ -968,13 +1136,32 @@ impl AppState {
             None => {
                 crate::trace_event!(
                     "FILE_PICKER",
-                    "file dialog returned None (cancelled or portal error) [DROPPED]"
+                    "file dialog returned None (cancelled or portal error) [FALLBACK TO IN-APP BROWSER]"
                 );
             }
         }
         if let Some(files) = files {
             self.add_blend_files(files);
+        } else {
+            self.open_file_browser(FileBrowserMode::BlendFiles);
         }
+    }
+
+    /// Open built-in in-app BUI file browser dialog
+    pub fn open_file_browser(&mut self, mode: FileBrowserMode) {
+        crate::trace_event!(
+            "UI_MODAL",
+            "opening in-app file browser modal: mode={:?}",
+            mode
+        );
+        let browser = FileBrowserState::new(mode);
+        if browser.error_msg.is_some() {
+            self.add_toast(
+                "Could not open file dialog. Type or paste the path directly, or drag files into the window.",
+                None,
+            );
+        }
+        self.active_modal = Some(ModalState::FileBrowser(browser));
     }
 
     /// Add multiple .blend files to queue
@@ -1003,8 +1190,14 @@ impl AppState {
 
     /// Prompt user to locate a Blender executable via file dialog service
     pub fn prompt_locate_blender(&mut self) {
+        crate::trace_event!(
+            "FILE_PICKER",
+            "invoking file dialog service to locate blender"
+        );
         if let Some(exe_path) = self.file_dialog.pick_blender_executable() {
             self.add_custom_blender_path(exe_path);
+        } else {
+            self.open_file_browser(FileBrowserMode::BlenderExecutable);
         }
     }
 
@@ -1027,6 +1220,68 @@ impl AppState {
             self.discovered_blenders.push(install);
             self.add_toast(&format!("Registered Blender: {}", display), None);
         }
+    }
+
+    /// Navigate in-app file browser to a new directory
+    pub fn navigate_file_browser(&mut self, dir: PathBuf) {
+        if let Some(ModalState::FileBrowser(ref mut browser)) = self.active_modal {
+            browser.navigate_to(dir);
+        }
+    }
+
+    /// Navigate in-app file browser up one level
+    pub fn file_browser_up(&mut self) {
+        if let Some(ModalState::FileBrowser(ref mut browser)) = self.active_modal {
+            browser.navigate_up();
+        }
+    }
+
+    /// Navigate in-app file browser to user home directory
+    pub fn file_browser_home(&mut self) {
+        let home = directories::BaseDirs::new()
+            .map(|b| b.home_dir().to_path_buf())
+            .unwrap_or_else(|| PathBuf::from("/"));
+        self.navigate_file_browser(home);
+    }
+
+    /// Toggle selection of a path in in-app file browser
+    pub fn toggle_file_browser_selection(&mut self, path: PathBuf) {
+        if let Some(ModalState::FileBrowser(ref mut browser)) = self.active_modal {
+            browser.toggle_selection(path);
+        }
+    }
+
+    /// Commit selected files from in-app file browser
+    pub fn commit_file_browser_selection(&mut self) {
+        if let Some(ModalState::FileBrowser(ref browser)) = self.active_modal.clone() {
+            match browser.mode {
+                FileBrowserMode::BlendFiles => {
+                    let mut paths_to_add = browser.selected_paths.clone();
+                    let trimmed_input = browser.input_path_text.trim();
+                    let input_path = PathBuf::from(trimmed_input);
+                    if paths_to_add.is_empty() && input_path.exists() && input_path.is_file() {
+                        paths_to_add.push(input_path);
+                    }
+                    if !paths_to_add.is_empty() {
+                        self.add_blend_files(paths_to_add);
+                    }
+                }
+                FileBrowserMode::BlenderExecutable => {
+                    let selected = browser.selected_paths.first().cloned().or_else(|| {
+                        let p = PathBuf::from(browser.input_path_text.trim());
+                        if p.exists() {
+                            Some(p)
+                        } else {
+                            None
+                        }
+                    });
+                    if let Some(exe) = selected {
+                        self.add_custom_blender_path(exe);
+                    }
+                }
+            }
+        }
+        self.active_modal = None;
     }
 
     /// Persist current queue state to disk
