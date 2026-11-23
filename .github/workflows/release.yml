@@ -47,8 +47,8 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Ninja
-        run: choco install ninja
+      - name: Setup Ninja and NSIS
+        run: choco install ninja nsis -y
 
       - name: Install Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -106,6 +106,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libx11-dev libgl1-mesa-dev libxext-dev libxcursor-dev \
             libxinerama-dev libxi-dev libxrandr-dev libasound2-dev libdbus-1-dev pkg-config cmake ninja-build file
+          sudo apt-get install -y libfuse2 || sudo apt-get install -y libfuse2t64 || true
 
       - name: Build Release Binaries
         run: cargo build --release --bin render-night --bin render-night-gui
@@ -182,6 +183,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Download Windows Artifacts
         uses: actions/download-artifact@v4
@@ -211,8 +214,9 @@ jobs:
           name: macos-x64-artifacts
           path: release-dist
 
-      - name: Determine Release Tag
-        id: release-tag
+      - name: Generate Release Notes and Checksums
+        id: release-info
+        shell: bash
         run: |
           VERSION="${GITHUB_REF_NAME#refs/tags/v}"
           VERSION="${VERSION#v}"
@@ -223,11 +227,32 @@ jobs:
           fi
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
 
+          echo "## Render Night ${TAG}" > RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "### Pure Rust Architecture Rewrite & Stabilization" >> RELEASE_NOTES.md
+          echo "- Complete standalone Rust application replacing the legacy Electron / TypeScript architecture." >> RELEASE_NOTES.md
+          echo "- High-performance native GUI powered by \`blenderui\` (Blender 4.x / 5.x native widget styling)." >> RELEASE_NOTES.md
+          echo "- Realtime sequence player with off-thread decode threadpool, LRU memory caching, and sub-100ms scrubbing latency." >> RELEASE_NOTES.md
+          echo "- Fatal pre-flight triad: zero hard blocks on missing assets; only missing Blender executable, missing .blend file, or zero frames block a queue." >> RELEASE_NOTES.md
+          echo "- 100% Parity verified against all 48 catalogued features and 5 mock simulation scenarios." >> RELEASE_NOTES.md
+          echo "- Real Blender end-to-end rendering validated on Linux and CI." >> RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "### Changes since legacy-ts-final" >> RELEASE_NOTES.md
+          git log legacy-ts-final..HEAD --pretty=format:"* %s (%h)" >> RELEASE_NOTES.md || true
+          echo "" >> RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "### SHA256 Checksums" >> RELEASE_NOTES.md
+          echo '```' >> RELEASE_NOTES.md
+          if [ -d release-dist ]; then
+            (cd release-dist && sha256sum * 2>/dev/null >> ../RELEASE_NOTES.md) || true
+          fi
+          echo '```' >> RELEASE_NOTES.md
+
       - name: Create Draft GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.release-tag.outputs.tag }}
-          name: "Render Night ${{ steps.release-tag.outputs.tag }} (Draft Pre-Release)"
+          tag_name: ${{ steps.release-info.outputs.tag }}
+          name: "Render Night ${{ steps.release-info.outputs.tag }} (Draft Pre-Release)"
           files: |
             release-dist/*.exe
             release-dist/*.zip
@@ -235,21 +260,7 @@ jobs:
             release-dist/*.AppImage
             release-dist/*.dmg
           generate_release_notes: false
-          body: |
-            ## Render Night ${{ steps.release-tag.outputs.tag }}
-
-            ### Pure Rust Architecture Rewrite & Stabilization
-            - Complete standalone Rust application replacing the legacy Electron / TypeScript architecture.
-            - High-performance native GUI powered by `blenderui` (Blender 4.x / 5.x native widget styling).
-            - Realtime sequence player with off-thread decode threadpool, LRU memory caching, and sub-100ms scrubbing latency.
-            - Fatal pre-flight triad: zero hard blocks on missing assets; only missing Blender executable, missing .blend file, or zero frames block a queue.
-            - 100% Parity verified against all 48 catalogued features and 5 mock simulation scenarios.
-            - Real Blender end-to-end rendering validated on Linux and CI.
-
-            ### Artifacts
-            - **Linux**: AppImage (`.AppImage`) and Debian (`.deb`)
-            - **Windows**: NSIS Installer (`.exe`) and Portable Archive (`.zip`)
-            - **macOS**: DMG Disk Image (`.dmg`) [Experimental]
+          body_path: RELEASE_NOTES.md
           draft: true
           prerelease: true
         env:
