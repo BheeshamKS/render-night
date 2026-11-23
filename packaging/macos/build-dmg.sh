@@ -10,7 +10,7 @@ mkdir -p "${APP_BUNDLE}/Contents/MacOS"
 mkdir -p "${APP_BUNDLE}/Contents/Resources"
 
 # Determine target binary directory
-if [ "${TARGET_ARCH}" = "aarch64" ]; then
+if [ "${TARGET_ARCH}" = "aarch64" ] || [ "${TARGET_ARCH}" = "arm64" ]; then
     BIN_DIR="target/aarch64-apple-darwin/release"
     DMG_NAME="Render-Night-${VERSION}-macos-arm64.dmg"
 else

@@ -48,7 +48,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Ninja and NSIS
-        run: choco install ninja nsis -y
+        run: |
+          choco install ninja nsis -y
+          "C:\Program Files (x86)\NSIS" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Install Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -74,6 +76,7 @@ jobs:
       - name: Build NSIS Installer
         shell: bash
         run: |
+          export PATH="/c/Program Files (x86)/NSIS:${PATH}"
           makensis packaging/nsis/installer.nsi
           VERSION="${GITHUB_REF_NAME#refs/tags/v}"
           VERSION="${VERSION#v}"
