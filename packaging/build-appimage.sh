@@ -35,14 +35,17 @@ chmod 755 "${APP_DIR}/usr/bin/render-night" "${APP_DIR}/usr/bin/render-night-gui
 # GUI loads; every X desktop already provides libX11. Bundle it so a minimal
 # container (and a fresh server install) does not fail with "libasound.so.2:
 # cannot open shared object file".
-for lib in /usr/lib/x86_64-linux-gnu/libasound.so.2 /usr/lib/libasound.so.2; do
-    if [ -f "${lib}" ]; then
-        mkdir -p "${APP_DIR}/usr/lib"
-        cp -L "${lib}" "${APP_DIR}/usr/lib/"
-        echo "build-appimage: bundled ${lib}"
-        break
-    fi
-done
+LIBASOUND="$(ldconfig -p 2>/dev/null | awk '/libasound\.so\.2 /{print $NF; exit}' || true)"
+if [ -z "${LIBASOUND}" ] || [ ! -f "${LIBASOUND}" ]; then
+    LIBASOUND="$(find /usr/lib /lib -name 'libasound.so.2' -print -quit 2>/dev/null || true)"
+fi
+if [ -z "${LIBASOUND}" ] || [ ! -f "${LIBASOUND}" ]; then
+    echo "build-appimage: libasound.so.2 not found; the AppImage would not run on a bare system" >&2
+    exit 1
+fi
+mkdir -p "${APP_DIR}/usr/lib"
+cp -L "${LIBASOUND}" "${APP_DIR}/usr/lib/libasound.so.2"
+echo "build-appimage: bundled ${LIBASOUND}"
 
 cp resources/render-night.desktop "${APP_DIR}/render-night.desktop"
 cp resources/icon.png "${APP_DIR}/render-night.png"

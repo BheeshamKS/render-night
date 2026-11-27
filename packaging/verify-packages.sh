@@ -84,6 +84,7 @@ APP_ROOT="${TMP}/squashfs-root"
 for path in \
     "usr/bin/render-night" \
     "usr/bin/render-night-gui" \
+    "usr/lib/libasound.so.2" \
     "usr/share/render-night/python/inspect_blend.py" \
     "usr/share/render-night/python/render_runner.py" \
     "usr/share/render-night/sounds/todung.wav" \

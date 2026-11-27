@@ -37,7 +37,9 @@ case "${KIND}" in
         install -m 755 "${APPIMAGE_PATH}" /opt/render-night.AppImage
         # Extract once for the CLI, which AppRun does not dispatch to.
         (cd /opt && ./render-night.AppImage --appimage-extract >/dev/null)
-        RN_CLI="/opt/squashfs-root/usr/bin/render-night"
+        # Run the extracted binaries with the environment AppRun provides for
+        # every child process, so bundled libraries are found.
+        RN_CLI="env LD_LIBRARY_PATH=/opt/squashfs-root/usr/lib /opt/squashfs-root/usr/bin/render-night"
         RN_GUI="appimage"
         ;;
     *)
@@ -53,15 +55,17 @@ else
 fi
 
 log "version provenance"
-"${RN_CLI}" --version | tee "${OUT}/version-cli.txt"
+# shellcheck disable=SC2086
+${RN_CLI} --version | tee "${OUT}/version-cli.txt"
 if [ "${KIND}" = "appimage" ]; then
-    /opt/squashfs-root/usr/bin/render-night-gui --version | tee "${OUT}/version-gui.txt"
+    env LD_LIBRARY_PATH=/opt/squashfs-root/usr/lib /opt/squashfs-root/usr/bin/render-night-gui --version | tee "${OUT}/version-gui.txt"
 else
     "${RN_GUI}" --version | tee "${OUT}/version-gui.txt"
 fi
 
 log "doctor"
-"${RN_CLI}" --doctor 2>&1 | tee "${OUT}/doctor.txt" || {
+# shellcheck disable=SC2086
+${RN_CLI} --doctor 2>&1 | tee "${OUT}/doctor.txt" || {
     echo "doctor exited non-zero" | tee -a "${OUT}/doctor.txt"
     exit 1
 }
