@@ -258,7 +258,7 @@ jobs:
         run: docker build -t rn-e2e:${{ matrix.distro }} -f tools/e2e/Dockerfile.${{ matrix.distro }} tools/e2e
 
       - name: Run Packaged App in Clean Container
-        run: tools/e2e/run-container.sh ${{ matrix.distro }} ${{ matrix.kind }} ${{ matrix.mode }}
+        run: bash tools/e2e/run-container.sh ${{ matrix.distro }} ${{ matrix.kind }} ${{ matrix.mode }}
 
       - name: Upload Container Evidence
         if: always()
