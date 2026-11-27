@@ -9,7 +9,8 @@ use std::time::Instant;
 use rn_core::blender::discovery::BlenderInstallation;
 use rn_core::overrides::compatibility::{validate_overrides_for_job, SkippedOverride};
 use rn_core::preflight::checker::{PreflightChecker, PreflightJobInput, PreflightOptions};
-use rn_core::queue::{QueueEngineHandle, QueueEvent, QueueStatus};
+pub use rn_core::queue::QueueStatus;
+use rn_core::queue::{QueueEngineHandle, QueueEvent};
 use rn_core::ranges::{FrameRangeConfig, FrameRangeMode, SimpleRange};
 use rn_core::schemas::history::{HistoryEntry, HistoryResult};
 use rn_core::schemas::inspect::InspectOutput;
@@ -22,7 +23,6 @@ use rn_core::sound::sound_player::SoundPlayer;
 use crate::file_dialog::{default_dialog_service, FileDialogService};
 use std::sync::Arc;
 
-pub const SAMPLE_INSPECT_JSON: &str = include_str!("../../../tests/golden/inspect_sample.json");
 static JOB_COUNTER: AtomicU64 = AtomicU64::new(1);
 static TOAST_COUNTER: AtomicU64 = AtomicU64::new(1);
 
@@ -41,6 +41,173 @@ pub enum DockTab {
     Console,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FileBrowserMode {
+    BlendFiles,
+    BlenderExecutable,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FileBrowserEntry {
+    pub path: PathBuf,
+    pub name: String,
+    pub is_dir: bool,
+    pub size_formatted: String,
+    pub modified_formatted: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FileBrowserState {
+    pub mode: FileBrowserMode,
+    pub current_dir: PathBuf,
+    pub entries: Vec<FileBrowserEntry>,
+    pub selected_paths: Vec<PathBuf>,
+    pub input_path_text: String,
+    pub error_msg: Option<String>,
+}
+
+impl FileBrowserState {
+    pub fn new(mode: FileBrowserMode) -> Self {
+        let initial_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
+        let mut browser = Self {
+            mode,
+            current_dir: initial_dir.clone(),
+            entries: Vec::new(),
+            selected_paths: Vec::new(),
+            input_path_text: initial_dir.to_string_lossy().to_string(),
+            error_msg: None,
+        };
+        browser.refresh_entries();
+        browser
+    }
+
+    pub fn navigate_to(&mut self, dir: PathBuf) {
+        if dir.is_dir() {
+            self.current_dir = dir;
+            self.input_path_text = self.current_dir.to_string_lossy().to_string();
+            self.selected_paths.clear();
+            self.refresh_entries();
+        }
+    }
+
+    pub fn navigate_up(&mut self) {
+        if let Some(parent) = self.current_dir.parent() {
+            self.navigate_to(parent.to_path_buf());
+        }
+    }
+
+    pub fn toggle_selection(&mut self, path: PathBuf) {
+        if let Some(idx) = self.selected_paths.iter().position(|p| p == &path) {
+            self.selected_paths.remove(idx);
+        } else {
+            if self.mode == FileBrowserMode::BlenderExecutable {
+                self.selected_paths.clear();
+            }
+            self.selected_paths.push(path);
+        }
+    }
+
+    pub fn refresh_entries(&mut self) {
+        self.entries.clear();
+        self.error_msg = None;
+
+        let read_res = std::fs::read_dir(&self.current_dir);
+        let Ok(read_dir) = read_res else {
+            self.error_msg = Some(format!(
+                "Could not read directory: {}",
+                self.current_dir.display()
+            ));
+            return;
+        };
+
+        let mut dirs = Vec::new();
+        let mut files = Vec::new();
+
+        for entry_res in read_dir.flatten() {
+            let path = entry_res.path();
+            let name = entry_res.file_name().to_string_lossy().to_string();
+            if name.starts_with('.') && name != ".." {
+                continue; // Skip hidden files
+            }
+
+            let Ok(meta) = entry_res.metadata() else {
+                continue;
+            };
+
+            let is_dir = meta.is_dir();
+            let size = meta.len();
+            let size_str = if is_dir {
+                "—".to_string()
+            } else if size < 1024 {
+                format!("{} B", size)
+            } else if size < 1024 * 1024 {
+                format!("{:.1} KB", size as f64 / 1024.0)
+            } else {
+                format!("{:.1} MB", size as f64 / (1024.0 * 1024.0))
+            };
+
+            let modified_str = meta
+                .modified()
+                .ok()
+                .and_then(|time| {
+                    let dur = std::time::SystemTime::now().duration_since(time).ok()?;
+                    let secs = dur.as_secs();
+                    if secs < 60 {
+                        Some("Just now".to_string())
+                    } else if secs < 3600 {
+                        Some(format!("{}m ago", secs / 60))
+                    } else if secs < 86400 {
+                        Some(format!("{}h ago", secs / 3600))
+                    } else {
+                        Some(format!("{}d ago", secs / 86400))
+                    }
+                })
+                .unwrap_or_else(|| "Unknown".to_string());
+
+            if is_dir {
+                dirs.push(FileBrowserEntry {
+                    path,
+                    name,
+                    is_dir: true,
+                    size_formatted: size_str,
+                    modified_formatted: modified_str,
+                });
+            } else {
+                match self.mode {
+                    FileBrowserMode::BlendFiles => {
+                        if name.ends_with(".blend") {
+                            files.push(FileBrowserEntry {
+                                path,
+                                name,
+                                is_dir: false,
+                                size_formatted: size_str,
+                                modified_formatted: modified_str,
+                            });
+                        }
+                    }
+                    FileBrowserMode::BlenderExecutable => {
+                        if name.to_lowercase().contains("blender") {
+                            files.push(FileBrowserEntry {
+                                path,
+                                name,
+                                is_dir: false,
+                                size_formatted: size_str,
+                                modified_formatted: modified_str,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        dirs.sort_by_key(|a| a.name.to_lowercase());
+        files.sort_by_key(|a| a.name.to_lowercase());
+
+        self.entries.extend(dirs);
+        self.entries.extend(files);
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum ModalState {
     ResumeAfterCrash {
@@ -57,6 +224,21 @@ pub enum ModalState {
     PresetsManager,
     SkipReport {
         skipped: Vec<SkippedOverride>,
+    },
+    FileBrowser(FileBrowserState),
+    BasicModeDetails {
+        job_id: String,
+        job_name: String,
+        reason: String,
+        log_path: PathBuf,
+    },
+    JobWarnings {
+        job_id: String,
+        job_name: String,
+    },
+    DiagnosticsReport {
+        report: String,
+        copied: bool,
     },
 }
 
@@ -142,7 +324,12 @@ pub struct AppState {
     // Services & Engine
     pub file_dialog: Arc<dyn FileDialogService>,
     pub engine_handle: Option<QueueEngineHandle>,
+    pub inspect_tx: std::sync::mpsc::Sender<InspectResultMsg>,
+    pub inspect_rx: InspectReceiver,
 }
+
+pub type InspectResultMsg = (String, Result<InspectOutput, String>);
+pub type InspectReceiver = Arc<std::sync::Mutex<std::sync::mpsc::Receiver<InspectResultMsg>>>;
 
 impl Default for AppState {
     fn default() -> Self {
@@ -152,6 +339,7 @@ impl Default for AppState {
 
 impl AppState {
     pub fn new() -> Self {
+        let (inspect_tx, inspect_rx) = std::sync::mpsc::channel();
         Self {
             queue_state: QueueState {
                 version: 1,
@@ -197,7 +385,7 @@ impl AppState {
             sound_volume: 80,
             sound_muted: false,
             shutdown_countdown_duration: 60,
-            preflight_mode: "ask".to_string(),
+            preflight_mode: "never_block".to_string(),
             ignored_warning_codes: Vec::new(),
 
             // Phase R4 defaults
@@ -207,6 +395,8 @@ impl AppState {
             // Services & Engine
             file_dialog: default_dialog_service(),
             engine_handle: None,
+            inspect_tx,
+            inspect_rx: Arc::new(std::sync::Mutex::new(inspect_rx)),
         }
     }
 
@@ -233,15 +423,25 @@ impl AppState {
     ) -> String {
         let seq = JOB_COUNTER.fetch_add(1, Ordering::SeqCst);
         let job_id = format!("job_{}_{}", self.queue_state.jobs.len() + 1, seq);
-        let inspect_val = inspect_data.unwrap_or_else(|| {
-            serde_json::from_str(SAMPLE_INSPECT_JSON).unwrap_or(serde_json::Value::Null)
-        });
+        crate::trace_event!(
+            "STATE_MUTATION",
+            "add_job: id={} name='{}' path='{}'",
+            job_id,
+            name,
+            blend_path
+        );
+        let is_inspecting = inspect_data.is_none();
+        let status = if is_inspecting {
+            JobStatus::Inspecting
+        } else {
+            JobStatus::Pending
+        };
 
         let job = Job {
             id: job_id.clone(),
             blend_path: blend_path.to_string(),
             name: name.to_string(),
-            status: JobStatus::Pending,
+            status,
             range: SimpleRange {
                 start: frame_start,
                 end: frame_end,
@@ -268,9 +468,9 @@ impl AppState {
             error: None,
             progress: 0.0,
             last_frame: None,
-            inspect: Some(inspect_val),
+            inspect: inspect_data,
             pre_render_hook: None,
-            is_basic_mode: None,
+            is_basic_mode: if is_inspecting { None } else { Some(false) },
             basic_mode_reason: None,
             ignore_all_warnings: Some(false),
             ignored_warning_codes: Some(Vec::new()),
@@ -279,8 +479,279 @@ impl AppState {
         };
 
         self.queue_state.jobs.push(job);
-        self.run_preflight_check();
+        if is_inspecting {
+            self.trigger_job_inspect(&job_id, blend_path);
+        } else {
+            self.run_preflight_check();
+        }
         job_id
+    }
+
+    fn is_executable_in_path(cmd: &str) -> bool {
+        if let Ok(path_var) = std::env::var("PATH") {
+            for p in std::env::split_paths(&path_var) {
+                let full = p.join(cmd);
+                if full.is_file() {
+                    #[cfg(unix)]
+                    {
+                        use std::os::unix::fs::PermissionsExt;
+                        if let Ok(meta) = full.metadata() {
+                            if meta.permissions().mode() & 0o111 != 0 {
+                                return true;
+                            }
+                        }
+                    }
+                    #[cfg(not(unix))]
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    /// Resolve effective blender executable command for inspect or render
+    pub fn get_blender_cmd(&self) -> Vec<String> {
+        if let Some(first) = self.discovered_blenders.first() {
+            return first.executable.clone();
+        }
+        if let Ok(exe) = std::env::var("RN_BLENDER_BIN") {
+            return vec![exe];
+        }
+        if let Ok(mock) = std::env::var("CARGO_BIN_EXE_rn-mock-blender") {
+            return vec![mock];
+        }
+
+        // Fast stat checks (no child processes spawned, < 0.1ms)
+        if Self::is_executable_in_path("blender") {
+            return vec!["blender".to_string()];
+        }
+
+        let home = std::env::var("HOME").unwrap_or_default();
+        let flatpak_user =
+            std::path::Path::new(&home).join(".local/share/flatpak/app/org.blender.Blender");
+        let flatpak_sys = std::path::Path::new("/var/lib/flatpak/app/org.blender.Blender");
+        if flatpak_user.exists() || flatpak_sys.exists() {
+            return vec![
+                "flatpak".to_string(),
+                "run".to_string(),
+                "org.blender.Blender".to_string(),
+            ];
+        }
+
+        let snap_bin = std::path::Path::new("/snap/bin/blender");
+        if snap_bin.exists() {
+            return vec!["/snap/bin/blender".to_string()];
+        }
+
+        // In test/debug environments without host blender, fall back to target rn-mock-blender
+        #[cfg(debug_assertions)]
+        {
+            if let Ok(exe) = std::env::current_exe() {
+                if let Some(debug_dir) = exe.parent().and_then(|p| {
+                    if p.file_name() == Some(std::ffi::OsStr::new("deps")) {
+                        p.parent()
+                    } else {
+                        Some(p)
+                    }
+                }) {
+                    let mock =
+                        debug_dir.join(format!("rn-mock-blender{}", std::env::consts::EXE_SUFFIX));
+                    if mock.is_file() {
+                        return vec![mock.to_string_lossy().to_string()];
+                    }
+                }
+            }
+        }
+
+        vec!["blender".to_string()]
+    }
+
+    /// Trigger background inspect for a newly added job
+    pub fn trigger_job_inspect(&self, job_id: &str, blend_path: &str) {
+        let jid = job_id.to_string();
+        let bpath = PathBuf::from(blend_path);
+        let tx = self.inspect_tx.clone();
+        let blender_cmd = self.get_blender_cmd();
+
+        crate::trace_event!(
+            "INSPECT_PIPELINE",
+            "triggering background inspect for job={} path='{}' blender={:?}",
+            jid,
+            bpath.display(),
+            blender_cmd
+        );
+
+        std::thread::spawn(move || {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build();
+            if let Ok(rt) = rt {
+                rt.block_on(async move {
+                    let opts = rn_core::blender::inspector::InspectOptions {
+                        isolated_mode: true,
+                        auto_exec: false,
+                        timeout_ms: Some(30_000),
+                        script_path: None,
+                    };
+                    let res =
+                        rn_core::blender::inspector::inspect_blend(&bpath, &blender_cmd, &opts)
+                            .await;
+                    let _ = tx.send((jid, res));
+                });
+            }
+        });
+    }
+
+    /// Synchronously inspect a job (used in tests or immediate validation)
+    pub fn inspect_job_sync(&mut self, job_id: &str) {
+        if let Some(job) = self
+            .queue_state
+            .jobs
+            .iter()
+            .find(|j| j.id == job_id)
+            .cloned()
+        {
+            let bpath = PathBuf::from(&job.blend_path);
+            let blender_cmd = self.get_blender_cmd();
+            let opts = rn_core::blender::inspector::InspectOptions {
+                isolated_mode: true,
+                auto_exec: false,
+                timeout_ms: Some(30_000),
+                script_path: None,
+            };
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build();
+            if let Ok(rt) = rt {
+                let res = rt.block_on(async move {
+                    rn_core::blender::inspector::inspect_blend(&bpath, &blender_cmd, &opts).await
+                });
+                self.apply_inspect_result(job_id, res);
+            }
+        }
+    }
+
+    /// Poll any pending background inspect results from the channel
+    pub fn poll_inspect_results(&mut self) {
+        let mut updates = Vec::new();
+        if let Ok(rx) = self.inspect_rx.try_lock() {
+            while let Ok(msg) = rx.try_recv() {
+                updates.push(msg);
+            }
+        }
+        for (job_id, res) in updates {
+            self.apply_inspect_result(&job_id, res);
+        }
+    }
+
+    /// Apply inspect result to a job in the queue
+    pub fn apply_inspect_result(&mut self, job_id: &str, result: Result<InspectOutput, String>) {
+        crate::trace_event!(
+            "INSPECT_PIPELINE",
+            "apply_inspect_result for job={}: {:?}",
+            job_id,
+            result.as_ref().map(|_| "Ok(InspectOutput)")
+        );
+        if let Some(job) = self.queue_state.jobs.iter_mut().find(|j| j.id == job_id) {
+            match result {
+                Ok(inspect_output) => {
+                    job.status = JobStatus::Pending;
+                    job.is_basic_mode = Some(false);
+                    job.basic_mode_reason = None;
+                    if let Some(scene) = inspect_output
+                        .scenes
+                        .iter()
+                        .find(|s| s.name == inspect_output.active_scene)
+                        .or_else(|| inspect_output.scenes.first())
+                    {
+                        job.range = SimpleRange {
+                            start: scene.frame_start,
+                            end: scene.frame_end,
+                            step: scene.frame_step,
+                        };
+                        if let Some(eng) = scene.render.get("engine").and_then(|p| p.value.as_str())
+                        {
+                            job.engine = Some(eng.to_string());
+                        }
+                    }
+                    job.inspect = serde_json::to_value(&inspect_output).ok();
+                }
+                Err(err) => {
+                    job.status = JobStatus::Pending;
+                    job.is_basic_mode = Some(true);
+                    job.basic_mode_reason = Some(err.clone());
+                    if job.engine.is_none() {
+                        job.engine = Some("CYCLES".to_string());
+                    }
+                }
+            }
+        }
+        self.run_preflight_check();
+    }
+
+    /// Open Basic Mode inspect failure details modal
+    pub fn open_basic_mode_details(&mut self, job_id: &str) {
+        if let Some(job) = self.queue_state.jobs.iter().find(|j| j.id == job_id) {
+            let log_path = crate::tracer::EventTracer::get_log_path();
+            self.active_modal = Some(ModalState::BasicModeDetails {
+                job_id: job.id.clone(),
+                job_name: job.name.clone(),
+                reason: job
+                    .basic_mode_reason
+                    .clone()
+                    .unwrap_or_else(|| "Blender inspect failed or timed out".to_string()),
+                log_path,
+            });
+        }
+    }
+
+    /// Open System Diagnostics modal dialog
+    pub fn open_diagnostics(&mut self) {
+        crate::trace_event!("DIAGNOSTICS", "Opening System Diagnostics report");
+        let report = rn_core::diagnostics::run_diagnostics(None);
+        self.active_modal = Some(ModalState::DiagnosticsReport {
+            report: report.to_markdown(),
+            copied: false,
+        });
+    }
+
+    /// Copy diagnostic report to system clipboard / log file
+    pub fn copy_diagnostics_report(&mut self) {
+        if let Some(ModalState::DiagnosticsReport { report, copied }) = &mut self.active_modal {
+            *copied = true;
+            let report_text = report.clone();
+            std::thread::spawn(move || {
+                if let Ok(mut child) = std::process::Command::new("wl-copy")
+                    .stdin(std::process::Stdio::piped())
+                    .spawn()
+                {
+                    if let Some(mut stdin) = child.stdin.take() {
+                        use std::io::Write;
+                        let _ = stdin.write_all(report_text.as_bytes());
+                    }
+                    let _ = child.wait();
+                } else if let Ok(mut child) = std::process::Command::new("xclip")
+                    .args(["-selection", "clipboard"])
+                    .stdin(std::process::Stdio::piped())
+                    .spawn()
+                {
+                    if let Some(mut stdin) = child.stdin.take() {
+                        use std::io::Write;
+                        let _ = stdin.write_all(report_text.as_bytes());
+                    }
+                    let _ = child.wait();
+                }
+            });
+
+            if let Some(base_dirs) = directories::BaseDirs::new() {
+                let diag_file = base_dirs
+                    .data_local_dir()
+                    .join("render-night/diagnostics.md");
+                let _ = std::fs::write(diag_file, report.as_bytes());
+            }
+
+            self.add_toast("Diagnostic report copied to clipboard", None);
+        }
     }
 
     /// Run preflight checks over current queue jobs
@@ -292,24 +763,43 @@ impl AppState {
                 .as_ref()
                 .and_then(|v| serde_json::from_value(v.clone()).ok());
 
+            let active_camera = inspect_out.as_ref().and_then(|i| {
+                i.scenes
+                    .iter()
+                    .find(|s| s.name == i.active_scene)
+                    .or_else(|| i.scenes.first())
+                    .and_then(|s| s.active_camera.clone())
+            });
+            let available_cameras = inspect_out
+                .as_ref()
+                .map(|i| {
+                    i.scenes
+                        .iter()
+                        .find(|s| s.name == i.active_scene)
+                        .or_else(|| i.scenes.first())
+                        .map(|s| s.cameras.clone())
+                        .unwrap_or_default()
+                })
+                .unwrap_or_default();
+
             preflight_inputs.push(PreflightJobInput {
                 id: job.id.clone(),
                 file_name: job.name.clone(),
                 file_path: job.blend_path.clone(),
                 selected_scene: inspect_out.as_ref().map(|i| i.active_scene.clone()),
-                selected_camera: None,
+                selected_camera: active_camera,
                 scenes: inspect_out
                     .as_ref()
                     .map(|i| i.scenes.clone())
                     .unwrap_or_default(),
-                available_cameras: Vec::new(),
+                available_cameras,
                 output_path_pattern: job.output_pattern.clone(),
                 output_preview: job.output_dir.clone(),
                 range_config: job.range_config.clone(),
                 overrides: job.overrides.clone(),
                 saved_with_version: inspect_out.as_ref().map(|i| i.saved_with_version.clone()),
                 inspect_data: inspect_out,
-                inspect_error: None,
+                inspect_error: job.basic_mode_reason.clone(),
                 requested_gpu: job
                     .device
                     .as_deref()
@@ -330,14 +820,23 @@ impl AppState {
         };
 
         let report = PreflightChecker::check_all_jobs(&preflight_inputs, &options);
+        let mode = self
+            .queue_state
+            .settings
+            .preflight_mode
+            .as_deref()
+            .unwrap_or(&self.preflight_mode);
+
         if report.has_warnings || report.has_errors {
             self.show_preflight_banner = true;
-            if self.queue_state.settings.preflight_mode.as_deref() == Some("ask") {
+            if mode == "ask" {
                 self.preflight_countdown = self
                     .queue_state
                     .settings
                     .preflight_countdown_seconds
                     .or(Some(30));
+            } else {
+                self.preflight_countdown = None;
             }
         } else {
             self.show_preflight_banner = false;
@@ -496,6 +995,12 @@ impl AppState {
 
     /// Start or Resume Queue
     pub fn start_queue(&mut self) {
+        crate::trace_event!(
+            "CORE_EVENT",
+            "start_queue: current_status={:?} job_count={}",
+            self.queue_status,
+            self.queue_state.jobs.len()
+        );
         let is_paused = self.queue_status == QueueStatus::Paused;
         if is_paused {
             self.queue_status = QueueStatus::Running;
@@ -545,6 +1050,7 @@ impl AppState {
 
     /// Pause Queue
     pub fn pause_queue(&mut self) {
+        crate::trace_event!("CORE_EVENT", "pause_queue called");
         self.queue_status = QueueStatus::Paused;
         if let Some(ref active_id) = self.active_job_id {
             if let Some(job) = self
@@ -574,6 +1080,7 @@ impl AppState {
 
     /// Stop Queue
     pub fn stop_queue(&mut self) {
+        crate::trace_event!("CORE_EVENT", "stop_queue called");
         self.queue_status = QueueStatus::Idle;
         if let Some(ref active_id) = self.active_job_id {
             if let Some(job) = self
@@ -610,6 +1117,103 @@ impl AppState {
         self.show_preflight_banner = false;
         self.preflight_countdown = None;
         self.start_queue();
+    }
+
+    /// Dismiss preflight banner without starting queue
+    pub fn dismiss_preflight_banner(&mut self) {
+        self.show_preflight_banner = false;
+        self.preflight_countdown = None;
+    }
+
+    /// Open job warnings details modal
+    pub fn open_job_warnings(&mut self, job_id: &str) {
+        let name = self
+            .queue_state
+            .jobs
+            .iter()
+            .find(|j| j.id == job_id)
+            .map(|j| j.name.clone())
+            .unwrap_or_else(|| "Job".to_string());
+        self.active_modal = Some(ModalState::JobWarnings {
+            job_id: job_id.to_string(),
+            job_name: name,
+        });
+    }
+
+    /// Ignore a specific preflight warning on a job
+    pub fn ignore_preflight_issue(&mut self, job_id: &str, issue_id: &str) {
+        if let Some(job) = self.queue_state.jobs.iter_mut().find(|j| j.id == job_id) {
+            let mut ids = job.ignored_warning_ids.clone().unwrap_or_default();
+            if !ids.contains(&issue_id.to_string()) {
+                ids.push(issue_id.to_string());
+                job.ignored_warning_ids = Some(ids);
+            }
+        }
+        self.run_preflight_check();
+    }
+
+    /// Ignore all preflight warnings sharing a code on a job
+    pub fn ignore_preflight_code(&mut self, job_id: &str, code: &str) {
+        if let Some(job) = self.queue_state.jobs.iter_mut().find(|j| j.id == job_id) {
+            let mut codes = job.ignored_warning_codes.clone().unwrap_or_default();
+            if !codes.contains(&code.to_string()) {
+                codes.push(code.to_string());
+                job.ignored_warning_codes = Some(codes);
+            }
+        }
+        self.run_preflight_check();
+    }
+
+    /// Ignore all preflight warnings for a job
+    pub fn ignore_all_job_warnings(&mut self, job_id: &str) {
+        if let Some(job) = self.queue_state.jobs.iter_mut().find(|j| j.id == job_id) {
+            job.ignore_all_warnings = Some(true);
+        }
+        self.run_preflight_check();
+    }
+
+    /// Apply an automated preflight quick fix
+    pub fn apply_preflight_quick_fix(
+        &mut self,
+        job_id: &str,
+        action: &rn_core::preflight::QuickFixAction,
+        data: Option<&serde_json::Value>,
+    ) {
+        use rn_core::preflight::QuickFixAction;
+        match action {
+            QuickFixAction::SwitchToCpu => {
+                if let Some(job) = self.queue_state.jobs.iter_mut().find(|j| j.id == job_id) {
+                    job.device = Some("CPU".to_string());
+                }
+            }
+            QuickFixAction::SelectCamera => {
+                if let Some(job) = self.queue_state.jobs.iter_mut().find(|j| j.id == job_id) {
+                    if let Some(cam) = data.and_then(|d| d.as_str()) {
+                        job.overrides
+                            .insert("camera".to_string(), serde_json::json!(cam));
+                    }
+                }
+            }
+            QuickFixAction::CreateOutputDir => {
+                if let Some(job) = self.queue_state.jobs.iter().find(|j| j.id == job_id) {
+                    if let Some(out_dir) = &job.output_dir {
+                        let _ = std::fs::create_dir_all(out_dir);
+                    }
+                }
+            }
+            QuickFixAction::SwitchRangeToContinuous => {
+                if let Some(job) = self.queue_state.jobs.iter_mut().find(|j| j.id == job_id) {
+                    job.range_config = Some(FrameRangeConfig {
+                        mode: FrameRangeMode::SceneDefault,
+                        simple: None,
+                        custom_expression: None,
+                        single_still_frame: None,
+                    });
+                }
+            }
+            QuickFixAction::Custom => {}
+        }
+        self.run_preflight_check();
     }
 
     /// Ignore a specific preflight warning
@@ -936,13 +1540,59 @@ impl AppState {
 
     /// Prompt user to add .blend files via file dialog service
     pub fn prompt_add_blend_files(&mut self) {
-        if let Some(files) = self.file_dialog.pick_blend_files() {
-            self.add_blend_files(files);
+        crate::trace_event!(
+            "FILE_PICKER",
+            "invoking file dialog service for .blend files"
+        );
+        let files = self.file_dialog.pick_blend_files();
+        match &files {
+            Some(f) => {
+                crate::trace_event!(
+                    "FILE_PICKER",
+                    "file dialog returned {} file(s): {:?}",
+                    f.len(),
+                    f
+                );
+            }
+            None => {
+                crate::trace_event!(
+                    "FILE_PICKER",
+                    "file dialog returned None (cancelled or portal error) [FALLBACK TO IN-APP BROWSER]"
+                );
+            }
         }
+        if let Some(files) = files {
+            self.add_blend_files(files);
+        } else {
+            self.open_file_browser(FileBrowserMode::BlendFiles);
+        }
+    }
+
+    /// Open built-in in-app BUI file browser dialog
+    pub fn open_file_browser(&mut self, mode: FileBrowserMode) {
+        crate::trace_event!(
+            "UI_MODAL",
+            "opening in-app file browser modal: mode={:?}",
+            mode
+        );
+        let browser = FileBrowserState::new(mode);
+        if browser.error_msg.is_some() {
+            self.add_toast(
+                "Could not open file dialog. Type or paste the path directly, or drag files into the window.",
+                None,
+            );
+        }
+        self.active_modal = Some(ModalState::FileBrowser(browser));
     }
 
     /// Add multiple .blend files to queue
     pub fn add_blend_files(&mut self, paths: Vec<PathBuf>) {
+        crate::trace_event!(
+            "STATE_MUTATION",
+            "add_blend_files with {} path(s): {:?}",
+            paths.len(),
+            paths
+        );
         let count = paths.len();
         let default_device = self.compute_device_preference.clone();
         for p in paths {
@@ -961,8 +1611,14 @@ impl AppState {
 
     /// Prompt user to locate a Blender executable via file dialog service
     pub fn prompt_locate_blender(&mut self) {
+        crate::trace_event!(
+            "FILE_PICKER",
+            "invoking file dialog service to locate blender"
+        );
         if let Some(exe_path) = self.file_dialog.pick_blender_executable() {
             self.add_custom_blender_path(exe_path);
+        } else {
+            self.open_file_browser(FileBrowserMode::BlenderExecutable);
         }
     }
 
@@ -985,6 +1641,68 @@ impl AppState {
             self.discovered_blenders.push(install);
             self.add_toast(&format!("Registered Blender: {}", display), None);
         }
+    }
+
+    /// Navigate in-app file browser to a new directory
+    pub fn navigate_file_browser(&mut self, dir: PathBuf) {
+        if let Some(ModalState::FileBrowser(ref mut browser)) = self.active_modal {
+            browser.navigate_to(dir);
+        }
+    }
+
+    /// Navigate in-app file browser up one level
+    pub fn file_browser_up(&mut self) {
+        if let Some(ModalState::FileBrowser(ref mut browser)) = self.active_modal {
+            browser.navigate_up();
+        }
+    }
+
+    /// Navigate in-app file browser to user home directory
+    pub fn file_browser_home(&mut self) {
+        let home = directories::BaseDirs::new()
+            .map(|b| b.home_dir().to_path_buf())
+            .unwrap_or_else(|| PathBuf::from("/"));
+        self.navigate_file_browser(home);
+    }
+
+    /// Toggle selection of a path in in-app file browser
+    pub fn toggle_file_browser_selection(&mut self, path: PathBuf) {
+        if let Some(ModalState::FileBrowser(ref mut browser)) = self.active_modal {
+            browser.toggle_selection(path);
+        }
+    }
+
+    /// Commit selected files from in-app file browser
+    pub fn commit_file_browser_selection(&mut self) {
+        if let Some(ModalState::FileBrowser(ref browser)) = self.active_modal.clone() {
+            match browser.mode {
+                FileBrowserMode::BlendFiles => {
+                    let mut paths_to_add = browser.selected_paths.clone();
+                    let trimmed_input = browser.input_path_text.trim();
+                    let input_path = PathBuf::from(trimmed_input);
+                    if paths_to_add.is_empty() && input_path.exists() && input_path.is_file() {
+                        paths_to_add.push(input_path);
+                    }
+                    if !paths_to_add.is_empty() {
+                        self.add_blend_files(paths_to_add);
+                    }
+                }
+                FileBrowserMode::BlenderExecutable => {
+                    let selected = browser.selected_paths.first().cloned().or_else(|| {
+                        let p = PathBuf::from(browser.input_path_text.trim());
+                        if p.exists() {
+                            Some(p)
+                        } else {
+                            None
+                        }
+                    });
+                    if let Some(exe) = selected {
+                        self.add_custom_blender_path(exe);
+                    }
+                }
+            }
+        }
+        self.active_modal = None;
     }
 
     /// Persist current queue state to disk
@@ -1024,6 +1742,24 @@ impl AppState {
                 None,
             );
         }
+    }
+
+    /// Resume a failed job directly from frame N
+    pub fn resume_job_from_frame(&mut self, job_id: &str, resume_frame: i32) {
+        if let Some(job) = self.queue_state.jobs.iter_mut().find(|j| j.id == job_id) {
+            job.range.start = resume_frame.min(job.range.end);
+            job.status = JobStatus::Pending;
+            job.render_missing_only = true;
+        }
+        self.when_finished = PostAction::None; // strict safety disarm
+        self.add_toast(
+            &format!(
+                "Resuming from frame {} (post-actions disarmed)",
+                resume_frame
+            ),
+            None,
+        );
+        self.start_queue();
     }
 
     /// Open realtime sequence player
@@ -1137,8 +1873,13 @@ impl AppState {
                 state,
                 active_job_id,
             } => {
+                let prev = self.queue_status;
                 self.queue_status = state;
                 self.active_job_id = active_job_id;
+                if prev == QueueStatus::Running && state == QueueStatus::Idle && !self.sound_muted {
+                    let player = SoundPlayer::new(true, self.sound_volume);
+                    player.play_finish_sound();
+                }
             }
             QueueEvent::JobStart {
                 job_id,
@@ -1203,6 +1944,18 @@ impl AppState {
 
     /// Helper to get effective settings string for a job
     pub fn effective_settings_summary(&self, job: &Job) -> String {
+        if job.status == JobStatus::Inspecting {
+            return "Analyzing scenes, frame ranges, and asset dependencies...".to_string();
+        }
+        if job.is_basic_mode == Some(true) {
+            let frames_count = (job.range.end - job.range.start + 1).max(1);
+            let engine = job.engine.as_deref().unwrap_or("Cycles");
+            return format!(
+                "Basic Mode (using file defaults) • Frames {}-{} ({}f) • {}",
+                job.range.start, job.range.end, frames_count, engine
+            );
+        }
+
         let inspect_scene = job.inspect.as_ref().and_then(|v| {
             let out: Option<InspectOutput> = serde_json::from_value(v.clone()).ok();
             out.and_then(|o| o.scenes.into_iter().next())

@@ -42,16 +42,17 @@ pub fn render_queue_view(state: &AppState, cx: &Context<AppView>) -> blenderui::
                 .flex()
                 .flex_col()
                 .overflow_hidden()
-                .child(render_preflight_banner(state))
+                .child(render_preflight_banner(state, cx))
                 .child(render_bulk_bar(state))
                 .child(if !has_jobs {
                     div().w_full().child(render_empty_drop_zone(cx))
                 } else {
+                    let weak = cx.weak_entity();
                     div().w_full().flex_1().overflow_y_scroll().child(
-                        uniform_list("queue_jobs", job_count, move |range, _window, _cx| {
+                        uniform_list("queue_jobs", job_count, move |range, _window, _app| {
                             range
                                 .filter_map(|i| state_for_list.queue_state.jobs.get(i))
-                                .map(|job| render_job_row(job, &state_for_list))
+                                .map(|job| render_job_row(job, &state_for_list, weak))
                                 .collect::<Vec<_>>()
                         })
                         .item_height(px(68.0))
@@ -124,6 +125,10 @@ fn render_empty_drop_zone(cx: &Context<AppView>) -> blenderui::element::Div {
                     .id("btn-browse-blend")
                     .child("+ Browse .blend Files")
                     .on_click(cx.listener(|this, _event, _window, cx| {
+                        crate::trace_event!(
+                            "UI_EVENT",
+                            "click -> node: btn-browse-blend -> handler: prompt_add_blend_files [HANDLED]"
+                        );
                         this.state.prompt_add_blend_files();
                         cx.notify();
                     })),

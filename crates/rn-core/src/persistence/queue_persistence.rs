@@ -128,6 +128,7 @@ impl QueuePersistence {
             "done" => JobStatus::Done,
             "failed" => JobStatus::Failed,
             "canceled" => JobStatus::Canceled,
+            "inspecting" => JobStatus::Inspecting,
             _ => JobStatus::Pending,
         };
 

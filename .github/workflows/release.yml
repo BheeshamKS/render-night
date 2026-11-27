@@ -61,9 +61,10 @@ jobs:
       - name: Package Portable ZIP
         shell: bash
         run: |
+          CARGO_VERSION=$(grep -m1 '^version = ' Cargo.toml | cut -d '"' -f2)
           VERSION="${GITHUB_REF_NAME#refs/tags/v}"
           VERSION="${VERSION#v}"
-          if [ "$VERSION" = "$GITHUB_REF_NAME" ] || [ -z "$VERSION" ]; then VERSION="0.1.0-alpha.1"; fi
+          if [ "$VERSION" = "$GITHUB_REF_NAME" ] || [ -z "$VERSION" ]; then VERSION="${CARGO_VERSION}"; fi
           mkdir -p target/release/portable
           cp target/release/render-night.exe target/release/portable/
           cp target/release/render-night-gui.exe target/release/portable/
@@ -78,9 +79,10 @@ jobs:
         run: |
           export PATH="/c/Program Files (x86)/NSIS:${PATH}"
           makensis packaging/nsis/installer.nsi
+          CARGO_VERSION=$(grep -m1 '^version = ' Cargo.toml | cut -d '"' -f2)
           VERSION="${GITHUB_REF_NAME#refs/tags/v}"
           VERSION="${VERSION#v}"
-          if [ "$VERSION" = "$GITHUB_REF_NAME" ] || [ -z "$VERSION" ]; then VERSION="0.1.0-alpha.1"; fi
+          if [ "$VERSION" = "$GITHUB_REF_NAME" ] || [ -z "$VERSION" ]; then VERSION="${CARGO_VERSION}"; fi
           mv render-night-setup-windows-x64.exe "target/release/render-night-${VERSION}-windows-x64-setup.exe"
 
       - name: Upload Windows Artifacts
@@ -112,21 +114,25 @@ jobs:
           sudo apt-get install -y libfuse2 || sudo apt-get install -y libfuse2t64 || true
 
       - name: Build Release Binaries
-        run: cargo build --release --bin render-night --bin render-night-gui
+        run: cargo build --release --locked --workspace
+
+      - name: Assert Tag Matches Workspace Version
+        run: |
+          CARGO_VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "${TAG_VERSION}" != "${CARGO_VERSION}" ]; then
+            echo "FAIL: tag ${GITHUB_REF_NAME} does not match workspace version ${CARGO_VERSION}" >&2
+            exit 1
+          fi
 
       - name: Package Debian (.deb)
-        run: |
-          VERSION="${GITHUB_REF_NAME#refs/tags/v}"
-          VERSION="${VERSION#v}"
-          if [ "$VERSION" = "$GITHUB_REF_NAME" ] || [ -z "$VERSION" ]; then VERSION="0.1.0-alpha.1"; fi
-          ./packaging/linux/build-deb.sh "${VERSION}"
+        run: ./packaging/build-deb.sh
 
       - name: Package AppImage (.AppImage)
-        run: |
-          VERSION="${GITHUB_REF_NAME#refs/tags/v}"
-          VERSION="${VERSION#v}"
-          if [ "$VERSION" = "$GITHUB_REF_NAME" ] || [ -z "$VERSION" ]; then VERSION="0.1.0-alpha.1"; fi
-          ./packaging/linux/build-appimage.sh "${VERSION}"
+        run: ./packaging/build-appimage.sh
+
+      - name: Verify Package Provenance and Payload
+        run: ./packaging/verify-packages.sh target/release/render-night_*.deb target/release/Render-Night-*.AppImage
 
       - name: Upload Linux Artifacts
         uses: actions/upload-artifact@v4
@@ -165,9 +171,10 @@ jobs:
 
       - name: Package macOS DMG
         run: |
+          CARGO_VERSION=$(grep -m1 '^version = ' Cargo.toml | cut -d '"' -f2)
           VERSION="${GITHUB_REF_NAME#refs/tags/v}"
           VERSION="${VERSION#v}"
-          if [ "$VERSION" = "$GITHUB_REF_NAME" ] || [ -z "$VERSION" ]; then VERSION="0.1.0-alpha.1"; fi
+          if [ "$VERSION" = "$GITHUB_REF_NAME" ] || [ -z "$VERSION" ]; then VERSION="${CARGO_VERSION}"; fi
           ./packaging/macos/build-dmg.sh "${{ matrix.arch }}" "${VERSION}"
 
       - name: Upload macOS Artifacts
@@ -221,10 +228,11 @@ jobs:
         id: release-info
         shell: bash
         run: |
+          CARGO_VERSION=$(grep -m1 '^version = ' Cargo.toml | cut -d '"' -f2)
           VERSION="${GITHUB_REF_NAME#refs/tags/v}"
           VERSION="${VERSION#v}"
           if [ "$VERSION" = "$GITHUB_REF_NAME" ] || [ -z "$VERSION" ]; then
-            TAG="v0.1.0-alpha.1"
+            TAG="v${CARGO_VERSION}"
           else
             TAG="v${VERSION}"
           fi

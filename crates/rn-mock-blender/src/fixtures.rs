@@ -9,6 +9,11 @@ build hash: a51f305417fb\n    \
 build platform: Linux\n";
 
 pub fn create_default_inspect_output(blend_path: &str) -> Value {
+    let (frame_start, frame_end, engine_val) = if blend_path.contains("blank") {
+        (1, 3, "BLENDER_EEVEE_NEXT")
+    } else {
+        (1, 250, "CYCLES")
+    };
     json!({
         "schemaVersion": 1,
         "blenderVersion": "4.2.0",
@@ -21,8 +26,8 @@ pub fn create_default_inspect_output(blend_path: &str) -> Value {
                 "activeCamera": "Camera",
                 "cameras": ["Camera", "Camera.001"],
                 "viewLayers": ["ViewLayer"],
-                "frameStart": 1,
-                "frameEnd": 250,
+                "frameStart": frame_start,
+                "frameEnd": frame_end,
                 "frameStep": 1,
                 "fps": 24,
                 "fpsBase": 1.0,
@@ -31,7 +36,7 @@ pub fn create_default_inspect_output(blend_path: &str) -> Value {
                 "resolutionPercentage": 100,
                 "render": {
                     "engine": {
-                        "value": "CYCLES",
+                        "value": engine_val,
                         "type": "ENUM",
                         "name": "Engine",
                         "enumItems": [

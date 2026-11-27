@@ -11,8 +11,31 @@ use rn_app::state::AppState;
 use rn_app::ui::AppView;
 
 fn main() {
+    rn_app::install_panic_hook();
+    rn_app::EventTracer::init();
+    rn_app::trace_event!(
+        "SYSTEM",
+        "Render Night GUI starting - version {}",
+        env!("RN_FULL_VERSION")
+    );
     rn_app::init_fonts();
     let args: Vec<String> = std::env::args().collect();
+
+    // Handle version flag
+    if args
+        .iter()
+        .any(|a| a == "--version" || a == "-V" || a == "-v")
+    {
+        println!("render-night-gui {}", env!("RN_FULL_VERSION"));
+        return;
+    }
+
+    // Handle system diagnostics flag
+    if args.iter().any(|a| a == "--doctor") {
+        let report = rn_core::diagnostics::run_diagnostics(None);
+        println!("{}", report.to_markdown());
+        return;
+    }
 
     // Check for quick smoke test mode (draws 1 frame, verifies pixels, exits 0)
     if args.iter().any(|a| a == "--smoke-test") {
@@ -97,6 +120,22 @@ fn main() {
         state.load_acceptance_scenario();
     }
 
+    let blend_args: Vec<std::path::PathBuf> = args
+        .iter()
+        .skip(1)
+        .filter(|a| !a.starts_with('-') && a.ends_with(".blend"))
+        .map(std::path::PathBuf::from)
+        .collect();
+    if !blend_args.is_empty() {
+        rn_app::trace_event!(
+            "INPUT",
+            "CLI args specified {} .blend file(s): {:?}",
+            blend_args.len(),
+            blend_args
+        );
+        state.add_blend_files(blend_args);
+    }
+
     let has_display = std::env::var("DISPLAY").is_ok()
         || std::env::var("WAYLAND_DISPLAY").is_ok()
         || cfg!(target_os = "windows")
@@ -115,6 +154,9 @@ fn main() {
 
     let app = Application::new();
     app.run(move |cx| {
+        let ui_sender = cx.ui_sender();
+        let _watchdog = rn_app::start_watchdog(Some(ui_sender));
+
         let bounds = Bounds {
             origin: Point {
                 x: px(100.0),

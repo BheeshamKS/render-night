@@ -38,6 +38,14 @@ pub struct ControlCommand {
     pub command: String,
 }
 
+const MOCK_PNG_DATA: &[u8] = &[
+    0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
+    0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4,
+    0x89, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x44, 0x41, 0x54, 0x78, 0xDA, 0x63, 0x64, 0xF8, 0xCF, 0x50,
+    0x0F, 0x00, 0x03, 0x86, 0x01, 0x80, 0x5A, 0x34, 0x7D, 0x6B, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45,
+    0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+];
+
 pub fn execute_render_runner(
     payload_path: &Path,
     scenario_override: Option<MockScenario>,
@@ -299,7 +307,12 @@ pub fn execute_render_runner(
         if let Some(parent) = saved_path.parent() {
             let _ = fs::create_dir_all(parent);
         }
-        let _ = fs::write(&saved_path, b"MOCK_IMAGE_DATA");
+        let img_bytes = if saved_path.to_string_lossy().ends_with(".png") {
+            MOCK_PNG_DATA
+        } else {
+            b"MOCK_IMAGE_DATA"
+        };
+        let _ = fs::write(&saved_path, img_bytes);
 
         println!("Saved: \"{}\"", saved_path.display());
         println!(
@@ -368,7 +381,12 @@ pub fn execute_direct_render(args: &BlenderArgs, scenario: MockScenario) -> Resu
         if let Some(p) = saved.parent() {
             let _ = fs::create_dir_all(p);
         }
-        let _ = fs::write(&saved, b"MOCK_IMAGE_DATA");
+        let img_bytes = if saved.to_string_lossy().ends_with(".png") {
+            MOCK_PNG_DATA
+        } else {
+            b"MOCK_IMAGE_DATA"
+        };
+        let _ = fs::write(&saved, img_bytes);
         println!("Saved: \"{}\"", saved.display());
     }
 

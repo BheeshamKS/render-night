@@ -356,6 +356,7 @@ impl RunnerSupervisor {
 
             // Build Command
             let mut cmd = std::process::Command::new(&job.executable[0]);
+            crate::process::sanitize_child_env(&mut cmd);
             for arg in &job.executable[1..] {
                 cmd.arg(arg);
             }

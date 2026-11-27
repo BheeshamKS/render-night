@@ -33,9 +33,32 @@ jobs:
 
       - name: Install Blender 4.2 LTS
         run: |
+          set -euo pipefail
           sudo mkdir -p /opt/blender
-          curl -fL https://download.blender.org/release/Blender4.2/blender-4.2.3-linux-x64.tar.xz | sudo tar -xJ --strip-components=1 -C /opt/blender
-          sudo ln -s /opt/blender/blender /usr/local/bin/blender
+          # download.blender.org occasionally answers runners with 403; try mirrors
+          # and validate the archive before extracting so tar never sees HTML.
+          URLS=(
+            https://download.blender.org/release/Blender4.2/blender-4.2.3-linux-x64.tar.xz
+            https://mirrors.dotsrc.org/blender/release/Blender4.2/blender-4.2.3-linux-x64.tar.xz
+            https://ftp.nluug.nl/pub/graphics/blender/release/Blender4.2/blender-4.2.3-linux-x64.tar.xz
+            https://mirror.clarkson.edu/blender/release/Blender4.2/blender-4.2.3-linux-x64.tar.xz
+          )
+          ok=0
+          for url in "${URLS[@]}"; do
+            echo "trying ${url}"
+            if curl -fL --retry 3 --retry-delay 2 -A "render-night-ci" -o /tmp/blender.tar.xz "${url}" \
+              && tar -tJf /tmp/blender.tar.xz >/dev/null 2>&1; then
+              sudo tar -xJf /tmp/blender.tar.xz --strip-components=1 -C /opt/blender
+              ok=1
+              break
+            fi
+            sleep 5
+          done
+          if [ "${ok}" -ne 1 ]; then
+            echo "could not download a valid Blender 4.2.3 archive from any mirror" >&2
+            exit 1
+          fi
+          sudo ln -sf /opt/blender/blender /usr/local/bin/blender
           blender --version
 
       - name: Set up Python

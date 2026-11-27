@@ -37,7 +37,7 @@ fn test_cli_help_and_version() {
         .expect("exec help");
     assert!(help_out.status.success());
     let help_str = String::from_utf8_lossy(&help_out.stdout);
-    assert!(help_str.contains("Night Render CLI"));
+    assert!(help_str.contains("Render Night CLI"));
     assert!(help_str.contains("--queue"));
 
     let ver_out = Command::new(&cli)
@@ -46,7 +46,7 @@ fn test_cli_help_and_version() {
         .expect("exec version");
     assert!(ver_out.status.success());
     let ver_str = String::from_utf8_lossy(&ver_out.stdout);
-    assert!(ver_str.contains("render-night 0.1.0-alpha.6"));
+    assert!(ver_str.contains("render-night 0.1.0-alpha.7 (sha "));
 }
 
 #[test]

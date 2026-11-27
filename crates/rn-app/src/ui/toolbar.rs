@@ -82,6 +82,10 @@ pub fn render_toolbar(state: &AppState, cx: &Context<AppView>) -> blenderui::ele
                         .id("btn-add-blend")
                         .child("+ Add .blend")
                         .on_click(cx.listener(|this, _, _, cx| {
+                            crate::trace_event!(
+                                "UI_EVENT",
+                                "click -> node: btn-add-blend -> handler: prompt_add_blend_files [HANDLED]"
+                            );
                             this.state.prompt_add_blend_files();
                             cx.notify();
                         })),
@@ -97,6 +101,10 @@ pub fn render_toolbar(state: &AppState, cx: &Context<AppView>) -> blenderui::ele
                                 .id("btn-pause-queue")
                                 .child("|| Pause")
                                 .on_click(cx.listener(|this, _, _, cx| {
+                                    crate::trace_event!(
+                                        "UI_EVENT",
+                                        "click -> node: btn-pause-queue -> handler: pause_queue [HANDLED]"
+                                    );
                                     this.state.pause_queue();
                                     cx.notify();
                                 }))
@@ -105,6 +113,10 @@ pub fn render_toolbar(state: &AppState, cx: &Context<AppView>) -> blenderui::ele
                                 .id("btn-resume-queue")
                                 .child("▶ Resume")
                                 .on_click(cx.listener(|this, _, _, cx| {
+                                    crate::trace_event!(
+                                        "UI_EVENT",
+                                        "click -> node: btn-resume-queue -> handler: start_queue [HANDLED]"
+                                    );
                                     this.state.start_queue();
                                     cx.notify();
                                 }))
@@ -112,6 +124,10 @@ pub fn render_toolbar(state: &AppState, cx: &Context<AppView>) -> blenderui::ele
                             let mut btn = Button().id("btn-start-queue").child("▶ Start Queue");
                             if has_jobs {
                                 btn = btn.on_click(cx.listener(|this, _, _, cx| {
+                                    crate::trace_event!(
+                                        "UI_EVENT",
+                                        "click -> node: btn-start-queue -> handler: start_queue [HANDLED]"
+                                    );
                                     this.state.start_queue();
                                     cx.notify();
                                 }));
@@ -123,6 +139,10 @@ pub fn render_toolbar(state: &AppState, cx: &Context<AppView>) -> blenderui::ele
                                 .id("btn-stop-queue")
                                 .child("Stop")
                                 .on_click(cx.listener(|this, _, _, cx| {
+                                    crate::trace_event!(
+                                        "UI_EVENT",
+                                        "click -> node: btn-stop-queue -> handler: stop_queue [HANDLED]"
+                                    );
                                     this.state.stop_queue();
                                     cx.notify();
                                 }))

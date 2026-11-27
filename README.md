@@ -113,6 +113,49 @@ Automated release packages are built for Windows, Linux, and macOS:
 | **Linux** | Debian (`.deb`) | `amd64` | System package registering `render-night` and desktop entry under `Graphics`. |
 | **macOS** | DMG Disk Image (`.dmg`) | `arm64` (Apple Silicon) / `x64` (Intel) | Self-contained `.app` bundle with drag-to-Applications installer. |
 
+### Linux (Ubuntu / Pop!_OS)
+
+**Requirements:** x86_64, glibc 2.35 or newer (Ubuntu 22.04 / Pop!_OS 22.04 or newer).
+
+```bash
+sudo apt install ./render-night_0.1.0-alpha.7_amd64.deb
+render-night-gui
+```
+
+The package declares the libraries it loads (`libx11-6`, `libasound2` or `libasound2t64`,
+`libgl1`, `libxcursor1`, `libxi6`, `libxrandr2`, `libxinerama1`, and
+`xdg-desktop-portal | zenity`), so `apt` refuses an installation that could not start.
+`Recommends` adds `xdg-desktop-portal-gtk` (the native file chooser) and `ffmpeg`.
+
+AppImage:
+
+```bash
+chmod +x Render-Night-0.1.0-alpha.7-x86_64.AppImage
+./Render-Night-0.1.0-alpha.7-x86_64.AppImage
+# without FUSE (containers, locked-down systems):
+./Render-Night-0.1.0-alpha.7-x86_64.AppImage --appimage-extract-and-run
+```
+
+**File chooser:** Render Night tries the desktop portal, then `zenity`, then `kdialog`, and
+finally its own in-app browser, and says so in a toast. If no native chooser is installed,
+`+ Add .blend` opens the built-in browser instead of doing nothing. Installing
+`xdg-desktop-portal-gtk` restores the native dialog.
+
+**Diagnostics:**
+
+```bash
+render-night --doctor    # copyable report: version + SHA, Blender installs, scripts,
+                         # file-picker tiers, audio device, GPU, storage, log paths
+```
+
+Logs live in `~/.local/share/render-night/logs/` (`event-trace.log`, `panic.log`).
+
+**Reporting a bug:** include the `--doctor` report, `render-night --version`, your distro
+and session (X11/Wayland), and the last lines of `event-trace.log`.
+
+**Platform status for this alpha:** Linux is the platform verified end to end. Windows and
+macOS packages are build-tested in CI only; their UI interaction is UNVERIFIED.
+
 ### macOS Experimental Notes & Gatekeeper Notice
 
 Pre-built macOS binaries are signed ad-hoc. On first launch:

@@ -2616,7 +2616,7 @@ dependencies = [
 
 [[package]]
 name = "rn-app"
-version = "0.1.0"
+version = "0.1.0-alpha.7"
 dependencies = [
  "blenderui",
  "blenderui-paint",
@@ -2631,8 +2631,10 @@ dependencies = [
  "notify",
  "rfd",
  "rn-core",
+ "rn-mock-blender",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
  "tracing",
  "zune-jpeg 0.4.21",
@@ -2640,7 +2642,7 @@ dependencies = [
 
 [[package]]
 name = "rn-cli"
-version = "0.1.0"
+version = "0.1.0-alpha.7"
 dependencies = [
  "chrono",
  "clap",
@@ -2658,7 +2660,7 @@ dependencies = [
 
 [[package]]
 name = "rn-core"
-version = "0.1.0"
+version = "0.1.0-alpha.7"
 dependencies = [
  "chrono",
  "directories",
@@ -2681,7 +2683,7 @@ dependencies = [
 
 [[package]]
 name = "rn-mock-blender"
-version = "0.1.0"
+version = "0.1.0-alpha.7"
 dependencies = [
  "serde",
  "serde_json",
@@ -2690,7 +2692,7 @@ dependencies = [
 
 [[package]]
 name = "rn-spike"
-version = "0.1.0"
+version = "0.1.0-alpha.7"
 dependencies = [
  "blenderui",
  "blenderui-paint",

@@ -1,6 +1,7 @@
 pub mod discovery;
 pub mod header_reader;
 pub mod inspector;
+pub mod scripts;
 pub mod version_compare;
 
 pub use discovery::{
@@ -15,7 +16,11 @@ pub use header_reader::{
     parse_blend_header, parse_blend_header_slice, read_blend_header, read_blend_header_fs,
     BlendHeaderInfo, HeaderReadError,
 };
-pub use inspector::{inspect_blend, resolve_inspect_script_path, InspectOptions};
+pub use inspector::{inspect_blend, InspectOptions};
+pub use scripts::{
+    ensure_extracted_scripts, get_scripts_dir, resolve_inspect_script_path,
+    resolve_render_runner_script_path, INSPECT_BLEND_PY, RENDER_RUNNER_PY,
+};
 pub use version_compare::{
     compare_versions, compare_versions_num, is_blend_version_newer, is_blend_version_str_newer,
     parse_version,

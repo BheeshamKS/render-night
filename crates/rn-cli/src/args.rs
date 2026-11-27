@@ -6,9 +6,9 @@ use clap::{Parser, Subcommand};
 #[derive(Parser, Debug, Clone)]
 #[command(
     name = "render-night",
-    version = "0.1.0-alpha.6",
+    version = env!("RN_FULL_VERSION"),
     about = "A fast local render queue for Blender.",
-    long_about = "Night Render CLI v0.1.0-alpha.6\nA fast local render queue for Blender."
+    long_about = concat!("Render Night CLI v", env!("RN_FULL_VERSION"), "\nA fast local render queue for Blender.")
 )]
 pub struct Cli {
     #[command(subcommand)]
@@ -61,6 +61,10 @@ pub struct Cli {
     /// Run quick UI smoke test and exit
     #[arg(long)]
     pub smoke_test: bool,
+
+    /// Run system diagnostics and report system readiness
+    #[arg(long)]
+    pub doctor: bool,
 }
 
 #[derive(Subcommand, Debug, Clone)]
@@ -77,4 +81,11 @@ pub enum Commands {
     /// Discover and list all installed Blender versions
     #[command(name = "list-blenders")]
     ListBlenders,
+    /// Run system diagnostics and report system readiness
+    #[command(name = "doctor")]
+    Doctor {
+        /// Optional directory to verify write permissions
+        #[arg(long)]
+        target_dir: Option<String>,
+    },
 }

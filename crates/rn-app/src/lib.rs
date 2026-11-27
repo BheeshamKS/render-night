@@ -2,18 +2,24 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 pub mod file_dialog;
+pub mod panic_hook;
 pub mod player;
 pub mod screenshots;
 pub mod state;
+pub mod tracer;
 pub mod ui;
+pub mod watchdog;
 
 pub use file_dialog::{
     default_dialog_service, FileDialogService, MockFileDialog, NativeFileDialog,
 };
+pub use panic_hook::install_panic_hook;
 pub use player::SequencePlayer;
 pub use screenshots::{capture_view, run_full_audit_suite};
 pub use state::AppState;
+pub use tracer::EventTracer;
 pub use ui::AppView;
+pub use watchdog::{is_stalled, last_ui_tick, record_ui_tick, start_watchdog, stop_watchdog};
 
 /// Initialize system fallback fonts if available
 pub fn init_fonts() {

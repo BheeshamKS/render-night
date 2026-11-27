@@ -42,9 +42,21 @@ async fn main() -> ExitCode {
         };
     }
 
+    if cli.doctor {
+        let report = rn_core::diagnostics::run_diagnostics(None);
+        println!("{}", report.to_markdown());
+        return ExitCode::from(0);
+    }
+
     // 1. Check Subcommands
     if let Some(cmd) = cli.command {
         match cmd {
+            Commands::Doctor { target_dir } => {
+                let target_path = target_dir.as_ref().map(Path::new);
+                let report = rn_core::diagnostics::run_diagnostics(target_path);
+                println!("{}", report.to_markdown());
+                ExitCode::from(0)
+            }
             Commands::ListBlenders => {
                 let blenders = discover_all_blenders(&[]);
                 if blenders.is_empty() {

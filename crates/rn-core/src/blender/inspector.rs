@@ -11,68 +11,14 @@ use tokio::time::timeout;
 use super::header_reader::read_blend_header;
 use crate::schemas::inspect::InspectOutput;
 
+pub use super::scripts::resolve_inspect_script_path;
+
 #[derive(Debug, Clone, Default)]
 pub struct InspectOptions {
     pub isolated_mode: bool,
     pub auto_exec: bool,
     pub timeout_ms: Option<u64>,
     pub script_path: Option<PathBuf>,
-}
-
-pub fn resolve_inspect_script_path(resources_path: Option<&Path>) -> PathBuf {
-    if let Some(res) = resources_path {
-        let p = res.join("python").join("inspect_blend.py");
-        if p.exists() {
-            return p;
-        }
-    }
-
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(parent) = exe.parent() {
-            let candidates = [
-                parent.join("resources/python/inspect_blend.py"),
-                parent.join("../share/render-night/python/inspect_blend.py"),
-                parent.join("../resources/python/inspect_blend.py"),
-            ];
-            for c in &candidates {
-                if c.exists() {
-                    return c.clone();
-                }
-            }
-        }
-    }
-
-    if let Ok(home) = std::env::var("HOME") {
-        let p = PathBuf::from(home).join(".local/share/render-night/python/inspect_blend.py");
-        if p.exists() {
-            return p;
-        }
-    }
-
-    let sys_candidates = [
-        PathBuf::from("/usr/share/render-night/python/inspect_blend.py"),
-        PathBuf::from("/usr/local/share/render-night/python/inspect_blend.py"),
-    ];
-    for c in &sys_candidates {
-        if c.exists() {
-            return c.clone();
-        }
-    }
-
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let candidates = [
-        manifest_dir.join("../../resources/python/inspect_blend.py"),
-        manifest_dir.join("../resources/python/inspect_blend.py"),
-        PathBuf::from("resources/python/inspect_blend.py"),
-    ];
-
-    for c in &candidates {
-        if c.exists() {
-            return c.clone();
-        }
-    }
-
-    PathBuf::from("resources/python/inspect_blend.py")
 }
 
 pub async fn inspect_blend(
@@ -119,6 +65,7 @@ pub async fn inspect_blend(
 
     let exe_cmd = &blender_executable[0];
     let mut cmd = Command::new(exe_cmd);
+    crate::process::sanitize_tokio_env(&mut cmd);
 
     for arg in &blender_executable[1..] {
         cmd.arg(arg);
@@ -143,7 +90,7 @@ pub async fn inspect_blend(
 
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
 
-    let timeout_duration = Duration::from_millis(options.timeout_ms.unwrap_or(60_000));
+    let timeout_duration = Duration::from_millis(options.timeout_ms.unwrap_or(30_000));
 
     let child = cmd
         .spawn()

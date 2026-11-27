@@ -9,6 +9,9 @@ repository.workspace = true
 [lints]
 workspace = true
 
+[build-dependencies]
+chrono = { workspace = true }
+
 [[bin]]
 name = "render-night-gui"
 path = "src/main.rs"
@@ -32,3 +35,7 @@ exr = "1.7"
 zune-jpeg = "0.4"
 notify = { workspace = true }
 libc = { workspace = true }
+
+[dev-dependencies]
+rn-mock-blender = { path = "../rn-mock-blender" }
+tempfile = { workspace = true }
