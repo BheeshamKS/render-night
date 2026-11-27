@@ -4,8 +4,17 @@
 use rn_app::state::{AppState, ModalState};
 use rn_app::watchdog::{is_stalled, last_ui_tick, record_ui_tick};
 
+// run_diagnostics() probes the audio subsystem, which opens a platform device.
+// Running two probes concurrently on Windows tears the backend down from two
+// threads and crashed the test process at exit (STATUS_ACCESS_VIOLATION), so the
+// two diagnostics tests take turns, exactly as the app calls it: one at a time.
+static DIAGNOSTICS_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 #[test]
 fn test_system_diagnostics_report_generation() {
+    let _serial = DIAGNOSTICS_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let report = rn_core::diagnostics::run_diagnostics(None);
     assert_eq!(report.version, env!("CARGO_PKG_VERSION"));
     assert!(!report.timestamp.is_empty());
@@ -59,6 +68,9 @@ fn test_system_diagnostics_report_generation() {
 
 #[test]
 fn test_system_diagnostics_with_custom_target_dir() {
+    let _serial = DIAGNOSTICS_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let temp = tempfile::tempdir().expect("Failed to create tempdir");
     let report = rn_core::diagnostics::run_diagnostics(Some(temp.path()));
     assert_eq!(report.storage.path, temp.path());
