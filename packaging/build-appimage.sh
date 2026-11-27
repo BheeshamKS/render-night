@@ -31,6 +31,19 @@ cp target/release/render-night "${APP_DIR}/usr/bin/"
 cp target/release/render-night-gui "${APP_DIR}/usr/bin/"
 chmod 755 "${APP_DIR}/usr/bin/render-night" "${APP_DIR}/usr/bin/render-night-gui"
 
+# The AppImage must run on a bare system. libasound is the one non-X library the
+# GUI loads; every X desktop already provides libX11. Bundle it so a minimal
+# container (and a fresh server install) does not fail with "libasound.so.2:
+# cannot open shared object file".
+for lib in /usr/lib/x86_64-linux-gnu/libasound.so.2 /usr/lib/libasound.so.2; do
+    if [ -f "${lib}" ]; then
+        mkdir -p "${APP_DIR}/usr/lib"
+        cp -L "${lib}" "${APP_DIR}/usr/lib/"
+        echo "build-appimage: bundled ${lib}"
+        break
+    fi
+done
+
 cp resources/render-night.desktop "${APP_DIR}/render-night.desktop"
 cp resources/icon.png "${APP_DIR}/render-night.png"
 cp resources/icon.png "${APP_DIR}/.DirIcon"
@@ -42,6 +55,7 @@ cat <<'EOF' > "${APP_DIR}/AppRun"
 SELF=$(readlink -f "$0")
 HERE=${SELF%/*}
 export PATH="${HERE}/usr/bin:${PATH}"
+export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH:-}"
 export RN_RESOURCES_PATH="${HERE}/usr/share/render-night"
 exec "${HERE}/usr/bin/render-night-gui" "$@"
 EOF
