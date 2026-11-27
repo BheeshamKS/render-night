@@ -26,6 +26,16 @@ jobs:
       - name: Check Formatting
         run: cargo fmt --check
 
+  docs:
+    name: Documentation Evidence Rules
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Check Docs Evidence Rules
+        run: ./tools/check-docs.sh
+
   clippy:
     name: Clippy Lint (-D warnings)
     runs-on: ubuntu-latest
