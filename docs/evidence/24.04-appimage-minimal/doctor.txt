@@ -1,0 +1,31 @@
+# Render Night Diagnostic Report (v0.1.0-alpha.7)
+
+*Generated: 2026-11-27T21:25:41.225245848+00:00*
+
+## 1. Blender Installations
+- [!] No Blender installations auto-discovered. Set `RN_BLENDER_BIN` or specify executable in settings.
+
+## 2. Bundled Python Scripts
+- Extracted Scripts Directory: `/root/.local/share/render-night/0.1.0-alpha.7/scripts`
+- `inspect_blend.py`: Extracted = ✗ No, Hash Match = ✗ No
+- `render_runner.py`: Extracted = ✗ No, Hash Match = ✗ No
+
+## 3. File Picker Subsystem
+- Active Primary Tier: **Built-in In-App BUI Browser**
+- Native Portal (rfd / xdg-desktop-portal): ✗ Unavailable
+- Zenity CLI Picker: ✗ Not found
+- Kdialog CLI Picker: ✗ Not found
+- Built-in In-App BUI Browser: ✓ Ready (Built-in)
+
+## 4. Audio Subsystem
+- Audio Device Output: ✓ Available (default)
+- Todung Chime Synthesizer: ✓ Ready (52920 PCM samples ready)
+
+## 5. GPU & Compute Device
+- GPU: None detected or queries unavailable (CPU compute active)
+
+## 6. Output Storage & Filesystem
+- Path: `/work`
+- Space: 85.7 GB free / 144.3 GB total
+- Write Permissions: ✓ Writable
+

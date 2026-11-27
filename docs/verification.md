@@ -18,7 +18,7 @@ using a developer-host log or an absolute developer-host path has been downgrade
 | fmt, clippy `-D warnings`, workspace tests, release build, `--smoke-test` on Linux + Windows | VERIFIED | [CI run 45247578588](https://github.com/BheeshamKS/render-night/actions/runs/45247578588) |
 | CI builds the `.deb` and AppImage from the commit under test | VERIFIED | [CI run 46063992630](https://github.com/BheeshamKS/render-night/actions/runs/46063992630) `Package Linux` job |
 | Package filename version == binary version == commit SHA | VERIFIED | [CI run 46063992630](https://github.com/BheeshamKS/render-night/actions/runs/46063992630) — `verify-packages: version=0.1.0-alpha.7 sha=2c3ca60 … OK`, artifact 15229309765 |
-| `.deb`/AppImage install and run in clean Ubuntu 22.04 / 24.04 containers | UNVERIFIED | container matrix added in Step 3; awaiting its first run |
+| `.deb`/AppImage install and run in clean Ubuntu 22.04 / 24.04 containers | VERIFIED | [CI run 46069712350](https://github.com/BheeshamKS/render-night/actions/runs/46069712350) — all six legs; committed logs in [docs/evidence](docs/evidence/22.04-deb-minimal/install.log) |
 | Real-OS-input e2e against the packaged artifacts | UNVERIFIED | Stage H automation harness not implemented |
 | Draft release `v0.1.0-alpha.7` | UNVERIFIED | no tag, no release |
 
@@ -52,12 +52,15 @@ using a developer-host log or an absolute developer-host path has been downgrade
 
 | Item | Status | Evidence |
 | --- | --- | --- |
-| `.deb` installs on a clean Ubuntu 22.04 with `apt install ./x.deb` | UNVERIFIED |  |
-| `.deb` installs on a clean Ubuntu 24.04 | UNVERIFIED |  |
-| AppImage starts with `--appimage-extract-and-run` | UNVERIFIED |  |
-| Add `.blend` produces a row in a packaged build | UNVERIFIED |  |
-| Built-in browser works when no file-dialog backend is installed | UNVERIFIED |  |
-| Bottom-right pixel is the theme background after resize/maximize | UNVERIFIED | only simulated in unit tests today |
+| `.deb` installs on a clean Ubuntu 22.04 with `apt install ./x.deb` | VERIFIED | [install.log](docs/evidence/22.04-deb-minimal/install.log) — apt resolved `Depends`, 12 packages |
+| `.deb` installs on a clean Ubuntu 24.04 | VERIFIED | [CI run 46069712350](https://github.com/BheeshamKS/render-night/actions/runs/46069712350) — 24.04 deb legs (minimal + full) |
+| AppImage starts in a bare container with `--appimage-extract-and-run` | VERIFIED | [screenshot](docs/evidence/24.04-appimage-minimal/01-launch.png), [log](docs/evidence/24.04-appimage-minimal/window.txt) |
+| Packaged window title is "Render Night" | VERIFIED | [window.txt](docs/evidence/22.04-deb-minimal/window.txt) |
+| No large white/unpainted area at 1280x800, 1100x700 and 1280x800 after a resize | VERIFIED | [launch](docs/evidence/22.04-deb-minimal/01-launch.png), [resized](docs/evidence/22.04-deb-minimal/02-resized.png), [again](docs/evidence/22.04-deb-minimal/03-1280x800.png) |
+| `render-night --doctor` runs inside the installed package | VERIFIED | [doctor.txt](docs/evidence/22.04-deb-minimal/doctor.txt) |
+| With no portal/zenity/kdialog the app reports the built-in browser tier as active | VERIFIED | [doctor.txt](docs/evidence/22.04-deb-minimal/doctor.txt) |
+| Add `.blend` produces a row in a packaged build | UNVERIFIED | needs the Stage H automation harness |
+| Built-in browser completes a real file selection | UNVERIFIED | tier is active; not exercised yet |
 
 ## 4. Real Blender
 

@@ -1,8 +1,8 @@
 # Phase G: Reproduction & Root Cause Analysis
 
-> **Status: UNVERIFIED at runtime.** Everything below is a code-inspection finding or a hypothesis
-> derived from the user's report (2026-11-23). No clean-container reproduction existed when this was
-> written; the automated container matrix is Step 3 of Phase H and will be linked here once it runs.
+> **Status: packaging verified, interaction not.** The install/launch symptoms below were reproduced
+> and are now covered by a clean-container matrix; the file-picking and queue symptoms still need the
+> automation harness. Root causes are code-inspection findings unless a run is linked.
 
 ---
 
@@ -71,9 +71,16 @@ been removed rather than relabelled.
 The matrix will be filled in only by `tools/e2e/run-container.sh` running in GitHub Actions, with the
 screenshot and log artifacts linked from `docs/verification.md`.
 
-| Package | Environment | Fixture | Status |
-| --- | --- | --- | --- |
-| `.deb` | Ubuntu 22.04 container | `eevee-basic` | UNVERIFIED |
-| `.deb` | Ubuntu 24.04 container | `eevee-missing-used-texture` | UNVERIFIED |
-| AppImage | Ubuntu 22.04 container | `eevee-basic` | UNVERIFIED |
-| AppImage | Ubuntu 24.04 container | `corrupt` | UNVERIFIED |
+| Package | Environment | What was checked | Status | Evidence |
+| --- | --- | --- | --- | --- |
+| `.deb` (minimal, full) | Ubuntu 22.04 container | installs, title, full paint, doctor | VERIFIED | [install.log](docs/evidence/22.04-deb-minimal/install.log) |
+| `.deb` (minimal, full) | Ubuntu 24.04 container | installs, title, full paint, doctor | VERIFIED | [run 46069712350](https://github.com/BheeshamKS/render-night/actions/runs/46069712350) |
+| AppImage | Ubuntu 22.04 container | starts without FUSE, title, full paint, doctor | VERIFIED | [run 46069712350](https://github.com/BheeshamKS/render-night/actions/runs/46069712350) |
+| AppImage | Ubuntu 24.04 container | starts without FUSE, title, full paint, doctor | VERIFIED | [screenshot](docs/evidence/24.04-appimage-minimal/01-launch.png) |
+| any package | any container | adding a `.blend` and running a job | UNVERIFIED | — |
+
+Evidence: [CI run 46069712350](https://github.com/BheeshamKS/render-night/actions/runs/46069712350);
+committed screenshots and logs under [docs/evidence](docs/evidence/22.04-deb-minimal/01-launch.png).
+The earlier white-area and "BUI" title symptoms did not reproduce in these builds.
+The AppImage needed `libasound.so.2`; it is now bundled and asserted by
+`packaging/verify-packages.sh`.
