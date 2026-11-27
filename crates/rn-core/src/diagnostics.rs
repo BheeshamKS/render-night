@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct BlenderDiagnostic {
@@ -388,7 +389,21 @@ fn which_check(cmd: &str) -> bool {
 }
 
 fn check_dir_writable(path: &Path) -> bool {
-    let test_file = path.join(format!(".rn_probe_{}", std::process::id()));
+    // The probe file must be unique per call: diagnostics can run concurrently
+    // (GUI modal + --doctor). With one name per process, a second writer hit a
+    // Windows sharing violation and the report wrongly said "not writable".
+    static PROBE_COUNTER: AtomicU64 = AtomicU64::new(0);
+    let sequence = PROBE_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.subsec_nanos())
+        .unwrap_or(0);
+    let test_file = path.join(format!(
+        ".rn_probe_{}_{}_{}",
+        std::process::id(),
+        sequence,
+        nanos
+    ));
     if std::fs::write(&test_file, b"probe").is_ok() {
         let _ = std::fs::remove_file(test_file);
         true
