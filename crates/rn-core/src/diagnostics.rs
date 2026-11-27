@@ -291,9 +291,25 @@ pub fn run_diagnostics(target_out_dir: Option<&Path>) -> DiagnosticReport {
     };
 
     // 4. Audio
-    let (device_available, device_status) = match rodio::OutputStream::try_default() {
-        Ok(_) => (true, "✓ Available (Audio device initialized)".to_string()),
-        Err(e) => (false, format!("Silent Fallback (No audio device: {})", e)),
+    // Probe by enumerating output devices rather than constructing an
+    // OutputStream. Opening and immediately dropping a WASAPI stream here made
+    // the process crash with STATUS_ACCESS_VIOLATION at exit on Windows, and the
+    // enumeration answers the same question without touching playback.
+    let (device_available, device_status) = {
+        use rodio::cpal::traits::{DeviceTrait, HostTrait};
+        let host = rodio::cpal::default_host();
+        match host.default_output_device() {
+            Some(device) => {
+                let name = device
+                    .name()
+                    .unwrap_or_else(|_| "unnamed device".to_string());
+                (true, format!("✓ Available ({})", name))
+            }
+            None => (
+                false,
+                "Silent Fallback (No audio output device)".to_string(),
+            ),
+        }
     };
     let samples = crate::sound::synthesize_todung_samples();
     let todung_synth_ready = !samples.is_empty();
