@@ -16,9 +16,9 @@ using a developer-host log or an absolute developer-host path has been downgrade
 | Gate | Status | Evidence |
 | --- | --- | --- |
 | fmt, clippy `-D warnings`, workspace tests, release build, `--smoke-test` on Linux + Windows | VERIFIED | [CI run 45247578588](https://github.com/BheeshamKS/render-night/actions/runs/45247578588) |
-| CI builds the `.deb` and AppImage from the commit under test | UNVERIFIED | `ci.yml` has no packaging job |
-| Package filename version == `render-night --version` == `render-night-gui --version` == commit SHA | UNVERIFIED | assertion exists only in `release.yml`, which has not run for this branch |
-| `.deb`/AppImage install and run in clean Ubuntu 22.04 / 24.04 containers | UNVERIFIED | no container scripts exist yet (Step 3) |
+| CI builds the `.deb` and AppImage from the commit under test | VERIFIED | [CI run 46063992630](https://github.com/BheeshamKS/render-night/actions/runs/46063992630) `Package Linux` job |
+| Package filename version == binary version == commit SHA | VERIFIED | [CI run 46063992630](https://github.com/BheeshamKS/render-night/actions/runs/46063992630) — `verify-packages: version=0.1.0-alpha.7 sha=2c3ca60 … OK`, artifact 15229309765 |
+| `.deb`/AppImage install and run in clean Ubuntu 22.04 / 24.04 containers | UNVERIFIED | container matrix added in Step 3; awaiting its first run |
 | Real-OS-input e2e against the packaged artifacts | UNVERIFIED | Stage H automation harness not implemented |
 | Draft release `v0.1.0-alpha.7` | UNVERIFIED | no tag, no release |
 
@@ -43,8 +43,8 @@ using a developer-host log or an absolute developer-host path has been downgrade
 | `render-night --version` prints version + SHA | LOCAL-ONLY — 2026-11-23, dev host; `cargo run -p rn-cli -- --version` |  |
 | `render-night-gui --version` prints version + SHA | LOCAL-ONLY — 2026-11-23, dev host; `cargo run -p rn-app -- --version` |  |
 | `.deb` control carries `Depends:`/`Recommends:` | VERIFIED | [packaging/build-deb.sh](packaging/build-deb.sh) |
-| Built `.deb` passes the provenance assertion | UNVERIFIED | release-only assertion, never run on this branch |
-| Built AppImage passes the provenance assertion | UNVERIFIED | release-only assertion, never run on this branch |
+| Built `.deb` passes the provenance assertion | VERIFIED | [CI run 46063992630](https://github.com/BheeshamKS/render-night/actions/runs/46063992630) |
+| Built AppImage passes the provenance assertion | VERIFIED | [CI run 46063992630](https://github.com/BheeshamKS/render-night/actions/runs/46063992630) |
 | Window title is set to "Render Night" in source | VERIFIED | [crates/rn-app/src/main.rs](crates/rn-app/src/main.rs) |
 | Packaged window actually shows "Render Night" | UNVERIFIED | needs packaged-artifact e2e |
 

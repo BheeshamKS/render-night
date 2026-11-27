@@ -51,4 +51,7 @@ test-sequences/
 # Rust
 target/
 
+# Packaged-artifact e2e output
+e2e-output/
+
 crates/rn-mock-blender/*.png

@@ -1,0 +1,20 @@
+# Clean Ubuntu 22.04 for packaged-artifact e2e.
+# Deliberately does NOT install Render Night or any of its declared dependencies:
+# the .deb must pull them itself, and the AppImage must run on what is here.
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    dbus-x11 \
+    imagemagick \
+    openbox \
+    xdotool \
+    xvfb \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY in-container.sh /opt/e2e/in-container.sh
+RUN chmod +x /opt/e2e/in-container.sh
+
+WORKDIR /work
