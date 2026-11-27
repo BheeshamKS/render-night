@@ -42,7 +42,7 @@ using a developer-host log or an absolute developer-host path has been downgrade
 | Git SHA is embedded at build time | VERIFIED | [crates/rn-core/build.rs](crates/rn-core/build.rs) |
 | `render-night --version` prints version + SHA | LOCAL-ONLY — 2026-11-23, dev host; `cargo run -p rn-cli -- --version` |  |
 | `render-night-gui --version` prints version + SHA | LOCAL-ONLY — 2026-11-23, dev host; `cargo run -p rn-app -- --version` |  |
-| `.deb` control carries `Depends:`/`Recommends:` | VERIFIED | [packaging/linux/build-deb.sh](packaging/linux/build-deb.sh) |
+| `.deb` control carries `Depends:`/`Recommends:` | VERIFIED | [packaging/build-deb.sh](packaging/build-deb.sh) |
 | Built `.deb` passes the provenance assertion | UNVERIFIED | release-only assertion, never run on this branch |
 | Built AppImage passes the provenance assertion | UNVERIFIED | release-only assertion, never run on this branch |
 | Window title is set to "Render Night" in source | VERIFIED | [crates/rn-app/src/main.rs](crates/rn-app/src/main.rs) |

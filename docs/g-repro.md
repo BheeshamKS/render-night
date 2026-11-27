@@ -27,7 +27,7 @@
 ### 2.1 Version divergence and missing dependencies
 - `crates/rn-cli/src/args.rs` hardcoded `0.1.0-alpha.6` in the clap `version` attribute instead of
   using `env!("CARGO_PKG_VERSION")`.
-- `packaging/linux/build-deb.sh` emitted no `Depends:`/`Recommends:` lines, so a clean system could
+- `packaging/build-deb.sh` emitted no `Depends:`/`Recommends:` lines, so a clean system could
   install the package without X11/ALSA/portal libraries.
 - **Change:** version comes from the workspace `Cargo.toml`; SHA and build time are embedded by
   `build.rs`; the deb now declares
